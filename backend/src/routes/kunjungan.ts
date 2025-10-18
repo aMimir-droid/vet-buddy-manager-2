@@ -1,283 +1,206 @@
 import express from 'express';
 import pool from '../config/database';
 import { authenticate } from '../middleware/auth';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 const router = express.Router();
 
-// Get all kunjungan
+// ========================================================
+// GET ALL - Menggunakan Stored Procedure
+// ========================================================
 router.get('/', authenticate, async (req, res) => {
+  console.log('📋 [GET ALL KUNJUNGAN] Request received');
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        k.kunjungan_id,
-        k.hewan_id,
-        k.dokter_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran,
-        k.kunjungan_sebelumnya,
-        h.nama_hewan,
-        jh.nama_jenis_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        p.nomor_hp as telepon_pawrent,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter,
-        ks.tanggal_kunjungan as tanggal_kunjungan_sebelumnya
-      FROM Kunjungan k
-      INNER JOIN Hewan h ON k.hewan_id = h.hewan_id
-      LEFT JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
-      LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-      LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-      LEFT JOIN Kunjungan ks ON k.kunjungan_sebelumnya = ks.kunjungan_id
-      ORDER BY k.tanggal_kunjungan DESC, k.waktu_kunjungan DESC
-    `) as [RowDataPacket[], any];
-    res.json(rows);
+    console.log('🔄 [GET ALL KUNJUNGAN] Calling stored procedure GetAllKunjungan');
+    const [rows]: any = await pool.execute('CALL GetAllKunjungan()');
+    console.log(`✅ [GET ALL KUNJUNGAN] Success - ${rows[0]?.length || 0} records found`);
+    res.json(rows[0]);
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ [GET ALL KUNJUNGAN] Error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Get kunjungan by ID
+// ========================================================
+// GET BY ID - Menggunakan Stored Procedure
+// ========================================================
 router.get('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [GET KUNJUNGAN BY ID] Request received for ID: ${id}`);
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        k.kunjungan_id,
-        k.hewan_id,
-        k.dokter_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran,
-        k.kunjungan_sebelumnya,
-        h.nama_hewan,
-        jh.nama_jenis_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
-      FROM Kunjungan k
-      INNER JOIN Hewan h ON k.hewan_id = h.hewan_id
-      LEFT JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
-      LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-      LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-      WHERE k.kunjungan_id = ?
-    `, [req.params.id]) as [RowDataPacket[], any];
+    console.log(`🔄 [GET KUNJUNGAN BY ID] Calling stored procedure GetKunjunganById with ID: ${id}`);
+    const [rows]: any = await pool.execute('CALL GetKunjunganById(?)', [id]);
     
-    if (rows.length === 0) {
+    if (rows[0].length === 0) {
+      console.log(`⚠️ [GET KUNJUNGAN BY ID] Not found for ID: ${id}`);
       return res.status(404).json({ message: 'Kunjungan tidak ditemukan' });
     }
     
+    console.log(`✅ [GET KUNJUNGAN BY ID] Success for ID: ${id}`);
+    res.json(rows[0][0]);
+  } catch (error) {
+    console.error(`❌ [GET KUNJUNGAN BY ID] Error for ID: ${id}`, error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ========================================================
+// GET HEWAN HISTORY - Menggunakan Stored Procedure
+// ========================================================
+router.get('/hewan/:hewanId/history', authenticate, async (req, res) => {
+  const { hewanId } = req.params;
+  console.log(`📋 [GET HEWAN HISTORY] Request received for Hewan ID: ${hewanId}`);
+  try {
+    console.log(`🔄 [GET HEWAN HISTORY] Calling stored procedure GetHewanKunjunganHistory with Hewan ID: ${hewanId}`);
+    const [rows]: any = await pool.execute('CALL GetHewanKunjunganHistory(?)', [hewanId]);
+    console.log(`✅ [GET HEWAN HISTORY] Success - ${rows[0]?.length || 0} records found for Hewan ID: ${hewanId}`);
     res.json(rows[0]);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(`❌ [GET HEWAN HISTORY] Error for Hewan ID: ${hewanId}`, error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Get kunjungan by date range
-router.get('/range/:start/:end', authenticate, async (req, res) => {
-  try {
-    const { start, end } = req.params;
-    const [rows] = await pool.execute(`
-      SELECT 
-        k.kunjungan_id,
-        k.hewan_id,
-        k.dokter_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran,
-        h.nama_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
-      FROM Kunjungan k
-      INNER JOIN Hewan h ON k.hewan_id = h.hewan_id
-      LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-      LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-      WHERE k.tanggal_kunjungan BETWEEN ? AND ?
-      ORDER BY k.tanggal_kunjungan DESC, k.waktu_kunjungan DESC
-    `, [start, end]) as [RowDataPacket[], any];
-    
-    res.json(rows);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// Create kunjungan
+// ========================================================
+// CREATE - Menggunakan Stored Procedure
+// ========================================================
 router.post('/', authenticate, async (req, res) => {
+  console.log('📋 [CREATE KUNJUNGAN] Request received');
+  console.log('📝 [CREATE KUNJUNGAN] Request body:', JSON.stringify(req.body, null, 2));
   try {
     const { 
-      hewan_id,
-      dokter_id,
-      tanggal_kunjungan,
-      waktu_kunjungan,
-      catatan,
-      total_biaya,
+      hewan_id, 
+      dokter_id, 
+      tanggal_kunjungan, 
+      waktu_kunjungan, 
+      catatan, 
+      total_biaya, 
       metode_pembayaran,
-      kunjungan_sebelumnya
+      kunjungan_sebelumnya 
     } = req.body;
-    
-    const [result] = await pool.execute(
-      `INSERT INTO Kunjungan 
-      (hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan, catatan, total_biaya, metode_pembayaran, kunjungan_sebelumnya) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        hewan_id, 
-        dokter_id, 
-        tanggal_kunjungan, 
-        waktu_kunjungan, 
-        catatan || null, 
-        total_biaya, 
-        metode_pembayaran,
-        kunjungan_sebelumnya || null
-      ]
-    ) as [ResultSetHeader, any];
-    
-    const [newKunjungan] = await pool.execute(
-      `SELECT 
-        k.kunjungan_id,
-        k.hewan_id,
-        k.dokter_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran,
-        k.kunjungan_sebelumnya,
-        h.nama_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
-      FROM Kunjungan k
-      INNER JOIN Hewan h ON k.hewan_id = h.hewan_id
-      LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-      LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-      WHERE k.kunjungan_id = ?`,
-      [result.insertId]
-    ) as [RowDataPacket[], any];
-    
-    res.status(201).json(newKunjungan[0]);
-  } catch (error: any) {
-    console.error('Error:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Kunjungan dengan waktu yang sama sudah ada' });
-    }
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
 
-// Update kunjungan
-router.put('/:id', authenticate, async (req, res) => {
-  try {
-    const { 
-      hewan_id,
-      dokter_id,
-      tanggal_kunjungan,
-      waktu_kunjungan,
-      catatan,
-      total_biaya,
-      metode_pembayaran,
-      kunjungan_sebelumnya
-    } = req.body;
+    console.log('🔄 [CREATE KUNJUNGAN] Calling stored procedure CreateKunjungan');
+    console.log(`📊 [CREATE KUNJUNGAN] Parameters: Hewan ID: ${hewan_id}, Dokter ID: ${dokter_id}, Tanggal: ${tanggal_kunjungan}, Previous Visit: ${kunjungan_sebelumnya || 'None'}`);
     
-    await pool.execute(
-      `UPDATE Kunjungan 
-      SET hewan_id = ?,
-          dokter_id = ?,
-          tanggal_kunjungan = ?,
-          waktu_kunjungan = ?,
-          catatan = ?,
-          total_biaya = ?,
-          metode_pembayaran = ?,
-          kunjungan_sebelumnya = ?
-      WHERE kunjungan_id = ?`,
+    const [result]: any = await pool.execute(
+      'CALL CreateKunjungan(?, ?, ?, ?, ?, ?, ?, ?)',
       [
         hewan_id,
         dokter_id,
         tanggal_kunjungan,
         waktu_kunjungan,
-        catatan,
+        catatan || null,
         total_biaya,
         metode_pembayaran,
-        kunjungan_sebelumnya || null,
-        req.params.id
+        kunjungan_sebelumnya || null
       ]
     );
-    
-    const [updated] = await pool.execute(
-      `SELECT 
-        k.kunjungan_id,
-        k.hewan_id,
-        k.dokter_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran,
-        k.kunjungan_sebelumnya,
-        h.nama_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
-      FROM Kunjungan k
-      INNER JOIN Hewan h ON k.hewan_id = h.hewan_id
-      LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-      LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-      WHERE k.kunjungan_id = ?`,
-      [req.params.id]
-    ) as [RowDataPacket[], any];
-    
-    res.json(updated[0]);
+
+    const newKunjungan = result[0][0];
+    console.log(`✅ [CREATE KUNJUNGAN] Success - New Kunjungan ID: ${newKunjungan?.kunjungan_id}`);
+    res.status(201).json({
+      message: 'Kunjungan berhasil ditambahkan',
+      data: newKunjungan
+    });
   } catch (error: any) {
-    console.error('Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.error('❌ [CREATE KUNJUNGAN] Error:', error);
+    res.status(500).json({ message: error.message || 'Terjadi kesalahan server' });
   }
 });
 
-// Delete kunjungan
-router.delete('/:id', authenticate, async (req, res) => {
+// ========================================================
+// UPDATE - Menggunakan Stored Procedure
+// ========================================================
+router.put('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [UPDATE KUNJUNGAN] Request received for ID: ${id}`);
+  console.log('📝 [UPDATE KUNJUNGAN] Request body:', JSON.stringify(req.body, null, 2));
   try {
-    await pool.execute('DELETE FROM Kunjungan WHERE kunjungan_id = ?', [req.params.id]);
+    const { 
+      hewan_id, 
+      dokter_id, 
+      tanggal_kunjungan, 
+      waktu_kunjungan, 
+      catatan, 
+      total_biaya, 
+      metode_pembayaran,
+      kunjungan_sebelumnya 
+    } = req.body;
+
+    console.log('🔄 [UPDATE KUNJUNGAN] Calling stored procedure UpdateKunjungan');
+    console.log(`📊 [UPDATE KUNJUNGAN] Parameters: ID: ${id}, Hewan ID: ${hewan_id}, Dokter ID: ${dokter_id}, Previous Visit: ${kunjungan_sebelumnya || 'None'}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        hewan_id,
+        dokter_id,
+        tanggal_kunjungan,
+        waktu_kunjungan,
+        catatan || null,
+        total_biaya,
+        metode_pembayaran,
+        kunjungan_sebelumnya || null
+      ]
+    );
+
+    const updatedKunjungan = result[0][0];
+    console.log(`✅ [UPDATE KUNJUNGAN] Success for ID: ${id}`);
+    res.json({
+      message: 'Kunjungan berhasil diupdate',
+      data: updatedKunjungan
+    });
+  } catch (error: any) {
+    console.error(`❌ [UPDATE KUNJUNGAN] Error for ID: ${id}`, error);
+    res.status(500).json({ message: error.message || 'Terjadi kesalahan server' });
+  }
+});
+
+// ========================================================
+// DELETE - Menggunakan Stored Procedure
+// ========================================================
+router.delete('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [DELETE KUNJUNGAN] Request received for ID: ${id}`);
+  try {
+    console.log(`🔄 [DELETE KUNJUNGAN] Calling stored procedure DeleteKunjungan for ID: ${id}`);
+    const [result]: any = await pool.execute('CALL DeleteKunjungan(?)', [id]);
+    
+    const affectedRows = result[0][0].affected_rows;
+
+    if (affectedRows === 0) {
+      console.log(`⚠️ [DELETE KUNJUNGAN] Not found for ID: ${id}`);
+      return res.status(404).json({ message: 'Kunjungan tidak ditemukan' });
+    }
+
+    console.log(`✅ [DELETE KUNJUNGAN] Success - Deleted ID: ${id}`);
     res.json({ message: 'Kunjungan berhasil dihapus' });
   } catch (error) {
-    console.error('Error:', error);
+    console.error(`❌ [DELETE KUNJUNGAN] Error for ID: ${id}`, error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Get previous visits for a hewan
-router.get('/hewan/:hewanId/history', authenticate, async (req, res) => {
+// ========================================================
+// GET BY DATE RANGE - Menggunakan Stored Procedure
+// ========================================================
+router.get('/date-range/:startDate/:endDate', authenticate, async (req, res) => {
+  const { startDate, endDate } = req.params;
+  console.log(`📋 [GET BY DATE RANGE] Request received from ${startDate} to ${endDate}`);
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        k.kunjungan_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter,
-        d.dokter_id,
-        GROUP_CONCAT(DISTINCT CONCAT(o.nama_obat, ' (', ko.dosis, ')') SEPARATOR ', ') as obat_resep
-      FROM Kunjungan k
-      LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-      LEFT JOIN Kunjungan_Obat ko ON k.kunjungan_id = ko.kunjungan_id
-      LEFT JOIN Obat o ON ko.obat_id = o.obat_id
-      WHERE k.hewan_id = ?
-      GROUP BY k.kunjungan_id
-      ORDER BY k.tanggal_kunjungan DESC, k.waktu_kunjungan DESC
-      LIMIT 10
-    `, [req.params.hewanId]) as [RowDataPacket[], any];
-    
-    res.json(rows);
+    console.log(`🔄 [GET BY DATE RANGE] Calling stored procedure GetKunjunganByDateRange`);
+    const [rows]: any = await pool.execute(
+      'CALL GetKunjunganByDateRange(?, ?)',
+      [startDate, endDate]
+    );
+
+    console.log(`✅ [GET BY DATE RANGE] Success - ${rows[0]?.length || 0} records found`);
+    res.json(rows[0]);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(`❌ [GET BY DATE RANGE] Error from ${startDate} to ${endDate}`, error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
 export default router;
+

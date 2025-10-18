@@ -1,194 +1,202 @@
 import express from 'express';
 import pool from '../config/database';
-import { authenticate } from '../middleware/auth';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all klinik with doctor count
+// ========================================================
+// GET ALL KLINIK - Menggunakan Stored Procedure
+// ========================================================
 router.get('/', authenticate, async (req, res) => {
+  console.log('📋 [GET ALL KLINIK] Request received');
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        k.klinik_id,
-        k.nama_klinik,
-        k.alamat_klinik,
-        k.telepon_klinik,
-        COUNT(d.dokter_id) as jumlah_dokter
-      FROM Klinik k
-      LEFT JOIN Dokter d ON k.klinik_id = d.klinik_id
-      GROUP BY k.klinik_id, k.nama_klinik, k.alamat_klinik, k.telepon_klinik
-      ORDER BY k.nama_klinik
-    `) as [RowDataPacket[], any];
-    
-    console.log('Klinik data fetched:', rows.length);
-    res.json(rows);
-  } catch (error) {
-    console.error('Error fetching kliniks:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log('🔄 [GET ALL KLINIK] Calling stored procedure GetAllKlinik');
+    const [rows]: any = await pool.execute('CALL GetAllKlinik()');
+    console.log(`✅ [GET ALL KLINIK] Success - ${rows[0]?.length || 0} klinik found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET ALL KLINIK] Error:', error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Get klinik by ID
+// ========================================================
+// GET KLINIK BY ID - Menggunakan Stored Procedure
+// ========================================================
 router.get('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [GET KLINIK BY ID] Request received for ID: ${id}`);
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        k.klinik_id,
-        k.nama_klinik,
-        k.alamat_klinik,
-        k.telepon_klinik,
-        COUNT(d.dokter_id) as jumlah_dokter
-      FROM Klinik k
-      LEFT JOIN Dokter d ON k.klinik_id = d.klinik_id
-      WHERE k.klinik_id = ?
-      GROUP BY k.klinik_id, k.nama_klinik, k.alamat_klinik, k.telepon_klinik
-    `, [req.params.id]) as [RowDataPacket[], any];
+    console.log(`🔄 [GET KLINIK BY ID] Calling stored procedure GetKlinikById with ID: ${id}`);
+    const [rows]: any = await pool.execute('CALL GetKlinikById(?)', [id]);
     
-    if (rows.length === 0) {
+    if (rows[0].length === 0) {
+      console.log(`⚠️ [GET KLINIK BY ID] Not found for ID: ${id}`);
       return res.status(404).json({ message: 'Klinik tidak ditemukan' });
     }
     
-    res.json(rows[0]);
-  } catch (error) {
-    console.error('Error fetching klinik by id:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log(`✅ [GET KLINIK BY ID] Success for ID: ${id}`);
+    res.json(rows[0][0]);
+  } catch (error: any) {
+    console.error(`❌ [GET KLINIK BY ID] Error for ID: ${id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Create klinik
-router.post('/', authenticate, async (req, res) => {
+// ========================================================
+// CREATE KLINIK - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.post('/', authenticate, authorize(1), async (req, res) => {
+  console.log('📋 [CREATE KLINIK] Request received');
+  console.log('📝 [CREATE KLINIK] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { nama_klinik, alamat_klinik, telepon_klinik } = req.body;
     
-    console.log('Creating klinik:', { nama_klinik, alamat_klinik, telepon_klinik });
-    
     // Validate required fields
     if (!nama_klinik || !alamat_klinik) {
-      return res.status(400).json({ message: 'Nama klinik dan alamat wajib diisi' });
-    }
-
-    const [result] = await pool.execute(
-      `INSERT INTO Klinik (nama_klinik, alamat_klinik, telepon_klinik) 
-       VALUES (?, ?, ?)`,
-      [nama_klinik, alamat_klinik, telepon_klinik || null]
-    ) as [ResultSetHeader, any];
-    
-    const [newKlinik] = await pool.execute(
-      `SELECT 
-        klinik_id,
-        nama_klinik,
-        alamat_klinik,
-        telepon_klinik,
-        0 as jumlah_dokter
-       FROM Klinik 
-       WHERE klinik_id = ?`,
-      [result.insertId]
-    ) as [RowDataPacket[], any];
-    
-    console.log('Klinik created successfully:', newKlinik[0]);
-    res.status(201).json(newKlinik[0]);
-  } catch (error: any) {
-    console.error('Error creating klinik:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Nomor telepon sudah terdaftar' });
-    }
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// Update klinik
-router.put('/:id', authenticate, async (req, res) => {
-  try {
-    const { nama_klinik, alamat_klinik, telepon_klinik } = req.body;
-    
-    console.log('Updating klinik:', req.params.id, { nama_klinik, alamat_klinik, telepon_klinik });
-    
-    // Validate required fields
-    if (!nama_klinik || !alamat_klinik) {
-      return res.status(400).json({ message: 'Nama klinik dan alamat wajib diisi' });
-    }
-
-    await pool.execute(
-      `UPDATE Klinik 
-       SET nama_klinik = ?, alamat_klinik = ?, telepon_klinik = ?
-       WHERE klinik_id = ?`,
-      [nama_klinik, alamat_klinik, telepon_klinik || null, req.params.id]
-    );
-    
-    const [updated] = await pool.execute(
-      `SELECT 
-        k.klinik_id,
-        k.nama_klinik,
-        k.alamat_klinik,
-        k.telepon_klinik,
-        COUNT(d.dokter_id) as jumlah_dokter
-       FROM Klinik k
-       LEFT JOIN Dokter d ON k.klinik_id = d.klinik_id
-       WHERE k.klinik_id = ?
-       GROUP BY k.klinik_id, k.nama_klinik, k.alamat_klinik, k.telepon_klinik`,
-      [req.params.id]
-    ) as [RowDataPacket[], any];
-    
-    console.log('Klinik updated successfully:', updated[0]);
-    res.json(updated[0]);
-  } catch (error: any) {
-    console.error('Error updating klinik:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Nomor telepon sudah terdaftar' });
-    }
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// Delete klinik
-router.delete('/:id', authenticate, async (req, res) => {
-  try {
-    console.log('Deleting klinik:', req.params.id);
-    
-    // Check if there are doctors associated with this clinic
-    const [doctors] = await pool.execute(
-      'SELECT COUNT(*) as count FROM Dokter WHERE klinik_id = ?',
-      [req.params.id]
-    ) as [RowDataPacket[], any];
-
-    if (doctors[0].count > 0) {
       return res.status(400).json({ 
-        message: `Tidak dapat menghapus klinik. Masih ada ${doctors[0].count} dokter yang terdaftar di klinik ini.` 
+        message: 'Nama klinik dan alamat wajib diisi' 
       });
     }
 
-    await pool.execute('DELETE FROM Klinik WHERE klinik_id = ?', [req.params.id]);
-    console.log('Klinik deleted successfully');
-    res.json({ message: 'Klinik berhasil dihapus' });
-  } catch (error) {
-    console.error('Error deleting klinik:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log('🔄 [CREATE KLINIK] Calling stored procedure CreateKlinik');
+    console.log(`📊 [CREATE KLINIK] Parameters: Nama: ${nama_klinik}, Alamat: ${alamat_klinik}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL CreateKlinik(?, ?, ?)',
+      [
+        nama_klinik,
+        alamat_klinik,
+        telepon_klinik || null
+      ]
+    );
+    
+    const newKlinik = result[0][0];
+    console.log(`✅ [CREATE KLINIK] Success - New Klinik ID: ${newKlinik?.klinik_id}`);
+    res.status(201).json(newKlinik);
+  } catch (error: any) {
+    console.error('❌ [CREATE KLINIK] Error:', error);
+    console.error('Error details:', error.message);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Nomor telepon klinik sudah terdaftar' });
+    }
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Get doctors by clinic
-router.get('/:id/dokters', authenticate, async (req, res) => {
+// ========================================================
+// UPDATE KLINIK - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.put('/:id', authenticate, authorize(1), async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [UPDATE KLINIK] Request received for ID: ${id}`);
+  console.log('📝 [UPDATE KLINIK] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        d.dokter_id,
-        d.title_dokter,
-        d.nama_dokter,
-        d.telepon_dokter,
-        d.tanggal_mulai_kerja,
-        s.nama_spesialisasi
-      FROM Dokter d
-      LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
-      WHERE d.klinik_id = ?
-      ORDER BY d.nama_dokter
-    `, [req.params.id]) as [RowDataPacket[], any];
+    const { nama_klinik, alamat_klinik, telepon_klinik } = req.body;
     
-    console.log('Doctors fetched for clinic:', req.params.id, rows.length);
-    res.json(rows);
-  } catch (error) {
-    console.error('Error fetching doctors by clinic:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    // Validate required fields
+    if (!nama_klinik || !alamat_klinik) {
+      return res.status(400).json({ 
+        message: 'Nama klinik dan alamat wajib diisi' 
+      });
+    }
+
+    console.log('🔄 [UPDATE KLINIK] Calling stored procedure UpdateKlinik');
+    console.log(`📊 [UPDATE KLINIK] Parameters: ID: ${id}, Nama: ${nama_klinik}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL UpdateKlinik(?, ?, ?, ?)',
+      [
+        id,
+        nama_klinik,
+        alamat_klinik,
+        telepon_klinik || null
+      ]
+    );
+    
+    const updatedKlinik = result[0][0];
+    console.log(`✅ [UPDATE KLINIK] Success for ID: ${id}`);
+    res.json(updatedKlinik);
+  } catch (error: any) {
+    console.error(`❌ [UPDATE KLINIK] Error for ID: ${id}`, error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Nomor telepon klinik sudah terdaftar' });
+    }
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// DELETE KLINIK - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.delete('/:id', authenticate, authorize(1), async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [DELETE KLINIK] Request received for ID: ${id}`);
+  try {
+    console.log(`🔄 [DELETE KLINIK] Calling stored procedure DeleteKlinik for ID: ${id}`);
+    const [result]: any = await pool.execute('CALL DeleteKlinik(?)', [id]);
+    
+    const affectedRows = result[0][0].affected_rows;
+
+    if (affectedRows === 0) {
+      console.log(`⚠️ [DELETE KLINIK] Not found for ID: ${id}`);
+      return res.status(404).json({ message: 'Klinik tidak ditemukan' });
+    }
+
+    console.log(`✅ [DELETE KLINIK] Success - Deleted ID: ${id}`);
+    res.json({ message: 'Klinik berhasil dihapus' });
+  } catch (error: any) {
+    console.error(`❌ [DELETE KLINIK] Error for ID: ${id}`, error);
+    
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// GET DOKTERS BY KLINIK - Menggunakan Stored Procedure
+// ========================================================
+router.get('/:id/dokters', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [GET DOKTERS BY KLINIK] Request received for Klinik ID: ${id}`);
+  try {
+    console.log(`🔄 [GET DOKTERS BY KLINIK] Calling stored procedure GetDoktersByKlinik with ID: ${id}`);
+    const [rows]: any = await pool.execute('CALL GetDoktersByKlinik(?)', [id]);
+    console.log(`✅ [GET DOKTERS BY KLINIK] Success - ${rows[0]?.length || 0} dokters found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error(`❌ [GET DOKTERS BY KLINIK] Error for Klinik ID: ${id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

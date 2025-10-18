@@ -1,72 +1,80 @@
 import express from 'express';
 import pool from '../config/database';
-import { authenticate } from '../middleware/auth';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all pawrents
+// ========================================================
+// GET ALL PAWRENTS - Menggunakan Stored Procedure
+// ========================================================
 router.get('/', authenticate, async (req, res) => {
+  console.log('📋 [GET ALL PAWRENTS] Request received');
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        p.pawrent_id,
-        p.nama_depan_pawrent,
-        p.nama_belakang_pawrent,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_lengkap,
-        p.alamat_pawrent,
-        p.kota_pawrent,
-        p.kode_pos_pawrent,
-        p.nomor_hp,
-        p.dokter_id,
-        d.nama_dokter,
-        COUNT(h.hewan_id) as jumlah_hewan
-      FROM Pawrent p
-      LEFT JOIN Dokter d ON p.dokter_id = d.dokter_id
-      LEFT JOIN Hewan h ON p.pawrent_id = h.pawrent_id
-      GROUP BY p.pawrent_id
-      ORDER BY p.nama_depan_pawrent
-    `) as [RowDataPacket[], any];
-    res.json(rows);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log('🔄 [GET ALL PAWRENTS] Calling stored procedure GetAllPawrents');
+    const [rows]: any = await pool.execute('CALL GetAllPawrents()');
+    console.log(`✅ [GET ALL PAWRENTS] Success - ${rows[0]?.length || 0} pawrents found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET ALL PAWRENTS] Error:', error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Get pawrent by ID
+// ========================================================
+// GET PAWRENT BY ID - Menggunakan Stored Procedure
+// ========================================================
 router.get('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [GET PAWRENT BY ID] Request received for ID: ${id}`);
   try {
-    const [rows] = await pool.execute(`
-      SELECT 
-        p.pawrent_id,
-        p.nama_depan_pawrent,
-        p.nama_belakang_pawrent,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_lengkap,
-        p.alamat_pawrent,
-        p.kota_pawrent,
-        p.kode_pos_pawrent,
-        p.nomor_hp,
-        p.dokter_id,
-        d.nama_dokter
-      FROM Pawrent p
-      LEFT JOIN Dokter d ON p.dokter_id = d.dokter_id
-      WHERE p.pawrent_id = ?
-    `, [req.params.id]) as [RowDataPacket[], any];
+    console.log(`🔄 [GET PAWRENT BY ID] Calling stored procedure GetPawrentById with ID: ${id}`);
+    const [rows]: any = await pool.execute('CALL GetPawrentById(?)', [id]);
     
-    if (rows.length === 0) {
+    if (rows[0].length === 0) {
+      console.log(`⚠️ [GET PAWRENT BY ID] Not found for ID: ${id}`);
       return res.status(404).json({ message: 'Pawrent tidak ditemukan' });
     }
     
-    res.json(rows[0]);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log(`✅ [GET PAWRENT BY ID] Success for ID: ${id}`);
+    res.json(rows[0][0]);
+  } catch (error: any) {
+    console.error(`❌ [GET PAWRENT BY ID] Error for ID: ${id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Create pawrent
-router.post('/', authenticate, async (req, res) => {
+// ========================================================
+// GET AVAILABLE DOKTERS - Menggunakan Stored Procedure
+// ========================================================
+router.get('/dokters/available', authenticate, async (req, res) => {
+  console.log('📋 [GET AVAILABLE DOKTERS] Request received');
+  try {
+    console.log('🔄 [GET AVAILABLE DOKTERS] Calling stored procedure GetAvailableDoktersForPawrent');
+    const [rows]: any = await pool.execute('CALL GetAvailableDoktersForPawrent()');
+    console.log(`✅ [GET AVAILABLE DOKTERS] Success - ${rows[0]?.length || 0} dokters found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET AVAILABLE DOKTERS] Error:', error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// CREATE PAWRENT - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.post('/', authenticate, authorize(1), async (req, res) => {
+  console.log('📋 [CREATE PAWRENT] Request received');
+  console.log('📝 [CREATE PAWRENT] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { 
       nama_depan_pawrent, 
@@ -78,97 +86,150 @@ router.post('/', authenticate, async (req, res) => {
       dokter_id 
     } = req.body;
     
-    const [result] = await pool.execute(
-      `INSERT INTO Pawrent 
-      (nama_depan_pawrent, nama_belakang_pawrent, alamat_pawrent, kota_pawrent, kode_pos_pawrent, nomor_hp, dokter_id) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [nama_depan_pawrent, nama_belakang_pawrent, alamat_pawrent || null, kota_pawrent || null, kode_pos_pawrent || null, nomor_hp, dokter_id]
-    ) as [ResultSetHeader, any];
+    // Validate required fields
+    if (!nama_depan_pawrent || !nama_belakang_pawrent || !nomor_hp || !dokter_id) {
+      return res.status(400).json({ 
+        message: 'Nama depan, nama belakang, nomor HP, dan dokter wajib diisi' 
+      });
+    }
+
+    // Validate phone number format (basic)
+    if (!/^[0-9]{10,15}$/.test(nomor_hp.replace(/[\s-]/g, ''))) {
+      return res.status(400).json({ message: 'Format nomor HP tidak valid' });
+    }
+
+    console.log('🔄 [CREATE PAWRENT] Calling stored procedure CreatePawrent');
+    console.log(`📊 [CREATE PAWRENT] Parameters: Name: ${nama_depan_pawrent} ${nama_belakang_pawrent}, Phone: ${nomor_hp}, Dokter: ${dokter_id}`);
     
-    const [newPawrent] = await pool.execute(
-      `SELECT 
-        pawrent_id,
+    const [result]: any = await pool.execute(
+      'CALL CreatePawrent(?, ?, ?, ?, ?, ?, ?)',
+      [
         nama_depan_pawrent,
         nama_belakang_pawrent,
-        CONCAT(nama_depan_pawrent, ' ', nama_belakang_pawrent) as nama_lengkap,
-        alamat_pawrent,
-        kota_pawrent,
-        kode_pos_pawrent,
+        alamat_pawrent || null,
+        kota_pawrent || null,
+        kode_pos_pawrent || null,
         nomor_hp,
         dokter_id
-      FROM Pawrent WHERE pawrent_id = ?`,
-      [result.insertId]
-    ) as [RowDataPacket[], any];
-    
-    res.status(201).json(newPawrent[0]);
-  } catch (error: any) {
-    console.error('Error:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Nomor HP sudah terdaftar' });
-    }
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// Update pawrent
-router.put('/:id', authenticate, async (req, res) => {
-  try {
-    const { 
-      nama_depan_pawrent, 
-      nama_belakang_pawrent, 
-      alamat_pawrent, 
-      kota_pawrent,
-      kode_pos_pawrent,
-      nomor_hp,
-      dokter_id 
-    } = req.body;
-    
-    await pool.execute(
-      `UPDATE Pawrent 
-      SET nama_depan_pawrent = ?, 
-          nama_belakang_pawrent = ?, 
-          alamat_pawrent = ?, 
-          kota_pawrent = ?,
-          kode_pos_pawrent = ?,
-          nomor_hp = ?,
-          dokter_id = ?
-      WHERE pawrent_id = ?`,
-      [nama_depan_pawrent, nama_belakang_pawrent, alamat_pawrent, kota_pawrent, kode_pos_pawrent, nomor_hp, dokter_id, req.params.id]
+      ]
     );
     
-    const [updated] = await pool.execute(
-      `SELECT 
-        pawrent_id,
-        nama_depan_pawrent,
-        nama_belakang_pawrent,
-        CONCAT(nama_depan_pawrent, ' ', nama_belakang_pawrent) as nama_lengkap,
-        alamat_pawrent,
-        kota_pawrent,
-        kode_pos_pawrent,
-        nomor_hp,
-        dokter_id
-      FROM Pawrent WHERE pawrent_id = ?`,
-      [req.params.id]
-    ) as [RowDataPacket[], any];
-    
-    res.json(updated[0]);
+    const newPawrent = result[0][0];
+    console.log(`✅ [CREATE PAWRENT] Success - New Pawrent ID: ${newPawrent?.pawrent_id}`);
+    res.status(201).json(newPawrent);
   } catch (error: any) {
-    console.error('Error:', error);
+    console.error('❌ [CREATE PAWRENT] Error:', error);
+    console.error('Error details:', error.message);
+    
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ message: 'Nomor HP sudah terdaftar' });
     }
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Delete pawrent
-router.delete('/:id', authenticate, async (req, res) => {
+// ========================================================
+// UPDATE PAWRENT - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.put('/:id', authenticate, authorize(1), async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [UPDATE PAWRENT] Request received for ID: ${id}`);
+  console.log('📝 [UPDATE PAWRENT] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
-    await pool.execute('DELETE FROM Pawrent WHERE pawrent_id = ?', [req.params.id]);
+    const { 
+      nama_depan_pawrent, 
+      nama_belakang_pawrent, 
+      alamat_pawrent, 
+      kota_pawrent,
+      kode_pos_pawrent,
+      nomor_hp,
+      dokter_id 
+    } = req.body;
+    
+    // Validate required fields
+    if (!nama_depan_pawrent || !nama_belakang_pawrent || !nomor_hp || !dokter_id) {
+      return res.status(400).json({ 
+        message: 'Nama depan, nama belakang, nomor HP, dan dokter wajib diisi' 
+      });
+    }
+
+    // Validate phone number format (basic)
+    if (!/^[0-9]{10,15}$/.test(nomor_hp.replace(/[\s-]/g, ''))) {
+      return res.status(400).json({ message: 'Format nomor HP tidak valid' });
+    }
+
+    console.log('🔄 [UPDATE PAWRENT] Calling stored procedure UpdatePawrent');
+    console.log(`📊 [UPDATE PAWRENT] Parameters: ID: ${id}, Name: ${nama_depan_pawrent} ${nama_belakang_pawrent}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL UpdatePawrent(?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        nama_depan_pawrent,
+        nama_belakang_pawrent,
+        alamat_pawrent || null,
+        kota_pawrent || null,
+        kode_pos_pawrent || null,
+        nomor_hp,
+        dokter_id
+      ]
+    );
+    
+    const updatedPawrent = result[0][0];
+    console.log(`✅ [UPDATE PAWRENT] Success for ID: ${id}`);
+    res.json(updatedPawrent);
+  } catch (error: any) {
+    console.error(`❌ [UPDATE PAWRENT] Error for ID: ${id}`, error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Nomor HP sudah terdaftar' });
+    }
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// DELETE PAWRENT - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.delete('/:id', authenticate, authorize(1), async (req, res) => {
+  const { id } = req.params;
+  console.log(`📋 [DELETE PAWRENT] Request received for ID: ${id}`);
+  try {
+    console.log(`🔄 [DELETE PAWRENT] Calling stored procedure DeletePawrent for ID: ${id}`);
+    const [result]: any = await pool.execute('CALL DeletePawrent(?)', [id]);
+    
+    const affectedRows = result[0][0].affected_rows;
+
+    if (affectedRows === 0) {
+      console.log(`⚠️ [DELETE PAWRENT] Not found for ID: ${id}`);
+      return res.status(404).json({ message: 'Pawrent tidak ditemukan' });
+    }
+
+    console.log(`✅ [DELETE PAWRENT] Success - Deleted ID: ${id}`);
     res.json({ message: 'Pawrent berhasil dihapus' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  } catch (error: any) {
+    console.error(`❌ [DELETE PAWRENT] Error for ID: ${id}`, error);
+    
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

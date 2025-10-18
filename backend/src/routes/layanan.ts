@@ -1,185 +1,190 @@
 import express from 'express';
 import pool from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 const router = express.Router();
 
-// Get all layanan
+// ========================================================
+// GET ALL LAYANAN - Menggunakan Stored Procedure
+// ========================================================
 router.get('/', authenticate, async (req, res) => {
+  console.log('📋 [GET ALL LAYANAN] Request received');
   try {
-    console.log('Fetching all layanan...');
-    
-    const [rows] = await pool.execute(`
-      SELECT 
-        kode_layanan,
-        nama_layanan,
-        deskripsi_layanan,
-        biaya_layanan
-      FROM Detail_Layanan
-      ORDER BY nama_layanan
-    `) as [RowDataPacket[], any];
-    
-    console.log('Layanan fetched successfully:', rows.length);
-    res.json(rows);
-  } catch (error) {
-    console.error('Error fetching layanan:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log('🔄 [GET ALL LAYANAN] Calling stored procedure GetAllLayanan');
+    const [rows]: any = await pool.execute('CALL GetAllLayanan()');
+    console.log(`✅ [GET ALL LAYANAN] Success - ${rows[0]?.length || 0} layanan found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET ALL LAYANAN] Error:', error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Get layanan by kode
+// ========================================================
+// GET LAYANAN BY KODE - Menggunakan Stored Procedure
+// ========================================================
 router.get('/:kode', authenticate, async (req, res) => {
+  const { kode } = req.params;
+  console.log(`📋 [GET LAYANAN BY KODE] Request received for Kode: ${kode}`);
   try {
-    console.log('Fetching layanan by kode:', req.params.kode);
+    console.log(`🔄 [GET LAYANAN BY KODE] Calling stored procedure GetLayananByKode with Kode: ${kode}`);
+    const [rows]: any = await pool.execute('CALL GetLayananByKode(?)', [kode]);
     
-    const [rows] = await pool.execute(`
-      SELECT 
-        kode_layanan,
-        nama_layanan,
-        deskripsi_layanan,
-        biaya_layanan
-      FROM Detail_Layanan
-      WHERE kode_layanan = ?
-    `, [req.params.kode]) as [RowDataPacket[], any];
-    
-    if (rows.length === 0) {
+    if (rows[0].length === 0) {
+      console.log(`⚠️ [GET LAYANAN BY KODE] Not found for Kode: ${kode}`);
       return res.status(404).json({ message: 'Layanan tidak ditemukan' });
     }
     
-    console.log('Layanan fetched successfully');
-    res.json(rows[0]);
-  } catch (error) {
-    console.error('Error fetching layanan by kode:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    console.log(`✅ [GET LAYANAN BY KODE] Success for Kode: ${kode}`);
+    res.json(rows[0][0]);
+  } catch (error: any) {
+    console.error(`❌ [GET LAYANAN BY KODE] Error for Kode: ${kode}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Create layanan (admin only)
+// ========================================================
+// CREATE LAYANAN - Menggunakan Stored Procedure (Admin only)
+// ========================================================
 router.post('/', authenticate, authorize(1), async (req, res) => {
+  console.log('📋 [CREATE LAYANAN] Request received');
+  console.log('📝 [CREATE LAYANAN] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { kode_layanan, nama_layanan, deskripsi_layanan, biaya_layanan } = req.body;
     
-    console.log('Creating layanan:', { kode_layanan, nama_layanan, biaya_layanan });
-    
     // Validate required fields
-    if (!kode_layanan || !nama_layanan || !biaya_layanan) {
-      return res.status(400).json({ message: 'Kode layanan, nama layanan, dan biaya wajib diisi' });
-    }
-
-    // Validate biaya_layanan is not negative
-    if (parseFloat(biaya_layanan) < 0) {
-      return res.status(400).json({ message: 'Biaya layanan tidak boleh negatif' });
-    }
-
-    const [result] = await pool.execute(
-      `INSERT INTO Detail_Layanan (kode_layanan, nama_layanan, deskripsi_layanan, biaya_layanan) 
-       VALUES (?, ?, ?, ?)`,
-      [kode_layanan, nama_layanan, deskripsi_layanan || null, biaya_layanan]
-    ) as [ResultSetHeader, any];
-    
-    const [newLayanan] = await pool.execute(
-      `SELECT kode_layanan, nama_layanan, deskripsi_layanan, biaya_layanan 
-       FROM Detail_Layanan WHERE kode_layanan = ?`,
-      [kode_layanan]
-    ) as [RowDataPacket[], any];
-    
-    console.log('Layanan created successfully:', newLayanan[0]);
-    res.status(201).json(newLayanan[0]);
-  } catch (error: any) {
-    console.error('Error creating layanan:', error);
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Kode layanan sudah terdaftar' });
-    }
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// Update layanan (admin only)
-router.put('/:kode', authenticate, authorize(1), async (req, res) => {
-  try {
-    const { nama_layanan, deskripsi_layanan, biaya_layanan } = req.body;
-    
-    console.log('Updating layanan:', req.params.kode, { nama_layanan, biaya_layanan });
-    
-    // Validate required fields
-    if (!nama_layanan || !biaya_layanan) {
-      return res.status(400).json({ message: 'Nama layanan dan biaya wajib diisi' });
-    }
-
-    // Validate biaya_layanan is not negative
-    if (parseFloat(biaya_layanan) < 0) {
-      return res.status(400).json({ message: 'Biaya layanan tidak boleh negatif' });
-    }
-
-    await pool.execute(
-      `UPDATE Detail_Layanan 
-       SET nama_layanan = ?, deskripsi_layanan = ?, biaya_layanan = ?
-       WHERE kode_layanan = ?`,
-      [nama_layanan, deskripsi_layanan || null, biaya_layanan, req.params.kode]
-    );
-    
-    const [updated] = await pool.execute(
-      `SELECT kode_layanan, nama_layanan, deskripsi_layanan, biaya_layanan 
-       FROM Detail_Layanan WHERE kode_layanan = ?`,
-      [req.params.kode]
-    ) as [RowDataPacket[], any];
-    
-    console.log('Layanan updated successfully:', updated[0]);
-    res.json(updated[0]);
-  } catch (error: any) {
-    console.error('Error updating layanan:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// Delete layanan (admin only)
-router.delete('/:kode', authenticate, authorize(1), async (req, res) => {
-  try {
-    console.log('Deleting layanan:', req.params.kode);
-    
-    // Check if layanan is used in any kunjungan
-    const [usage] = await pool.execute(
-      'SELECT COUNT(*) as count FROM Layanan WHERE kode_layanan = ?',
-      [req.params.kode]
-    ) as [RowDataPacket[], any];
-
-    if (usage[0].count > 0) {
+    if (!kode_layanan || !nama_layanan || biaya_layanan === undefined) {
       return res.status(400).json({ 
-        message: `Tidak dapat menghapus layanan. Masih ada ${usage[0].count} kunjungan yang menggunakan layanan ini.` 
+        message: 'Kode layanan, nama layanan, dan biaya wajib diisi' 
       });
     }
 
-    await pool.execute('DELETE FROM Detail_Layanan WHERE kode_layanan = ?', [req.params.kode]);
-    console.log('Layanan deleted successfully');
-    res.json({ message: 'Layanan berhasil dihapus' });
-  } catch (error) {
-    console.error('Error deleting layanan:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    // Validate biaya_layanan
+    if (parseFloat(biaya_layanan) < 0) {
+      return res.status(400).json({ message: 'Biaya layanan tidak boleh negatif' });
+    }
+
+    console.log('🔄 [CREATE LAYANAN] Calling stored procedure CreateLayanan');
+    console.log(`📊 [CREATE LAYANAN] Parameters: Kode: ${kode_layanan}, Nama: ${nama_layanan}, Biaya: ${biaya_layanan}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL CreateLayanan(?, ?, ?, ?)',
+      [
+        kode_layanan,
+        nama_layanan,
+        deskripsi_layanan || null,
+        biaya_layanan
+      ]
+    );
+    
+    const newLayanan = result[0][0];
+    console.log(`✅ [CREATE LAYANAN] Success - New Layanan Kode: ${newLayanan?.kode_layanan}`);
+    res.status(201).json(newLayanan);
+  } catch (error: any) {
+    console.error('❌ [CREATE LAYANAN] Error:', error);
+    console.error('Error details:', error.message);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Kode layanan sudah terdaftar' });
+    }
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Get usage statistics for a layanan
-router.get('/:kode/stats', authenticate, async (req, res) => {
+// ========================================================
+// UPDATE LAYANAN - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.put('/:kode', authenticate, authorize(1), async (req, res) => {
+  const { kode } = req.params;
+  console.log(`📋 [UPDATE LAYANAN] Request received for Kode: ${kode}`);
+  console.log('📝 [UPDATE LAYANAN] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
-    console.log('Fetching layanan statistics:', req.params.kode);
+    const { nama_layanan, deskripsi_layanan, biaya_layanan } = req.body;
     
-    const [stats] = await pool.execute(`
-      SELECT 
-        COUNT(*) as total_usage,
-        COUNT(DISTINCT k.kunjungan_id) as total_kunjungan,
-        SUM(dl.biaya_layanan) as total_revenue
-      FROM Layanan l
-      JOIN Detail_Layanan dl ON l.kode_layanan = dl.kode_layanan
-      JOIN Kunjungan k ON l.kunjungan_id = k.kunjungan_id
-      WHERE l.kode_layanan = ?
-    `, [req.params.kode]) as [RowDataPacket[], any];
+    // Validate required fields
+    if (!nama_layanan || biaya_layanan === undefined) {
+      return res.status(400).json({ 
+        message: 'Nama layanan dan biaya wajib diisi' 
+      });
+    }
+
+    // Validate biaya_layanan
+    if (parseFloat(biaya_layanan) < 0) {
+      return res.status(400).json({ message: 'Biaya layanan tidak boleh negatif' });
+    }
+
+    console.log('🔄 [UPDATE LAYANAN] Calling stored procedure UpdateLayanan');
+    console.log(`📊 [UPDATE LAYANAN] Parameters: Kode: ${kode}, Nama: ${nama_layanan}, Biaya: ${biaya_layanan}`);
     
-    console.log('Layanan statistics fetched successfully');
-    res.json(stats[0]);
-  } catch (error) {
-    console.error('Error fetching layanan statistics:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+    const [result]: any = await pool.execute(
+      'CALL UpdateLayanan(?, ?, ?, ?)',
+      [
+        kode,
+        nama_layanan,
+        deskripsi_layanan || null,
+        biaya_layanan
+      ]
+    );
+    
+    const updatedLayanan = result[0][0];
+    console.log(`✅ [UPDATE LAYANAN] Success for Kode: ${kode}`);
+    res.json(updatedLayanan);
+  } catch (error: any) {
+    console.error(`❌ [UPDATE LAYANAN] Error for Kode: ${kode}`, error);
+    
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// DELETE LAYANAN - Menggunakan Stored Procedure (Admin only)
+// ========================================================
+router.delete('/:kode', authenticate, authorize(1), async (req, res) => {
+  const { kode } = req.params;
+  console.log(`📋 [DELETE LAYANAN] Request received for Kode: ${kode}`);
+  try {
+    console.log(`🔄 [DELETE LAYANAN] Calling stored procedure DeleteLayanan for Kode: ${kode}`);
+    const [result]: any = await pool.execute('CALL DeleteLayanan(?)', [kode]);
+    
+    const affectedRows = result[0][0].affected_rows;
+
+    if (affectedRows === 0) {
+      console.log(`⚠️ [DELETE LAYANAN] Not found for Kode: ${kode}`);
+      return res.status(404).json({ message: 'Layanan tidak ditemukan' });
+    }
+
+    console.log(`✅ [DELETE LAYANAN] Success - Deleted Kode: ${kode}`);
+    res.json({ message: 'Layanan berhasil dihapus' });
+  } catch (error: any) {
+    console.error(`❌ [DELETE LAYANAN] Error for Kode: ${kode}`, error);
+    
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

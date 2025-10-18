@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { adminPool, vetPool, pawrentPool } from './config/database';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import dokterRoutes from './routes/dokter';
@@ -23,6 +24,27 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Test database connections on startup
+async function testConnections() {
+  try {
+    console.log('🔌 Testing database connections...');
+    
+    await adminPool.query('SELECT 1');
+    console.log('✅ Admin pool connected');
+    
+    await vetPool.query('SELECT 1');
+    console.log('✅ Vet pool connected');
+    
+    await pawrentPool.query('SELECT 1');
+    console.log('✅ Pawrent pool connected');
+    
+    console.log('✅ All database pools connected successfully\n');
+  } catch (error) {
+    console.error('❌ Database connection error:', error);
+    process.exit(1);
+  }
+}
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
@@ -43,8 +65,11 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server berjalan di port ${PORT}`);
+// Start server after testing connections
+testConnections().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server berjalan di port ${PORT}`);
+  });
 });
 
 export default app;

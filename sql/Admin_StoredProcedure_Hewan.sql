@@ -324,4 +324,100 @@ BEGIN
     SELECT rows_affected as affected_rows;
 END$$
 
+-- ========================================================
+-- UPDATE HEWAN BY PAWRENT (Pawrent dapat update hewan sendiri)
+-- Pawrent bisa update: nama, tanggal_lahir, jenis_kelamin, jenis_hewan_id, status_hidup
+-- TIDAK bisa update: pawrent_id (tidak bisa pindah owner)
+-- ========================================================
+DROP PROCEDURE IF EXISTS UpdateHewanByPawrent$$
+CREATE PROCEDURE UpdateHewanByPawrent(
+    IN p_hewan_id INT,
+    IN p_nama_hewan VARCHAR(50),
+    IN p_tanggal_lahir DATE,
+    IN p_jenis_kelamin ENUM('Jantan', 'Betina'),
+    IN p_jenis_hewan_id INT,
+    IN p_status_hidup ENUM('Hidup', 'Mati')
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Validate nama_hewan tidak kosong
+    IF p_nama_hewan IS NULL OR TRIM(p_nama_hewan) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nama hewan wajib diisi';
+    END IF;
+    
+    -- Validate jenis_kelamin
+    IF p_jenis_kelamin IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Jenis kelamin wajib dipilih';
+    END IF;
+    
+    -- Validate jenis_hewan_id
+    IF p_jenis_hewan_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Jenis hewan wajib dipilih';
+    END IF;
+    
+    -- Validate status_hidup
+    IF p_status_hidup IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Status hidup wajib dipilih';
+    END IF;
+    
+    -- Validate jenis hewan exists
+    IF NOT EXISTS (SELECT 1 FROM Jenis_Hewan WHERE jenis_hewan_id = p_jenis_hewan_id) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
+    END IF;
+    
+    -- Validate tanggal lahir tidak di masa depan
+    IF p_tanggal_lahir IS NOT NULL AND p_tanggal_lahir > CURDATE() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
+    END IF;
+    
+    -- Update hewan (termasuk status_hidup, tapi TIDAK termasuk pawrent_id)
+    UPDATE Hewan 
+    SET 
+        nama_hewan = p_nama_hewan,
+        tanggal_lahir = p_tanggal_lahir,
+        jenis_kelamin = p_jenis_kelamin,
+        status_hidup = p_status_hidup,
+        jenis_hewan_id = p_jenis_hewan_id
+    WHERE hewan_id = p_hewan_id;
+    
+    -- Check if update was successful
+    IF ROW_COUNT() = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Hewan tidak ditemukan atau Anda tidak memiliki akses';
+    END IF;
+    
+    -- Return updated data with joined information
+    SELECT 
+        h.hewan_id,
+        h.nama_hewan,
+        h.tanggal_lahir,
+        h.jenis_kelamin,
+        h.status_hidup,
+        h.jenis_hewan_id,
+        h.pawrent_id,
+        jh.nama_jenis_hewan,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
+        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
+        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
+    FROM Hewan h
+    INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
+    INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
+    WHERE h.hewan_id = p_hewan_id;
+    
+    COMMIT;
+END$$
+
 DELIMITER ;

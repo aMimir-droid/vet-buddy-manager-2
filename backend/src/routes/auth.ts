@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import pool from '../config/database';
+import { adminPool } from '../config/database'; // Use admin pool for auth
 import { RowDataPacket } from 'mysql2';
 
 const router = express.Router();
@@ -10,12 +10,16 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const [users] = await pool.execute(
+    console.log(`🔐 [LOGIN] Attempt for user: ${username}`);
+
+    // Use admin pool for authentication (only admin can query User_Login table)
+    const [users] = await adminPool.execute(
       'SELECT * FROM User_Login WHERE username = ? AND is_active = TRUE',
       [username]
     ) as [RowDataPacket[], any];
 
     if (users.length === 0) {
+      console.log(`❌ [LOGIN] User not found: ${username}`);
       return res.status(401).json({ message: 'Username atau password salah' });
     }
 
@@ -23,11 +27,12 @@ router.post('/login', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isPasswordValid) {
+      console.log(`❌ [LOGIN] Invalid password for user: ${username}`);
       return res.status(401).json({ message: 'Username atau password salah' });
     }
 
     // Update last login
-    await pool.execute(
+    await adminPool.execute(
       'UPDATE User_Login SET last_login = NOW() WHERE user_id = ?',
       [user.user_id]
     );
@@ -44,6 +49,8 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    console.log(`✅ [LOGIN] Success for user: ${username} (role_id: ${user.role_id})`);
+
     res.json({
       token,
       user: {
@@ -56,7 +63,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ [LOGIN] Error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });

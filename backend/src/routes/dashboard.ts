@@ -1,13 +1,15 @@
 import express from 'express';
-import pool from '../config/database';
-import { authenticate } from '../middleware/auth';
+import { authenticate, AuthRequest } from '../middleware/auth';
 import { RowDataPacket } from 'mysql2';
 
 const router = express.Router();
 
 // Get dashboard statistics using stored procedure
-router.get('/stats', authenticate, async (req, res) => {
+router.get('/stats', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool; // ✅ Gunakan pool dari request
+  
   try {
+    console.log(`🔄 [DASHBOARD STATS] Using DB pool for role_id: ${req.user.role_id}`);
     const [rows] = await pool.execute('CALL GetDashboardStats()') as [RowDataPacket[][], any];
     res.json(rows[0][0]);
   } catch (error) {

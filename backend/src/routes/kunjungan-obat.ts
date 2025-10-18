@@ -1,6 +1,5 @@
 import express from 'express';
-import pool from '../config/database';
-import { authenticate } from '../middleware/auth';
+import { authenticate, AuthRequest } from '../middleware/auth';
 import { RowDataPacket } from 'mysql2';
 
 const router = express.Router();
@@ -8,10 +7,13 @@ const router = express.Router();
 // ========================================================
 // GET OBAT BY KUNJUNGAN
 // ========================================================
-router.get('/kunjungan/:kunjunganId', authenticate, async (req, res) => {
+router.get('/kunjungan/:kunjunganId', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool; // ✅ Gunakan pool dari request
+  
   try {
     const { kunjunganId } = req.params;
     
+    console.log(`🔄 [GET OBAT BY KUNJUNGAN] Using DB pool for role_id: ${req.user.role_id}`);
     const [rows] = await pool.execute(
       'CALL GetObatByKunjungan(?)',
       [kunjunganId]
@@ -30,11 +32,12 @@ router.get('/kunjungan/:kunjunganId', authenticate, async (req, res) => {
 // ========================================================
 // CREATE KUNJUNGAN OBAT
 // ========================================================
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  
   try {
     const { kunjungan_id, obat_id, dosis, frekuensi } = req.body;
 
-    // Validasi input
     if (!kunjungan_id || !obat_id || !dosis || !frekuensi) {
       return res.status(400).json({ 
         message: 'Semua field harus diisi (kunjungan_id, obat_id, dosis, frekuensi)' 
@@ -55,7 +58,6 @@ router.post('/', authenticate, async (req, res) => {
   } catch (error: any) {
     console.error('Error creating kunjungan obat:', error);
     
-    // Handle duplicate entry error
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ 
         message: 'Obat ini sudah ditambahkan ke kunjungan' 
@@ -72,12 +74,13 @@ router.post('/', authenticate, async (req, res) => {
 // ========================================================
 // UPDATE KUNJUNGAN OBAT
 // ========================================================
-router.put('/:kunjunganId/:obatId', authenticate, async (req, res) => {
+router.put('/:kunjunganId/:obatId', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  
   try {
     const { kunjunganId, obatId } = req.params;
     const { dosis, frekuensi } = req.body;
 
-    // Validasi input
     if (!dosis || !frekuensi) {
       return res.status(400).json({ 
         message: 'Dosis dan frekuensi harus diisi' 
@@ -104,7 +107,9 @@ router.put('/:kunjunganId/:obatId', authenticate, async (req, res) => {
 // ========================================================
 // DELETE KUNJUNGAN OBAT
 // ========================================================
-router.delete('/:kunjunganId/:obatId', authenticate, async (req, res) => {
+router.delete('/:kunjunganId/:obatId', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  
   try {
     const { kunjunganId, obatId } = req.params;
 

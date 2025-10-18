@@ -12,6 +12,7 @@ import klinikRoutes from './routes/klinik';
 import dashboardRoutes from './routes/dashboard';
 import auditlogRoutes from './routes/auditlog';
 import userRoutes from './routes/users';
+import layananRoutes from './routes/layanan';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use('/api/dokter', dokterRoutes);
 app.use('/api/obat', obatRoutes);
 app.use('/api/auditlog', auditlogRoutes);
 app.use('/api/klinik', klinikRoutes);
+app.use('/api/layanan', layananRoutes);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

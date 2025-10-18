@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Stethoscope, PawPrint, Calendar, Database, FileText, Activity } from "lucide-react";
+import { Users, Stethoscope, PawPrint, Calendar, Database, FileText, Activity, ClipboardList } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
@@ -44,25 +44,32 @@ const AdminDashboard = () => {
       color: "bg-secondary"
     },
     {
+      title: "Kelola Layanan",
+      description: "Master data layanan medis",
+      icon: ClipboardList,
+      path: "/admin/layanan",
+      color: "bg-accent"
+    },
+    {
       title: "Kelola Obat",
       description: "Master data obat",
       icon: Database,
       path: "/admin/obat",
-      color: "bg-accent"
+      color: "bg-primary"
     },
     {
       title: "Kelola Klinik",
       description: "Informasi klinik",
       icon: FileText,
       path: "/admin/klinik",
-      color: "bg-primary"
+      color: "bg-secondary"
     },
     {
       title: "Audit Log",
       description: "Riwayat aktivitas sistem",
       icon: Activity,
       path: "/admin/auditlog",
-      color: "bg-secondary"
+      color: "bg-accent"
     }
   ];
 

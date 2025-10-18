@@ -20,6 +20,7 @@ import KunjunganPage from "./pages/admin/KunjunganPage";
 import ObatPage from "./pages/admin/ObatPage";
 import KlinikPage from "./pages/admin/KlinikPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
+import LayananPage from "./pages/admin/LayananPage";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => (
                     <Route path="kunjungan" element={<KunjunganPage />} />
                     <Route path="obat" element={<ObatPage />} />
                     <Route path="klinik" element={<KlinikPage />} />
+                    <Route path="layanan" element={<LayananPage />} />
                     <Route path="auditlog" element={<AuditLogPage />} />
                     <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
                   </Routes>

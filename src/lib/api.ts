@@ -280,3 +280,84 @@ export const auditlogApi = {
     return response.json();
   },
 };
+
+export const layananApi = {
+  getAll: async (token: string): Promise<any[]> => {
+    const response = await fetch(`${API_URL}/layanan`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to fetch' }));
+      throw new Error(error.message || 'Failed to fetch layanan');
+    }
+    return response.json();
+  },
+
+  getByKode: async (kode: string, token: string) => {
+    const response = await fetch(`${API_URL}/layanan/${kode}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch layanan');
+    return response.json();
+  },
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${API_URL}/layanan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to create' }));
+      throw new Error(error.message || 'Failed to create layanan');
+    }
+    return response.json();
+  },
+
+  update: async (kode: string, data: any, token: string) => {
+    const response = await fetch(`${API_URL}/layanan/${kode}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to update' }));
+      throw new Error(error.message || 'Failed to update layanan');
+    }
+    return response.json();
+  },
+
+  delete: async (kode: string, token: string) => {
+    const response = await fetch(`${API_URL}/layanan/${kode}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to delete' }));
+      throw new Error(error.message || 'Failed to delete layanan');
+    }
+    return response.json();
+  },
+
+  getStats: async (kode: string, token: string) => {
+    const response = await fetch(`${API_URL}/layanan/${kode}/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch stats');
+    return response.json();
+  },
+};

@@ -361,3 +361,48 @@ export const layananApi = {
     return response.json();
   },
 };
+
+export const kunjunganObatApi = {
+  getByKunjungan: async (kunjunganId: number, token: string) => {
+    const response = await fetch(`${API_URL}/kunjungan-obat/kunjungan/${kunjunganId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to fetch');
+    return response.json();
+  },
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${API_URL}/kunjungan-obat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create');
+    return response.json();
+  },
+
+  update: async (kunjunganId: number, obatId: number, data: any, token: string) => {
+    const response = await fetch(`${API_URL}/kunjungan-obat/${kunjunganId}/${obatId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update');
+    return response.json();
+  },
+
+  delete: async (kunjunganId: number, obatId: number, token: string) => {
+    const response = await fetch(`${API_URL}/kunjungan-obat/${kunjunganId}/${obatId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to delete');
+    return response.json();
+  },
+};

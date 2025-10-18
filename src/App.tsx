@@ -10,17 +10,22 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import VetDashboard from "./pages/vet/VetDashboard";
+import VetKunjunganPage from "./pages/vet/KunjunganPage";
+import VetHewanPage from "./pages/vet/HewanPage";
+import VetObatPage from "./pages/vet/ObatPage";
+import VetKunjunganObatPage from "./pages/vet/KunjunganObatPage";
 import PawrentDashboard from "./pages/pawrent/PawrentDashboard";
 import NotFound from "./pages/NotFound";
 import UsersPage from "./pages/admin/UsersPage";
 import DokterPage from "./pages/admin/DokterPage";
 import PawrentPage from "./pages/admin/PawrentPage";
 import HewanPage from "./pages/admin/HewanPage";
-import KunjunganPage from "./pages/admin/KunjunganPage";
 import ObatPage from "./pages/admin/ObatPage";
 import KlinikPage from "./pages/admin/KlinikPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
 import LayananPage from "./pages/admin/LayananPage";
+import KunjunganPage from "./pages/admin/KunjunganPage";
+import KunjunganObatPage from "./pages/admin/KunjunganObatPage";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +60,7 @@ const App = () => (
                     <Route path="pawrent" element={<PawrentPage />} />
                     <Route path="hewan" element={<HewanPage />} />
                     <Route path="kunjungan" element={<KunjunganPage />} />
+                    <Route path="kunjungan-obat" element={<KunjunganObatPage />} />
                     <Route path="obat" element={<ObatPage />} />
                     <Route path="klinik" element={<KlinikPage />} />
                     <Route path="layanan" element={<LayananPage />} />
@@ -72,6 +78,10 @@ const App = () => (
                 <ProtectedRoute allowedRoles={[2]}>
                   <Routes>
                     <Route path="dashboard" element={<VetDashboard />} />
+                    <Route path="kunjungan" element={<VetKunjunganPage />} />
+                    <Route path="hewan" element={<VetHewanPage />} />
+                    <Route path="obat" element={<VetObatPage />} />
+                    <Route path="kunjungan-obat" element={<VetKunjunganObatPage />} />
                     <Route path="*" element={<Navigate to="/vet/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

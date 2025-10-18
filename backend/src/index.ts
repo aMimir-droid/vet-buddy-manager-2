@@ -11,8 +11,8 @@ import obatRoutes from './routes/obat';
 import klinikRoutes from './routes/klinik';
 import dashboardRoutes from './routes/dashboard';
 import auditlogRoutes from './routes/auditlog';
-import userRoutes from './routes/users';
 import layananRoutes from './routes/layanan';
+import kunjunganObatRoutes from './routes/kunjungan-obat';
 
 dotenv.config();
 
@@ -25,7 +25,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/pawrent', pawrentRoutes);
 app.use('/api/hewan', hewanRoutes);
@@ -35,6 +35,7 @@ app.use('/api/obat', obatRoutes);
 app.use('/api/auditlog', auditlogRoutes);
 app.use('/api/klinik', klinikRoutes);
 app.use('/api/layanan', layananRoutes);
+app.use('/api/kunjungan-obat', kunjunganObatRoutes);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

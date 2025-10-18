@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, PawPrint, Pill, FileText } from "lucide-react";
+import { Calendar, PawPrint, Database, Syringe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const VetDashboard = () => {
@@ -9,32 +9,36 @@ const VetDashboard = () => {
 
   const menuItems = [
     {
-      title: "Kunjungan Hari Ini",
-      description: "Lihat jadwal kunjungan hari ini",
+      title: "Kelola Kunjungan",
+      description: "Input dan kelola kunjungan pasien",
       icon: Calendar,
-      path: "/vet/today",
-      color: "bg-primary"
+      path: "/vet/kunjungan",
+      color: "bg-green-500",
+      highlight: true
     },
     {
-      title: "Input Kunjungan",
-      description: "Tambah data kunjungan baru",
-      icon: FileText,
-      path: "/vet/kunjungan/new",
-      color: "bg-secondary"
+      title: "Kelola Obat Kunjungan",
+      description: "Atur resep obat untuk setiap kunjungan",
+      icon: Syringe,
+      path: "/vet/kunjungan-obat",
+      color: "bg-purple-500",
+      highlight: true
     },
     {
       title: "Data Hewan",
-      description: "Lihat data pasien hewan",
+      description: "Lihat data hewan pasien",
       icon: PawPrint,
       path: "/vet/hewan",
-      color: "bg-accent"
+      color: "bg-primary",
+      highlight: true
     },
     {
-      title: "Resep Obat",
-      description: "Kelola resep dan obat",
-      icon: Pill,
+      title: "Data Obat",
+      description: "Daftar obat dan resep",
+      icon: Database,
       path: "/vet/obat",
-      color: "bg-primary"
+      color: "bg-secondary",
+      highlight: true
     }
   ];
 
@@ -45,7 +49,7 @@ const VetDashboard = () => {
           <CardHeader>
             <CardTitle className="text-2xl">Selamat Datang, Dokter!</CardTitle>
             <CardDescription className="text-primary-foreground/80">
-              Kelola kunjungan dan data medis hewan
+              Kelola kunjungan, resep obat, dan rekam medis pasien hewan
             </CardDescription>
           </CardHeader>
         </Card>
@@ -54,7 +58,9 @@ const VetDashboard = () => {
           {menuItems.map((item, idx) => (
             <Card 
               key={idx} 
-              className="hover:shadow-medium transition-all cursor-pointer group"
+              className={`hover:shadow-medium transition-all cursor-pointer group ${
+                item.highlight ? 'ring-2 ring-green-500 ring-offset-2' : ''
+              }`}
               onClick={() => navigate(item.path)}
             >
               <CardHeader>

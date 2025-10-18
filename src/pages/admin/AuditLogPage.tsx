@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,328 +14,279 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
-import { auditlogApi } from "@/lib/api";
-import { 
-  FileText, 
-  Filter,
-  Eye,
-  Activity,
-  Database,
-  Users,
-  Clock,
-  Plus,
-  Edit,
-  Trash2,
-  BarChart3
-} from "lucide-react";
+import { Loader2, Search, Eye, Filter } from "lucide-react";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
+import { auditLogApi } from "@/lib/api"; // ✅ Fixed import name
 
 const AuditLogPage = () => {
   const { token } = useAuth();
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<any>(null);
-  const [filters, setFilters] = useState({
-    start_date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
-    table_name: "all",
-    action_type: "all",
-    executed_by: "",
-    limit: 50,
-    offset: 0,
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTable, setFilterTable] = useState<string>("all");
+  const [filterAction, setFilterAction] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
+  // Fetch audit logs
+  const { data: logs, isLoading } = useQuery({
+    queryKey: ["auditLogs", filterTable, filterAction, startDate, endDate],
+    queryFn: async () => {
+      const params: any = {};
+      
+      if (filterTable !== "all") params.table = filterTable;
+      if (filterAction !== "all") params.action = filterAction;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      return auditLogApi.getAll(params, token!);
+    },
+    enabled: !!token,
   });
 
-  // Prepare filters for API (convert "all" to empty string)
-  const getApiFilters = () => {
-    return {
-      ...filters,
-      table_name: filters.table_name === "all" ? "" : filters.table_name,
-      action_type: filters.action_type === "all" ? "" : filters.action_type,
-    };
-  };
-
-  const { data: logsData, isLoading } = useQuery({
-    queryKey: ["auditlogs", filters],
-    queryFn: () => auditlogApi.getAll(token!, getApiFilters()),
-  });
-
+  // Fetch statistics
   const { data: stats } = useQuery({
-    queryKey: ["auditlog-stats"],
-    queryFn: () => auditlogApi.getStats(token!),
+    queryKey: ["auditStats"],
+    queryFn: () => auditLogApi.getStats(token!),
+    enabled: !!token,
   });
 
-  const { data: byTable } = useQuery({
-    queryKey: ["auditlog-by-table"],
-    queryFn: () => auditlogApi.getByTable(token!),
+  // Filter logs by search query
+  const filteredLogs = logs?.filter((log: any) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      log.table_name?.toLowerCase().includes(searchLower) ||
+      log.action_type?.toLowerCase().includes(searchLower) ||
+      log.username?.toLowerCase().includes(searchLower) ||
+      log.record_id?.toString().includes(searchLower)
+    );
   });
 
-  const { data: byUser } = useQuery({
-    queryKey: ["auditlog-by-user"],
-    queryFn: () => auditlogApi.getByUser(token!),
-  });
-
-  const handleViewDetail = async (logId: number) => {
-    try {
-      const log = await auditlogApi.getById(logId, token!);
-      setSelectedLog(log);
-      setIsDetailDialogOpen(true);
-    } catch (error) {
-      console.error('Error fetching log detail:', error);
-    }
+  const handleViewDetail = (log: any) => {
+    setSelectedLog(log);
+    setIsDetailDialogOpen(true);
   };
 
   const getActionBadge = (action: string) => {
     const variants: any = {
-      'INSERT': <Badge className="bg-green-100 text-green-800 border-green-200"><Plus className="h-3 w-3 mr-1" /> INSERT</Badge>,
-      'UPDATE': <Badge className="bg-blue-100 text-blue-800 border-blue-200"><Edit className="h-3 w-3 mr-1" /> UPDATE</Badge>,
-      'DELETE': <Badge className="bg-red-100 text-red-800 border-red-200"><Trash2 className="h-3 w-3 mr-1" /> DELETE</Badge>,
+      INSERT: "default",
+      UPDATE: "secondary",
+      DELETE: "destructive",
     };
-    return variants[action] || <Badge>{action}</Badge>;
+    return <Badge variant={variants[action] || "outline"}>{action}</Badge>;
   };
 
-  const formatJSON = (jsonString: string | null) => {
-    if (!jsonString) return null;
-    try {
-      return JSON.stringify(JSON.parse(jsonString), null, 2);
-    } catch {
-      return jsonString;
-    }
-  };
+  const tableNames = [
+    "all",
+    "User_Login",
+    "Dokter",
+    "Pawrent",
+    "Hewan",
+    "Kunjungan",
+    "Obat",
+    "Klinik",
+    "Detail_Layanan",
+  ];
 
-  if (isLoading) {
-    return (
-      <DashboardLayout title="Audit Log">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-            <p className="mt-2 text-muted-foreground">Loading...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  const actionTypes = ["all", "INSERT", "UPDATE", "DELETE"];
 
   return (
-    <DashboardLayout title="Audit Log" showBackButton={true}>
+    <DashboardLayout title="Audit Log" showBackButton backTo="/admin/dashboard">
       <div className="space-y-6">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.total_logs || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Hari ini: {stats?.today_logs || 0}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Insert Operations</CardTitle>
-              <Plus className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats?.total_inserts || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Data baru ditambahkan
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Update Operations</CardTitle>
-              <Edit className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats?.total_updates || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Data diperbarui
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Delete Operations</CardTitle>
-              <Trash2 className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats?.total_deletes || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Data dihapus
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <Tabs defaultValue="logs" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="logs">Log Activity</TabsTrigger>
-            <TabsTrigger value="by-table">By Table</TabsTrigger>
-            <TabsTrigger value="by-user">By User</TabsTrigger>
-          </TabsList>
-
-          {/* Log Activity Tab */}
-          <TabsContent value="logs" className="space-y-4">
-            {/* Filter Section */}
+        {/* Statistics Cards */}
+        {stats && (
+          <div className="grid gap-4 md:grid-cols-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
-                  Filter Logs
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Logs
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <div>
-                    <Label htmlFor="start_date">Tanggal Mulai</Label>
-                    <Input
-                      id="start_date"
-                      type="date"
-                      value={filters.start_date}
-                      onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="end_date">Tanggal Akhir</Label>
-                    <Input
-                      id="end_date"
-                      type="date"
-                      value={filters.end_date}
-                      onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="table_name">Tabel</Label>
-                    <Select
-                      value={filters.table_name}
-                      onValueChange={(value) => setFilters({ ...filters, table_name: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Semua Tabel" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Tabel</SelectItem>
-                        <SelectItem value="Pawrent">Pawrent</SelectItem>
-                        <SelectItem value="Hewan">Hewan</SelectItem>
-                        <SelectItem value="Kunjungan">Kunjungan</SelectItem>
-                        <SelectItem value="Dokter">Dokter</SelectItem>
-                        <SelectItem value="Obat">Obat</SelectItem>
-                        <SelectItem value="User_Login">User Login</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="action_type">Aksi</Label>
-                    <Select
-                      value={filters.action_type}
-                      onValueChange={(value) => setFilters({ ...filters, action_type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Semua Aksi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Aksi</SelectItem>
-                        <SelectItem value="INSERT">INSERT</SelectItem>
-                        <SelectItem value="UPDATE">UPDATE</SelectItem>
-                        <SelectItem value="DELETE">DELETE</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="executed_by">User</Label>
-                    <Input
-                      id="executed_by"
-                      placeholder="Cari user..."
-                      value={filters.executed_by}
-                      onChange={(e) => setFilters({ ...filters, executed_by: e.target.value })}
-                    />
-                  </div>
+                <div className="text-2xl font-bold">{stats.total_logs}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Inserts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {stats.total_inserts}
                 </div>
               </CardContent>
             </Card>
-
-            {/* Logs Table */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Activity Logs
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Updates
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {stats.total_updates}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Deletes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {stats.total_deletes}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filter Logs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Table</label>
+                <Select value={filterTable} onValueChange={setFilterTable}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tableNames.map((table) => (
+                      <SelectItem key={table} value={table}>
+                        {table === "all" ? "All Tables" : table}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Action</label>
+                <Select value={filterAction} onValueChange={setFilterAction}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {actionTypes.map((action) => (
+                      <SelectItem key={action} value={action}>
+                        {action === "all" ? "All Actions" : action}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Start Date</label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">End Date</label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by table, action, user, or record ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Logs Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit Logs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Waktu</TableHead>
-                      <TableHead>Tabel</TableHead>
-                      <TableHead>Aksi</TableHead>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Table</TableHead>
+                      <TableHead>Action</TableHead>
                       <TableHead>User</TableHead>
-                      <TableHead className="text-right">Detail</TableHead>
+                      <TableHead>Record ID</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logsData?.data?.length === 0 ? (
+                    {filteredLogs?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={6} className="text-center py-8">
                           Tidak ada log ditemukan
                         </TableCell>
                       </TableRow>
                     ) : (
-                      logsData?.data?.map((log: any) => (
+                      filteredLogs?.map((log: any) => (
                         <TableRow key={log.log_id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <div>
-                                <div className="font-medium">
-                                  {new Date(log.executed_at).toLocaleDateString('id-ID')}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(log.executed_at).toLocaleTimeString('id-ID')}
-                                </div>
-                              </div>
-                            </div>
+                          <TableCell className="whitespace-nowrap">
+                            {format(
+                              new Date(log.action_timestamp),
+                              "dd MMM yyyy HH:mm",
+                              { locale: id }
+                            )}
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="gap-1">
-                              <Database className="h-3 w-3" />
-                              {log.table_name}
-                            </Badge>
+                          <TableCell className="font-medium">
+                            {log.table_name}
                           </TableCell>
                           <TableCell>{getActionBadge(log.action_type)}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              {log.executed_by || '-'}
-                            </div>
-                          </TableCell>
+                          <TableCell>{log.username || "-"}</TableCell>
+                          <TableCell>{log.record_id}</TableCell>
                           <TableCell className="text-right">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              onClick={() => handleViewDetail(log.log_id)}
+                              onClick={() => handleViewDetail(log)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -344,135 +296,84 @@ const AuditLogPage = () => {
                     )}
                   </TableBody>
                 </Table>
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Menampilkan {logsData?.data?.length || 0} dari {logsData?.total || 0} logs
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* By Table Tab */}
-          <TabsContent value="by-table" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Activity by Table
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tabel</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Insert</TableHead>
-                      <TableHead>Update</TableHead>
-                      <TableHead>Delete</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {byTable?.map((item: any) => (
-                      <TableRow key={item.table_name}>
-                        <TableCell className="font-medium">{item.table_name}</TableCell>
-                        <TableCell>{item.count}</TableCell>
-                        <TableCell className="text-green-600">{item.inserts}</TableCell>
-                        <TableCell className="text-blue-600">{item.updates}</TableCell>
-                        <TableCell className="text-red-600">{item.deletes}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* By User Tab */}
-          <TabsContent value="by-user" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Activity by User
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Total Activity</TableHead>
-                      <TableHead>Last Activity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {byUser?.map((item: any) => (
-                      <TableRow key={item.executed_by}>
-                        <TableCell className="font-medium">{item.executed_by || '-'}</TableCell>
-                        <TableCell>{item.count}</TableCell>
-                        <TableCell>
-                          {new Date(item.last_activity).toLocaleString('id-ID')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Detail Audit Log
-              </DialogTitle>
-              <DialogDescription>
-                Log ID: {selectedLog?.log_id}
-              </DialogDescription>
+              <DialogTitle>Audit Log Detail</DialogTitle>
             </DialogHeader>
             {selectedLog && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground">Tabel</Label>
-                    <p className="font-medium">{selectedLog.table_name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Aksi</Label>
-                    <div className="mt-1">{getActionBadge(selectedLog.action_type)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">User</Label>
-                    <p className="font-medium">{selectedLog.executed_by || '-'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Waktu</Label>
-                    <p className="font-medium">
-                      {new Date(selectedLog.executed_at).toLocaleString('id-ID')}
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Timestamp
+                    </label>
+                    <p className="text-sm">
+                      {format(
+                        new Date(selectedLog.action_timestamp),
+                        "dd MMMM yyyy HH:mm:ss",
+                        { locale: id }
+                      )}
                     </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Table
+                    </label>
+                    <p className="text-sm font-medium">{selectedLog.table_name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Action
+                    </label>
+                    <div>{getActionBadge(selectedLog.action_type)}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      User
+                    </label>
+                    <p className="text-sm">{selectedLog.username || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Record ID
+                    </label>
+                    <p className="text-sm">{selectedLog.record_id}</p>
                   </div>
                 </div>
 
-                {selectedLog.old_data && (
+                {selectedLog.old_values && (
                   <div>
-                    <Label className="text-muted-foreground">Data Lama</Label>
-                    <pre className="mt-2 p-4 bg-red-50 border border-red-200 rounded-md text-xs overflow-x-auto">
-                      {formatJSON(selectedLog.old_data)}
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      Old Values
+                    </label>
+                    <pre className="bg-muted p-3 rounded-lg text-xs overflow-x-auto">
+                      {JSON.stringify(
+                        JSON.parse(selectedLog.old_values),
+                        null,
+                        2
+                      )}
                     </pre>
                   </div>
                 )}
 
-                {selectedLog.new_data && (
+                {selectedLog.new_values && (
                   <div>
-                    <Label className="text-muted-foreground">Data Baru</Label>
-                    <pre className="mt-2 p-4 bg-green-50 border border-green-200 rounded-md text-xs overflow-x-auto">
-                      {formatJSON(selectedLog.new_data)}
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      New Values
+                    </label>
+                    <pre className="bg-muted p-3 rounded-lg text-xs overflow-x-auto">
+                      {JSON.stringify(
+                        JSON.parse(selectedLog.new_values),
+                        null,
+                        2
+                      )}
                     </pre>
                   </div>
                 )}

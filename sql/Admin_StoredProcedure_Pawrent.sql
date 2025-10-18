@@ -274,40 +274,60 @@ BEGIN
 END$$
 
 -- ========================================================
--- UPDATE PAWRENT SELF (tanpa dokter_id)
+-- UPDATE PAWRENT SELF (Pawrent update profil sendiri)
 -- ========================================================
 DROP PROCEDURE IF EXISTS UpdatePawrentSelf$$
 CREATE PROCEDURE UpdatePawrentSelf(
     IN p_pawrent_id INT,
-    IN p_nama_depan_pawrent VARCHAR(50),
-    IN p_nama_belakang_pawrent VARCHAR(50),
-    IN p_alamat_pawrent VARCHAR(200),
-    IN p_kota_pawrent VARCHAR(100),
+    IN p_nama_depan_pawrent VARCHAR(30),
+    IN p_nama_belakang_pawrent VARCHAR(30),
+    IN p_alamat_pawrent VARCHAR(100),
+    IN p_kota_pawrent VARCHAR(20),
     IN p_kode_pos_pawrent VARCHAR(10),
     IN p_nomor_hp VARCHAR(15)
 )
 BEGIN
-    DECLARE duplicate_check INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
     
-    -- Check if pawrent exists
+    START TRANSACTION;
+    
+    -- Validate pawrent exists
     IF NOT EXISTS (SELECT 1 FROM Pawrent WHERE pawrent_id = p_pawrent_id) THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Data pawrent tidak ditemukan';
+        SET MESSAGE_TEXT = 'Pawrent tidak ditemukan';
     END IF;
     
-    -- Check for duplicate nomor_hp (excluding current pawrent)
-    IF p_nomor_hp IS NOT NULL THEN
-        SELECT COUNT(*) INTO duplicate_check
-        FROM Pawrent
-        WHERE nomor_hp = p_nomor_hp AND pawrent_id != p_pawrent_id;
-        
-        IF duplicate_check > 0 THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Nomor HP sudah terdaftar untuk pawrent lain';
-        END IF;
+    -- Validate required fields
+    IF p_nama_depan_pawrent IS NULL OR TRIM(p_nama_depan_pawrent) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nama depan wajib diisi';
     END IF;
     
-    -- Update pawrent (tanpa mengubah dokter_id)
+    IF p_nama_belakang_pawrent IS NULL OR TRIM(p_nama_belakang_pawrent) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nama belakang wajib diisi';
+    END IF;
+    
+    IF p_nomor_hp IS NULL OR TRIM(p_nomor_hp) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nomor HP wajib diisi';
+    END IF;
+    
+    -- Validate nomor HP unique (kecuali untuk pawrent ini sendiri)
+    IF EXISTS (
+        SELECT 1 FROM Pawrent 
+        WHERE nomor_hp = p_nomor_hp 
+        AND pawrent_id != p_pawrent_id
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nomor HP sudah digunakan oleh pawrent lain';
+    END IF;
+    
+    -- Update pawrent data
     UPDATE Pawrent
     SET 
         nama_depan_pawrent = p_nama_depan_pawrent,
@@ -318,7 +338,7 @@ BEGIN
         nomor_hp = p_nomor_hp
     WHERE pawrent_id = p_pawrent_id;
     
-    -- Return updated pawrent with joined data
+    -- Return the updated pawrent with joined data
     SELECT 
         p.pawrent_id,
         p.nama_depan_pawrent,
@@ -328,10 +348,16 @@ BEGIN
         p.kode_pos_pawrent,
         p.nomor_hp,
         p.dokter_id,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
+        d.nama_dokter,
+        d.title_dokter,
+        u.email,
+        u.created_at
     FROM Pawrent p
     LEFT JOIN Dokter d ON p.dokter_id = d.dokter_id
+    LEFT JOIN User_Login u ON p.pawrent_id = u.pawrent_id
     WHERE p.pawrent_id = p_pawrent_id;
+    
+    COMMIT;
 END$$
 
 -- ========================================================

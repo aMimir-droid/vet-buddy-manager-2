@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; // ADD THIS LINE
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { hewanApi } from "@/lib/api";
 import { useState } from "react";
 import { toast } from "sonner";
-import { PawPrint, Search, X, Eye, HeartPulse, Skull, Edit } from "lucide-react";
+import { PawPrint, Search, X, Eye, HeartPulse, Skull, Edit, Plus, Trash2, Pencil, AlertTriangle } from "lucide-react";
 
 const PawrentHewanPage = () => {
   const { token, user } = useAuth();
@@ -20,6 +22,9 @@ const PawrentHewanPage = () => {
   const [selectedHewan, setSelectedHewan] = useState<any>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // NEW
+  const [deletingHewan, setDeletingHewan] = useState<any>(null); // NEW
   const [editingHewan, setEditingHewan] = useState<any>(null);
   const [formData, setFormData] = useState({
     nama_hewan: "",
@@ -57,6 +62,40 @@ const PawrentHewanPage = () => {
     },
   });
 
+  // NEW: Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: any) => hewanApi.createMy(data, token!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hewans"] });
+      toast.success("Hewan berhasil ditambahkan");
+      setIsCreateDialogOpen(false);
+      setFormData({
+        nama_hewan: "",
+        tanggal_lahir: "",
+        jenis_kelamin: "Jantan",
+        status_hidup: "Hidup",
+        jenis_hewan_id: "",
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Gagal menambah hewan");
+    },
+  });
+
+  // NEW: Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => hewanApi.deleteMy(id, token!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hewans"] });
+      toast.success("Hewan berhasil dihapus");
+      setIsDeleteDialogOpen(false);
+      setDeletingHewan(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Gagal menghapus hewan");
+    },
+  });
+
   // Filter hewans by current pawrent_id
   const myHewans = hewans?.filter((h: any) => h.pawrent_id === user?.pawrent_id) || [];
 
@@ -77,9 +116,40 @@ const PawrentHewanPage = () => {
     setIsEditDialogOpen(true);
   };
 
+  // NEW: Handler untuk open create dialog
+  const handleOpenCreateDialog = () => {
+    setFormData({
+      nama_hewan: "",
+      tanggal_lahir: "",
+      jenis_kelamin: "Jantan",
+      status_hidup: "Hidup",
+      jenis_hewan_id: "",
+    });
+    setIsCreateDialogOpen(true);
+  };
+
+  // NEW: Handler untuk open delete confirmation
+  const handleOpenDeleteDialog = (hewan: any) => {
+    setDeletingHewan(hewan);
+    setIsDeleteDialogOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateMutation.mutate(formData);
+  };
+
+  // NEW: Handler untuk create submit
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMutation.mutate(formData);
+  };
+
+  // NEW: Handler untuk confirm delete
+  const handleConfirmDelete = () => {
+    if (deletingHewan) {
+      deleteMutation.mutate(deletingHewan.hewan_id);
+    }
   };
 
   const getJenisKelaminBadge = (jk: string) => {
@@ -218,10 +288,15 @@ const PawrentHewanPage = () => {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <PawPrint className="h-5 w-5" />
-                  Daftar Hewan ({filteredHewans.length})
+                  Daftar Hewan Saya ({filteredHewans?.length || 0})
                 </CardTitle>
                 <CardDescription>Kelola data hewan kesayangan Anda</CardDescription>
               </div>
+              {/* NEW: Tambah Hewan Button */}
+              <Button onClick={handleOpenCreateDialog} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Tambah Hewan
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -247,75 +322,102 @@ const PawrentHewanPage = () => {
               )}
             </div>
 
-            {/* Hewan List */}
-            {filteredHewans.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredHewans.map((hewan: any) => (
-                  <Card key={hewan.hewan_id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-xl flex items-center gap-2">
-                            <PawPrint className="h-5 w-5 text-primary" />
-                            {hewan.nama_hewan}
-                          </CardTitle>
-                          <CardDescription className="mt-2">
+            {/* Table */}
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">No</TableHead>
+                    <TableHead>Nama Hewan</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead>Jenis Kelamin</TableHead>
+                    <TableHead>Umur</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredHewans && filteredHewans.length > 0 ? (
+                    filteredHewans.map((hewan: any, index: number) => (
+                      <TableRow key={hewan.hewan_id}>
+                        <TableCell className="text-muted-foreground">
+                          {index + 1}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <PawPrint className="h-8 w-8 rounded-md bg-primary/10 text-primary" />
+                            <div>
+                              <p className="font-semibold">{hewan.nama_hewan}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {hewan.nama_jenis_hewan}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm font-medium">
                             {hewan.nama_jenis_hewan}
-                          </CardDescription>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          {getJenisKelaminBadge(hewan.jenis_kelamin)}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {getJenisKelaminBadge(hewan.jenis_kelamin)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <p className="text-sm font-medium">
+                            {calculateAge(hewan.tanggal_lahir)}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-center">
                           {getStatusHidupBadge(hewan.status_hidup)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetail(hewan)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(hewan)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            {/* NEW: Delete Button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDeleteDialog(hewan)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <div className="flex flex-col items-center gap-2">
+                          <PawPrint className="h-12 w-12 opacity-20" />
+                          <p>Tidak ada data hewan</p>
+                          <Button onClick={handleOpenCreateDialog} size="sm" className="mt-2">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Tambah Hewan Pertama
+                          </Button>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Umur:</span>
-                          <span className="font-medium">{calculateAge(hewan.tanggal_lahir)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Tanggal Lahir:</span>
-                          <span className="font-medium">{formatDate(hewan.tanggal_lahir)}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2 pt-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => handleViewDetail(hewan)}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Detail
-                        </Button>
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => handleOpenEditDialog(hewan)}
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <PawPrint className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">
-                  {searchQuery ? "Tidak ada hasil pencarian" : "Belum ada hewan terdaftar"}
-                </p>
-                {searchQuery && (
-                  <p className="text-sm">Coba kata kunci lain</p>
-                )}
-              </div>
-            )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 
@@ -491,6 +593,139 @@ const PawrentHewanPage = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* NEW: Create Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <PawPrint className="h-5 w-5" />
+                Tambah Hewan Baru
+              </DialogTitle>
+              <DialogDescription>
+                Daftarkan hewan kesayangan Anda
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleCreateSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nama_hewan">Nama Hewan *</Label>
+                  <Input
+                    id="nama_hewan"
+                    value={formData.nama_hewan}
+                    onChange={(e) => setFormData({ ...formData, nama_hewan: e.target.value })}
+                    placeholder="Contoh: Milo, Bella, Luna"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="jenis_hewan_id">Jenis Hewan *</Label>
+                    <select
+                      id="jenis_hewan_id"
+                      className="w-full h-10 px-3 border rounded-md"
+                      value={formData.jenis_hewan_id}
+                      onChange={(e) => setFormData({ ...formData, jenis_hewan_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Pilih Jenis</option>
+                      {jenisHewanList.map((jenis: any) => (
+                        <option key={jenis.id} value={jenis.id}>
+                          {jenis.nama}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="jenis_kelamin">Jenis Kelamin *</Label>
+                    <select
+                      id="jenis_kelamin"
+                      className="w-full h-10 px-3 border rounded-md"
+                      value={formData.jenis_kelamin}
+                      onChange={(e) => setFormData({ ...formData, jenis_kelamin: e.target.value })}
+                      required
+                    >
+                      <option value="Jantan">♂ Jantan</option>
+                      <option value="Betina">♀ Betina</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="tanggal_lahir">Tanggal Lahir</Label>
+                  <Input
+                    id="tanggal_lahir"
+                    type="date"
+                    value={formData.tanggal_lahir}
+                    onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Opsional - Isi jika Anda tahu tanggal lahir hewan
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-md border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Catatan:</strong> Data hewan akan terdaftar atas nama Anda. 
+                    Pastikan informasi yang dimasukkan benar.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-6">
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Menyimpan..." : "Simpan Hewan"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* NEW: Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                Konfirmasi Hapus Hewan
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>
+                  Apakah Anda yakin ingin menghapus hewan <strong>{deletingHewan?.nama_hewan}</strong>?
+                </p>
+                <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md border border-amber-200 dark:border-amber-800">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    <strong>Perhatian:</strong>
+                  </p>
+                  <ul className="text-sm text-amber-700 dark:text-amber-300 mt-1 list-disc list-inside">
+                    <li>Hewan yang memiliki riwayat kunjungan tidak dapat dihapus</li>
+                    <li>Tindakan ini tidak dapat dibatalkan</li>
+                    <li>Semua data terkait hewan akan hilang</li>
+                  </ul>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteMutation.isPending}>
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDelete}
+                disabled={deleteMutation.isPending}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleteMutation.isPending ? "Menghapus..." : "Ya, Hapus"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

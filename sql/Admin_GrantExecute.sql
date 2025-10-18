@@ -68,6 +68,8 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllHewans TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetHewanById TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateHewanByPawrent TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllJenisHewan TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateHewanByPawrent TO 'pawrent_user'@'localhost'; -- NEW
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteHewanByPawrent TO 'pawrent_user'@'localhost'; -- NEW
 
 -- Kunjungan Procedures (Read Only)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKunjungan TO 'pawrent_user'@'localhost';
@@ -82,6 +84,7 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetObatByKunjungan TO 'pawrent_user'@'local
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllPawrents TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetPawrentById TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdatePawrent TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdatePawrentSelf TO 'pawrent_user'@'localhost'; -- NEW
 
 -- Dokter Procedures (Read Only)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllDokters TO 'pawrent_user'@'localhost';

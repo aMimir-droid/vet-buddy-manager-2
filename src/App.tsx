@@ -1,39 +1,77 @@
+// ========================================================
+// UI COMPONENTS & PROVIDERS
+// ========================================================
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// ========================================================
+// ROUTING & NAVIGATION
+// ========================================================
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+// ========================================================
+// CONTEXT & AUTHENTICATION
+// ========================================================
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+// ========================================================
+// PUBLIC PAGES
+// ========================================================
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import NotFound from "./pages/NotFound";
+
+// ========================================================
+// GENERAL PAGES
+// ========================================================
 import Dashboard from "./pages/Dashboard";
+
+// ========================================================
+// ADMIN PAGES
+// ========================================================
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import UsersPage from "./pages/admin/UsersPage";
+import DokterPage from "./pages/admin/DokterPage";
+import PawrentPage from "./pages/admin/PawrentPage";
+import HewanPage from "./pages/admin/HewanPage";
+import KunjunganPage from "./pages/admin/KunjunganPage";
+import KunjunganObatPage from "./pages/admin/KunjunganObatPage";
+import ObatPage from "./pages/admin/ObatPage";
+import KlinikPage from "./pages/admin/KlinikPage";
+import LayananPage from "./pages/admin/LayananPage";
+import AuditLogPage from "./pages/admin/AuditLogPage";
+
+// ========================================================
+// VET/DOKTER PAGES
+// ========================================================
 import VetDashboard from "./pages/vet/VetDashboard";
 import VetKunjunganPage from "./pages/vet/KunjunganPage";
 import VetHewanPage from "./pages/vet/HewanPage";
 import VetObatPage from "./pages/vet/ObatPage";
 import VetKunjunganObatPage from "./pages/vet/KunjunganObatPage";
+import VetLayananPage from "./pages/vet/LayananPage";
+
+// ========================================================
+// PAWRENT PAGES
+// ========================================================
 import PawrentDashboard from "./pages/pawrent/PawrentDashboard";
-import NotFound from "./pages/NotFound";
-import UsersPage from "./pages/admin/UsersPage";
-import DokterPage from "./pages/admin/DokterPage";
-import PawrentPage from "./pages/admin/PawrentPage";
-import HewanPage from "./pages/admin/HewanPage";
-import ObatPage from "./pages/admin/ObatPage";
-import KlinikPage from "./pages/admin/KlinikPage";
-import AuditLogPage from "./pages/admin/AuditLogPage";
-import LayananPage from "./pages/admin/LayananPage";
-import KunjunganPage from "./pages/admin/KunjunganPage";
-import KunjunganObatPage from "./pages/admin/KunjunganObatPage";
 import PawrentHewanPage from "./pages/pawrent/PawrentHewanPage";
 import PawrentRiwayatPage from "./pages/pawrent/PawrentRiwayatPage";
 import PawrentRekamMedisPage from "./pages/pawrent/PawrentRekamMedisPage";
 import PawrentProfilPage from "./pages/pawrent/PawrentProfilPage";
-import VetLayananPage from "./pages/vet/LayananPage";
 
+// ========================================================
+// QUERY CLIENT CONFIGURATION
+// ========================================================
 const queryClient = new QueryClient();
 
+// ========================================================
+// APP COMPONENT
+// ========================================================
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -42,8 +80,16 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* ========================================================
+                PUBLIC ROUTES
+                ======================================================== */}
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* ========================================================
+                DASHBOARD ROUTE (All Authenticated Users)
+                ======================================================== */}
             <Route 
               path="/dashboard" 
               element={
@@ -53,7 +99,9 @@ const App = () => (
               } 
             />
             
-            {/* Admin Routes */}
+            {/* ========================================================
+                ADMIN ROUTES (Role ID: 1)
+                ======================================================== */}
             <Route 
               path="/admin/*" 
               element={
@@ -76,7 +124,9 @@ const App = () => (
               } 
             />
             
-            {/* Vet Routes */}
+            {/* ========================================================
+                VET/DOKTER ROUTES (Role ID: 2)
+                ======================================================== */}
             <Route 
               path="/vet/*" 
               element={
@@ -94,7 +144,9 @@ const App = () => (
               } 
             />
             
-            {/* Pawrent Routes */}
+            {/* ========================================================
+                PAWRENT ROUTES (Role ID: 3)
+                ======================================================== */}
             <Route 
               path="/pawrent/*" 
               element={
@@ -111,6 +163,9 @@ const App = () => (
               } 
             />
             
+            {/* ========================================================
+                404 NOT FOUND ROUTE
+                ======================================================== */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

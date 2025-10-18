@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { PawPrint, Lock, User } from "lucide-react";
 
@@ -82,6 +82,15 @@ const Login = () => {
               {isLoading ? "Memproses..." : "Login"}
             </Button>
           </form>
+
+          <div className="mt-6 text-center text-sm">
+            <p className="text-muted-foreground">
+              Belum punya akun?{" "}
+              <Link to="/register" className="text-primary hover:underline font-medium">
+                Daftar di sini
+              </Link>
+            </p>
+          </div>
 
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-sm font-medium mb-2">Akun Demo:</p>

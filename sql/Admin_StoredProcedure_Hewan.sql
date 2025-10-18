@@ -325,20 +325,20 @@ BEGIN
 END$$
 
 -- ========================================================
--- UPDATE HEWAN BY PAWRENT (Pawrent dapat update hewan sendiri)
--- Pawrent bisa update: nama, tanggal_lahir, jenis_kelamin, jenis_hewan_id, status_hidup
--- TIDAK bisa update: pawrent_id (tidak bisa pindah owner)
+-- UPDATE HEWAN BY PAWRENT (Pawrent hanya bisa update hewan miliknya sendiri)
 -- ========================================================
 DROP PROCEDURE IF EXISTS UpdateHewanByPawrent$$
 CREATE PROCEDURE UpdateHewanByPawrent(
     IN p_hewan_id INT,
     IN p_nama_hewan VARCHAR(50),
     IN p_tanggal_lahir DATE,
-    IN p_jenis_kelamin ENUM('Jantan', 'Betina'),
+    IN p_jenis_kelamin ENUM('Jantan','Betina'),
     IN p_jenis_hewan_id INT,
     IN p_status_hidup ENUM('Hidup', 'Mati')
 )
 BEGIN
+    DECLARE v_owner_pawrent_id INT;
+    DECLARE duplicate_check INT;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
@@ -347,34 +347,33 @@ BEGIN
     
     START TRANSACTION;
     
-    -- Validate nama_hewan tidak kosong
+    -- Validate hewan exists and get owner
+    SELECT pawrent_id INTO v_owner_pawrent_id
+    FROM Hewan
+    WHERE hewan_id = p_hewan_id;
+    
+    IF v_owner_pawrent_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Hewan tidak ditemukan';
+    END IF;
+    
+    -- Note: Ownership check dilakukan di aplikasi layer (backend)
+    -- karena pawrent_id diambil dari session user yang login
+    
+    -- Validate jenis hewan exists
+    SELECT COUNT(*) INTO duplicate_check
+    FROM Jenis_Hewan
+    WHERE jenis_hewan_id = p_jenis_hewan_id;
+    
+    IF duplicate_check = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
+    END IF;
+    
+    -- Validate nama_hewan is provided
     IF p_nama_hewan IS NULL OR TRIM(p_nama_hewan) = '' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Nama hewan wajib diisi';
-    END IF;
-    
-    -- Validate jenis_kelamin
-    IF p_jenis_kelamin IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis kelamin wajib dipilih';
-    END IF;
-    
-    -- Validate jenis_hewan_id
-    IF p_jenis_hewan_id IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis hewan wajib dipilih';
-    END IF;
-    
-    -- Validate status_hidup
-    IF p_status_hidup IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Status hidup wajib dipilih';
-    END IF;
-    
-    -- Validate jenis hewan exists
-    IF NOT EXISTS (SELECT 1 FROM Jenis_Hewan WHERE jenis_hewan_id = p_jenis_hewan_id) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
     END IF;
     
     -- Validate tanggal lahir tidak di masa depan
@@ -383,23 +382,17 @@ BEGIN
         SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
     END IF;
     
-    -- Update hewan (termasuk status_hidup, tapi TIDAK termasuk pawrent_id)
-    UPDATE Hewan 
+    -- Update hewan data
+    UPDATE Hewan
     SET 
         nama_hewan = p_nama_hewan,
         tanggal_lahir = p_tanggal_lahir,
         jenis_kelamin = p_jenis_kelamin,
-        status_hidup = p_status_hidup,
-        jenis_hewan_id = p_jenis_hewan_id
+        jenis_hewan_id = p_jenis_hewan_id,
+        status_hidup = p_status_hidup
     WHERE hewan_id = p_hewan_id;
     
-    -- Check if update was successful
-    IF ROW_COUNT() = 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Hewan tidak ditemukan atau Anda tidak memiliki akses';
-    END IF;
-    
-    -- Return updated data with joined information
+    -- Return the updated hewan with joined data
     SELECT 
         h.hewan_id,
         h.nama_hewan,
@@ -418,6 +411,159 @@ BEGIN
     WHERE h.hewan_id = p_hewan_id;
     
     COMMIT;
+END$$
+
+-- ========================================================
+-- CREATE HEWAN BY PAWRENT (Pawrent dapat create hewan untuk diri sendiri)
+-- ========================================================
+DROP PROCEDURE IF EXISTS CreateHewanByPawrent$$
+CREATE PROCEDURE CreateHewanByPawrent(
+    IN p_nama_hewan VARCHAR(50),
+    IN p_tanggal_lahir DATE,
+    IN p_jenis_kelamin ENUM('Jantan','Betina'),
+    IN p_jenis_hewan_id INT,
+    IN p_pawrent_id INT,
+    IN p_status_hidup ENUM('Hidup', 'Mati')
+)
+BEGIN
+    DECLARE new_hewan_id INT;
+    DECLARE duplicate_check INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Validate pawrent exists
+    SELECT COUNT(*) INTO duplicate_check
+    FROM Pawrent
+    WHERE pawrent_id = p_pawrent_id;
+    
+    IF duplicate_check = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Pawrent tidak ditemukan';
+    END IF;
+    
+    -- Validate jenis hewan exists
+    SELECT COUNT(*) INTO duplicate_check
+    FROM Jenis_Hewan
+    WHERE jenis_hewan_id = p_jenis_hewan_id;
+    
+    IF duplicate_check = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
+    END IF;
+    
+    -- Validate nama_hewan is provided
+    IF p_nama_hewan IS NULL OR TRIM(p_nama_hewan) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nama hewan wajib diisi';
+    END IF;
+    
+    -- Validate tanggal lahir tidak di masa depan
+    IF p_tanggal_lahir IS NOT NULL AND p_tanggal_lahir > CURDATE() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
+    END IF;
+    
+    -- Insert new hewan
+    INSERT INTO Hewan (
+        nama_hewan,
+        tanggal_lahir,
+        jenis_kelamin,
+        jenis_hewan_id,
+        pawrent_id,
+        status_hidup
+    )
+    VALUES (
+        p_nama_hewan,
+        p_tanggal_lahir,
+        p_jenis_kelamin,
+        p_jenis_hewan_id,
+        p_pawrent_id,
+        p_status_hidup
+    );
+    
+    SET new_hewan_id = LAST_INSERT_ID();
+    
+    -- Return the new hewan with joined data
+    SELECT 
+        h.hewan_id,
+        h.nama_hewan,
+        h.tanggal_lahir,
+        h.jenis_kelamin,
+        h.status_hidup,
+        h.jenis_hewan_id,
+        h.pawrent_id,
+        jh.nama_jenis_hewan,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
+        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
+        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
+    FROM Hewan h
+    INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
+    INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
+    WHERE h.hewan_id = new_hewan_id;
+    
+    COMMIT;
+END$$
+
+-- ========================================================
+-- DELETE HEWAN BY PAWRENT (Pawrent hanya bisa hapus hewan miliknya sendiri)
+-- ========================================================
+DROP PROCEDURE IF EXISTS DeleteHewanByPawrent$$
+CREATE PROCEDURE DeleteHewanByPawrent(
+    IN p_hewan_id INT,
+    IN p_pawrent_id INT
+)
+BEGIN
+    DECLARE v_owner_pawrent_id INT;
+    DECLARE v_has_kunjungan INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Validate hewan exists and get owner
+    SELECT pawrent_id INTO v_owner_pawrent_id
+    FROM Hewan
+    WHERE hewan_id = p_hewan_id;
+    
+    IF v_owner_pawrent_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Hewan tidak ditemukan';
+    END IF;
+    
+    -- Validate ownership
+    IF v_owner_pawrent_id != p_pawrent_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Anda tidak memiliki izin untuk menghapus hewan ini';
+    END IF;
+    
+    -- Check if hewan has kunjungan history
+    SELECT COUNT(*) INTO v_has_kunjungan
+    FROM Kunjungan
+    WHERE hewan_id = p_hewan_id;
+    
+    IF v_has_kunjungan > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Tidak dapat menghapus hewan yang memiliki riwayat kunjungan. Hubungi admin untuk bantuan.';
+    END IF;
+    
+    -- Delete the hewan
+    DELETE FROM Hewan
+    WHERE hewan_id = p_hewan_id;
+    
+    COMMIT;
+    
+    -- Return success message
+    SELECT 
+        p_hewan_id as hewan_id,
+        'Hewan berhasil dihapus' as message;
 END$$
 
 DELIMITER ;

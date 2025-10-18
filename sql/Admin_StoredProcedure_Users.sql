@@ -15,16 +15,13 @@ BEGIN
         u.username,
         u.email,
         u.role_id,
+        r.role_name,
         u.is_active,
         u.last_login,
         u.created_at,
-        u.updated_at,
         u.dokter_id,
         u.pawrent_id,
-        COALESCE(r.role_name, 'Unknown') as role_name,
-        COALESCE(r.description, '') as role_description,
         d.nama_dokter,
-        d.title_dokter,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
         p.nomor_hp as telepon_pawrent
     FROM User_Login u
@@ -45,16 +42,13 @@ BEGIN
         u.username,
         u.email,
         u.role_id,
+        r.role_name,
         u.is_active,
         u.last_login,
         u.created_at,
-        u.updated_at,
         u.dokter_id,
         u.pawrent_id,
-        COALESCE(r.role_name, 'Unknown') as role_name,
-        COALESCE(r.description, '') as role_description,
         d.nama_dokter,
-        d.title_dokter,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
         p.nomor_hp as telepon_pawrent
     FROM User_Login u
@@ -72,7 +66,7 @@ CREATE PROCEDURE GetAllRoles()
 BEGIN
     SELECT 
         role_id, 
-        role_name, 
+        role_name,
         description 
     FROM Role 
     ORDER BY role_id;
@@ -86,8 +80,8 @@ CREATE PROCEDURE GetAvailableDoctors(IN p_current_dokter_id INT)
 BEGIN
     SELECT 
         d.dokter_id,
-        d.nama_dokter,
-        d.title_dokter,
+        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter,
+        d.telepon_dokter,
         u.user_id
     FROM Dokter d
     LEFT JOIN User_Login u ON d.dokter_id = u.dokter_id
@@ -131,6 +125,26 @@ BEGIN
     DECLARE new_user_id INT;
     DECLARE duplicate_check INT;
     
+    -- Validate username tidak duplikat
+    SELECT COUNT(*) INTO duplicate_check
+    FROM User_Login
+    WHERE username = p_username;
+    
+    IF duplicate_check > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Username sudah digunakan';
+    END IF;
+    
+    -- Validate email tidak duplikat
+    SELECT COUNT(*) INTO duplicate_check
+    FROM User_Login
+    WHERE email = p_email;
+    
+    IF duplicate_check > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Email sudah terdaftar';
+    END IF;
+    
     -- Check for duplicate dokter_id
     IF p_dokter_id IS NOT NULL THEN
         SELECT COUNT(*) INTO duplicate_check
@@ -139,7 +153,7 @@ BEGIN
         
         IF duplicate_check > 0 THEN
             SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Dokter ini sudah terhubung dengan user lain';
+            SET MESSAGE_TEXT = 'Dokter sudah memiliki akun login';
         END IF;
     END IF;
     
@@ -151,7 +165,7 @@ BEGIN
         
         IF duplicate_check > 0 THEN
             SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Pawrent ini sudah terhubung dengan user lain';
+            SET MESSAGE_TEXT = 'Pawrent sudah memiliki akun login';
         END IF;
     END IF;
     
@@ -161,8 +175,8 @@ BEGIN
         email, 
         password_hash, 
         role_id, 
-        is_active, 
-        dokter_id, 
+        is_active,
+        dokter_id,
         pawrent_id
     )
     VALUES (
@@ -170,8 +184,8 @@ BEGIN
         p_email, 
         p_password_hash, 
         p_role_id, 
-        p_is_active, 
-        p_dokter_id, 
+        p_is_active,
+        p_dokter_id,
         p_pawrent_id
     );
     
@@ -183,11 +197,10 @@ BEGIN
         u.username,
         u.email,
         u.role_id,
+        r.role_name,
         u.is_active,
-        u.created_at,
         u.dokter_id,
         u.pawrent_id,
-        COALESCE(r.role_name, 'Unknown') as role_name,
         d.nama_dokter,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent
     FROM User_Login u
@@ -214,6 +227,26 @@ CREATE PROCEDURE UpdateUser(
 BEGIN
     DECLARE duplicate_check INT;
     
+    -- Validate username tidak duplikat (excluding current user)
+    SELECT COUNT(*) INTO duplicate_check
+    FROM User_Login
+    WHERE username = p_username AND user_id != p_user_id;
+    
+    IF duplicate_check > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Username sudah digunakan';
+    END IF;
+    
+    -- Validate email tidak duplikat (excluding current user)
+    SELECT COUNT(*) INTO duplicate_check
+    FROM User_Login
+    WHERE email = p_email AND user_id != p_user_id;
+    
+    IF duplicate_check > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Email sudah terdaftar';
+    END IF;
+    
     -- Check for duplicate dokter_id (excluding current user)
     IF p_dokter_id IS NOT NULL THEN
         SELECT COUNT(*) INTO duplicate_check
@@ -222,7 +255,7 @@ BEGIN
         
         IF duplicate_check > 0 THEN
             SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Dokter ini sudah terhubung dengan user lain';
+            SET MESSAGE_TEXT = 'Dokter sudah memiliki akun login';
         END IF;
     END IF;
     
@@ -234,7 +267,7 @@ BEGIN
         
         IF duplicate_check > 0 THEN
             SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Pawrent ini sudah terhubung dengan user lain';
+            SET MESSAGE_TEXT = 'Pawrent sudah memiliki akun login';
         END IF;
     END IF;
     
@@ -248,8 +281,7 @@ BEGIN
             role_id = p_role_id,
             is_active = p_is_active,
             dokter_id = p_dokter_id,
-            pawrent_id = p_pawrent_id,
-            updated_at = CURRENT_TIMESTAMP
+            pawrent_id = p_pawrent_id
         WHERE user_id = p_user_id;
     ELSE
         UPDATE User_Login
@@ -259,8 +291,7 @@ BEGIN
             role_id = p_role_id,
             is_active = p_is_active,
             dokter_id = p_dokter_id,
-            pawrent_id = p_pawrent_id,
-            updated_at = CURRENT_TIMESTAMP
+            pawrent_id = p_pawrent_id
         WHERE user_id = p_user_id;
     END IF;
     
@@ -270,11 +301,10 @@ BEGIN
         u.username,
         u.email,
         u.role_id,
+        r.role_name,
         u.is_active,
-        u.updated_at,
         u.dokter_id,
         u.pawrent_id,
-        COALESCE(r.role_name, 'Unknown') as role_name,
         d.nama_dokter,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent
     FROM User_Login u
@@ -292,6 +322,7 @@ CREATE PROCEDURE DeleteUser(IN p_user_id INT)
 BEGIN
     DECLARE rows_affected INT;
     
+    -- Delete user
     DELETE FROM User_Login 
     WHERE user_id = p_user_id;
     
@@ -307,36 +338,19 @@ DROP PROCEDURE IF EXISTS ToggleUserActiveStatus$$
 CREATE PROCEDURE ToggleUserActiveStatus(IN p_user_id INT)
 BEGIN
     UPDATE User_Login
-    SET is_active = NOT is_active,
-        updated_at = CURRENT_TIMESTAMP
+    SET is_active = NOT is_active
     WHERE user_id = p_user_id;
     
     -- Return updated user
     SELECT 
         u.user_id,
         u.username,
+        u.email,
         u.is_active,
-        u.updated_at
+        r.role_name
     FROM User_Login u
+    LEFT JOIN Role r ON u.role_id = r.role_id
     WHERE u.user_id = p_user_id;
-END$$
-
--- ========================================================
--- GET USER STATISTICS
--- ========================================================
-DROP PROCEDURE IF EXISTS GetUserStatistics$$
-CREATE PROCEDURE GetUserStatistics()
-BEGIN
-    SELECT 
-        COUNT(*) as total_users,
-        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users,
-        SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_users,
-        SUM(CASE WHEN role_id = 1 THEN 1 ELSE 0 END) as admin_count,
-        SUM(CASE WHEN role_id = 2 THEN 1 ELSE 0 END) as vet_count,
-        SUM(CASE WHEN role_id = 3 THEN 1 ELSE 0 END) as pawrent_count,
-        COUNT(CASE WHEN DATE(last_login) = CURDATE() THEN 1 END) as today_logins,
-        COUNT(CASE WHEN DATE(created_at) = CURDATE() THEN 1 END) as today_registrations
-    FROM User_Login;
 END$$
 
 DELIMITER ;

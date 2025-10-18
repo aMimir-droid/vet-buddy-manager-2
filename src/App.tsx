@@ -26,6 +26,10 @@ import AuditLogPage from "./pages/admin/AuditLogPage";
 import LayananPage from "./pages/admin/LayananPage";
 import KunjunganPage from "./pages/admin/KunjunganPage";
 import KunjunganObatPage from "./pages/admin/KunjunganObatPage";
+import PawrentHewanPage from "./pages/pawrent/PawrentHewanPage";
+import PawrentRiwayatPage from "./pages/pawrent/PawrentRiwayatPage";
+import PawrentRekamMedisPage from "./pages/pawrent/PawrentRekamMedisPage";
+import PawrentProfilPage from "./pages/pawrent/PawrentProfilPage";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +99,10 @@ const App = () => (
                 <ProtectedRoute allowedRoles={[3]}>
                   <Routes>
                     <Route path="dashboard" element={<PawrentDashboard />} />
+                    <Route path="hewan" element={<PawrentHewanPage />} />
+                    <Route path="riwayat" element={<PawrentRiwayatPage />} />
+                    <Route path="rekam-medis" element={<PawrentRekamMedisPage />} />
+                    <Route path="profil" element={<PawrentProfilPage />} />
                     <Route path="*" element={<Navigate to="/pawrent/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

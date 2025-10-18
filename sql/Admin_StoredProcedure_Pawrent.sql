@@ -273,4 +273,130 @@ BEGIN
     SELECT rows_affected as affected_rows;
 END$$
 
+-- ========================================================
+-- UPDATE PAWRENT SELF (tanpa dokter_id)
+-- ========================================================
+DROP PROCEDURE IF EXISTS UpdatePawrentSelf$$
+CREATE PROCEDURE UpdatePawrentSelf(
+    IN p_pawrent_id INT,
+    IN p_nama_depan_pawrent VARCHAR(50),
+    IN p_nama_belakang_pawrent VARCHAR(50),
+    IN p_alamat_pawrent VARCHAR(200),
+    IN p_kota_pawrent VARCHAR(100),
+    IN p_kode_pos_pawrent VARCHAR(10),
+    IN p_nomor_hp VARCHAR(15)
+)
+BEGIN
+    DECLARE duplicate_check INT;
+    
+    -- Check if pawrent exists
+    IF NOT EXISTS (SELECT 1 FROM Pawrent WHERE pawrent_id = p_pawrent_id) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Data pawrent tidak ditemukan';
+    END IF;
+    
+    -- Check for duplicate nomor_hp (excluding current pawrent)
+    IF p_nomor_hp IS NOT NULL THEN
+        SELECT COUNT(*) INTO duplicate_check
+        FROM Pawrent
+        WHERE nomor_hp = p_nomor_hp AND pawrent_id != p_pawrent_id;
+        
+        IF duplicate_check > 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Nomor HP sudah terdaftar untuk pawrent lain';
+        END IF;
+    END IF;
+    
+    -- Update pawrent (tanpa mengubah dokter_id)
+    UPDATE Pawrent
+    SET 
+        nama_depan_pawrent = p_nama_depan_pawrent,
+        nama_belakang_pawrent = p_nama_belakang_pawrent,
+        alamat_pawrent = p_alamat_pawrent,
+        kota_pawrent = p_kota_pawrent,
+        kode_pos_pawrent = p_kode_pos_pawrent,
+        nomor_hp = p_nomor_hp
+    WHERE pawrent_id = p_pawrent_id;
+    
+    -- Return updated pawrent with joined data
+    SELECT 
+        p.pawrent_id,
+        p.nama_depan_pawrent,
+        p.nama_belakang_pawrent,
+        p.alamat_pawrent,
+        p.kota_pawrent,
+        p.kode_pos_pawrent,
+        p.nomor_hp,
+        p.dokter_id,
+        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
+    FROM Pawrent p
+    LEFT JOIN Dokter d ON p.dokter_id = d.dokter_id
+    WHERE p.pawrent_id = p_pawrent_id;
+END$$
+
+-- ========================================================
+-- UPDATE HEWAN BY PAWRENT (dengan validasi ownership)
+-- ========================================================
+DROP PROCEDURE IF EXISTS UpdateHewanByPawrent$$
+CREATE PROCEDURE UpdateHewanByPawrent(
+    IN p_hewan_id INT,
+    IN p_pawrent_id INT,
+    IN p_nama_hewan VARCHAR(50),
+    IN p_tanggal_lahir DATE,
+    IN p_jenis_kelamin ENUM('Jantan','Betina'),
+    IN p_status_hidup ENUM('Hidup','Mati'),  -- ✅ TAMBAHKAN PARAMETER INI
+    IN p_jenis_hewan_id INT
+)
+BEGIN
+    DECLARE current_pawrent_id INT;
+    
+    -- Check ownership
+    SELECT pawrent_id INTO current_pawrent_id
+    FROM Hewan
+    WHERE hewan_id = p_hewan_id;
+    
+    IF current_pawrent_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Hewan tidak ditemukan';
+    END IF;
+    
+    IF current_pawrent_id != p_pawrent_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Anda tidak memiliki hak untuk mengubah hewan ini';
+    END IF;
+    
+    -- Validate tanggal lahir
+    IF p_tanggal_lahir > CURDATE() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
+    END IF;
+    
+    -- Update hewan (✅ TAMBAHKAN status_hidup)
+    UPDATE Hewan
+    SET 
+        nama_hewan = p_nama_hewan,
+        tanggal_lahir = p_tanggal_lahir,
+        jenis_kelamin = p_jenis_kelamin,
+        status_hidup = p_status_hidup,  -- ✅ TAMBAHKAN FIELD INI
+        jenis_hewan_id = p_jenis_hewan_id
+    WHERE hewan_id = p_hewan_id;
+    
+    -- Return updated hewan
+    SELECT 
+        h.hewan_id,
+        h.nama_hewan,
+        h.tanggal_lahir,
+        h.jenis_kelamin,
+        h.status_hidup,
+        h.jenis_hewan_id,
+        h.pawrent_id,
+        jh.nama_jenis_hewan,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent
+    FROM Hewan h
+    INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
+    INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
+    WHERE h.hewan_id = p_hewan_id;
+END$$
+
+
 DELIMITER ;

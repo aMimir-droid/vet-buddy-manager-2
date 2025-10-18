@@ -19,11 +19,9 @@ BEGIN
         d.spesialisasi_id,
         d.klinik_id,
         s.nama_spesialisasi,
-        s.deskripsi_spesialisasi,
         k.nama_klinik,
-        k.alamat_klinik,
-        k.telepon_klinik,
-        COUNT(DISTINCT kj.kunjungan_id) as total_kunjungan,
+        TIMESTAMPDIFF(YEAR, d.tanggal_mulai_kerja, CURDATE()) as lama_bekerja_tahun,
+        TIMESTAMPDIFF(MONTH, d.tanggal_mulai_kerja, CURDATE()) % 12 as lama_bekerja_bulan,
         COUNT(DISTINCT p.pawrent_id) as total_pawrent
     FROM Dokter d
     LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
@@ -49,12 +47,7 @@ BEGIN
         d.spesialisasi_id,
         d.klinik_id,
         s.nama_spesialisasi,
-        s.deskripsi_spesialisasi,
         k.nama_klinik,
-        k.alamat_klinik,
-        k.telepon_klinik,
-        COUNT(DISTINCT kj.kunjungan_id) as total_kunjungan,
-        COUNT(DISTINCT p.pawrent_id) as total_pawrent,
         TIMESTAMPDIFF(YEAR, d.tanggal_mulai_kerja, CURDATE()) as lama_bekerja_tahun,
         TIMESTAMPDIFF(MONTH, d.tanggal_mulai_kerja, CURDATE()) % 12 as lama_bekerja_bulan
     FROM Dokter d
@@ -252,7 +245,7 @@ BEGIN
     
     IF pawrent_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tidak dapat menghapus dokter yang masih memiliki pasien (pawrent)';
+        SET MESSAGE_TEXT = 'Tidak dapat menghapus dokter yang masih memiliki pawrent terdaftar';
     END IF;
     
     -- Check if dokter has kunjungans
@@ -262,17 +255,17 @@ BEGIN
     
     IF kunjungan_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tidak dapat menghapus dokter yang masih memiliki riwayat kunjungan';
+        SET MESSAGE_TEXT = 'Tidak dapat menghapus dokter yang memiliki riwayat kunjungan';
     END IF;
     
-    -- Check if dokter has user account
+    -- Check if dokter has user login
     SELECT COUNT(*) INTO user_count
     FROM User_Login
     WHERE dokter_id = p_dokter_id;
     
     IF user_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tidak dapat menghapus dokter yang masih memiliki akun user. Hapus user terlebih dahulu';
+        SET MESSAGE_TEXT = 'Tidak dapat menghapus dokter yang memiliki akun login. Hapus user login terlebih dahulu';
     END IF;
     
     -- Delete dokter
@@ -282,99 +275,6 @@ BEGIN
     SET rows_affected = ROW_COUNT();
     
     SELECT rows_affected as affected_rows;
-END$$
-
--- ========================================================
--- GET DOKTER STATISTICS
--- ========================================================
-DROP PROCEDURE IF EXISTS GetDokterStatistics$$
-CREATE PROCEDURE GetDokterStatistics()
-BEGIN
-    SELECT 
-        COUNT(*) as total_dokter,
-        COUNT(CASE WHEN spesialisasi_id IS NOT NULL THEN 1 END) as dokter_spesialis,
-        COUNT(CASE WHEN spesialisasi_id IS NULL THEN 1 END) as dokter_umum,
-        COUNT(CASE WHEN klinik_id IS NOT NULL THEN 1 END) as dokter_dengan_klinik,
-        COUNT(CASE WHEN YEAR(tanggal_mulai_kerja) = YEAR(CURDATE()) THEN 1 END) as dokter_baru_tahun_ini,
-        AVG(TIMESTAMPDIFF(YEAR, tanggal_mulai_kerja, CURDATE())) as rata_rata_pengalaman_tahun
-    FROM Dokter;
-END$$
-
--- ========================================================
--- GET DOKTER WORKLOAD (jumlah kunjungan per dokter)
--- ========================================================
-DROP PROCEDURE IF EXISTS GetDokterWorkload$$
-CREATE PROCEDURE GetDokterWorkload(
-    IN p_start_date DATE,
-    IN p_end_date DATE
-)
-BEGIN
-    SELECT 
-        d.dokter_id,
-        d.title_dokter,
-        d.nama_dokter,
-        s.nama_spesialisasi,
-        k.nama_klinik,
-        COUNT(kj.kunjungan_id) as total_kunjungan,
-        SUM(kj.total_biaya) as total_pendapatan,
-        AVG(kj.total_biaya) as rata_rata_biaya_kunjungan
-    FROM Dokter d
-    LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
-    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
-    LEFT JOIN Kunjungan kj ON d.dokter_id = kj.dokter_id 
-        AND kj.tanggal_kunjungan BETWEEN p_start_date AND p_end_date
-    GROUP BY d.dokter_id
-    ORDER BY total_kunjungan DESC;
-END$$
-
--- ========================================================
--- GET DOKTER PATIENTS (list pawrent yang ditangani dokter)
--- ========================================================
-DROP PROCEDURE IF EXISTS GetDokterPatients$$
-CREATE PROCEDURE GetDokterPatients(IN p_dokter_id INT)
-BEGIN
-    SELECT 
-        p.pawrent_id,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        p.nomor_hp,
-        p.kota_pawrent,
-        COUNT(h.hewan_id) as jumlah_hewan,
-        MAX(k.tanggal_kunjungan) as kunjungan_terakhir
-    FROM Pawrent p
-    LEFT JOIN Hewan h ON p.pawrent_id = h.pawrent_id
-    LEFT JOIN Kunjungan k ON h.hewan_id = k.hewan_id AND k.dokter_id = p_dokter_id
-    WHERE p.dokter_id = p_dokter_id
-    GROUP BY p.pawrent_id
-    ORDER BY kunjungan_terakhir DESC;
-END$$
-
--- ========================================================
--- GET DOKTER SCHEDULE (kunjungan scheduled)
--- ========================================================
-DROP PROCEDURE IF EXISTS GetDokterSchedule$$
-CREATE PROCEDURE GetDokterSchedule(
-    IN p_dokter_id INT,
-    IN p_tanggal DATE
-)
-BEGIN
-    SELECT 
-        k.kunjungan_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        h.nama_hewan,
-        jh.nama_jenis_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        p.nomor_hp,
-        k.catatan,
-        k.total_biaya,
-        k.metode_pembayaran
-    FROM Kunjungan k
-    JOIN Hewan h ON k.hewan_id = h.hewan_id
-    JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
-    JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-    WHERE k.dokter_id = p_dokter_id 
-        AND k.tanggal_kunjungan = p_tanggal
-    ORDER BY k.waktu_kunjungan;
 END$$
 
 DELIMITER ;

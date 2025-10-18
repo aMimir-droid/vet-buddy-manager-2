@@ -80,6 +80,22 @@ export const pawrentApi = {
     apiCall({ endpoint: `/pawrent/${id}`, method: 'PUT', body: data, token }),
   delete: (id: number, token: string) => 
     apiCall({ endpoint: `/pawrent/${id}`, method: 'DELETE', token }),
+  // New: Update self profile (for pawrent)
+  updateSelf: async (data: any, token: string) => {
+    const response = await fetch(`${API_URL}/pawrent/profile/me`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Gagal update profil');
+    }
+    return response.json();
+  },
 };
 
 export const hewanApi = {
@@ -95,6 +111,22 @@ export const hewanApi = {
     apiCall({ endpoint: `/hewan/${id}`, method: 'PUT', body: data, token }),
   delete: (id: number, token: string) => 
     apiCall({ endpoint: `/hewan/${id}`, method: 'DELETE', token }),
+  // New: Update own hewan (for pawrent)
+  updateMy: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_URL}/hewan/my/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Gagal update hewan');
+    }
+    return response.json();
+  },
 };
 
 export const kunjunganApi = {

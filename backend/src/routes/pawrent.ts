@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, AuthRequest } from '../middleware/auth'; // ✅ Import AuthRequest
+import { RowDataPacket } from 'mysql2';
 
 const router = express.Router();
 
@@ -223,6 +224,82 @@ router.delete('/:id', authenticate, authorize(1), async (req, res) => {
   } catch (error: any) {
     console.error(`❌ [DELETE PAWRENT] Error for ID: ${id}`, error);
     
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// UPDATE SELF PROFILE - Pawrent dapat update data sendiri
+// ========================================================
+router.put('/profile/me', authenticate, authorize(3), async (req: AuthRequest, res) => { // ✅ Use AuthRequest
+  console.log('📋 [UPDATE SELF PAWRENT] Request received');
+  console.log('📝 [UPDATE SELF PAWRENT] Request body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const pawrent_id = req.user?.pawrent_id; // ✅ Now accessible
+    
+    if (!pawrent_id) {
+      return res.status(400).json({ 
+        message: 'Pawrent ID tidak ditemukan. Pastikan user login sebagai pawrent.' 
+      });
+    }
+    
+    const { 
+      nama_depan_pawrent, 
+      nama_belakang_pawrent, 
+      alamat_pawrent, 
+      kota_pawrent,
+      kode_pos_pawrent,
+      nomor_hp
+    } = req.body;
+    
+    // Validate required fields
+    if (!nama_depan_pawrent || !nama_belakang_pawrent || !nomor_hp) {
+      return res.status(400).json({ 
+        message: 'Nama depan, nama belakang, dan nomor HP wajib diisi' 
+      });
+    }
+
+    // Validate phone number format (basic)
+    if (!/^[0-9]{10,15}$/.test(nomor_hp.replace(/[\s-]/g, ''))) {
+      return res.status(400).json({ 
+        message: 'Format nomor HP tidak valid. Gunakan 10-15 digit angka.' 
+      });
+    }
+
+    console.log('🔄 [UPDATE SELF PAWRENT] Calling stored procedure UpdatePawrentSelf');
+    console.log(`📊 [UPDATE SELF PAWRENT] Parameters: Pawrent ID: ${pawrent_id}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL UpdatePawrentSelf(?, ?, ?, ?, ?, ?, ?)',
+      [
+        pawrent_id,
+        nama_depan_pawrent,
+        nama_belakang_pawrent,
+        alamat_pawrent || null,
+        kota_pawrent || null,
+        kode_pos_pawrent || null,
+        nomor_hp
+      ]
+    );
+    
+    const updatedPawrent = result[0][0];
+    console.log(`✅ [UPDATE SELF PAWRENT] Success for Pawrent ID: ${pawrent_id}`);
+    res.json(updatedPawrent);
+  } catch (error: any) {
+    console.error('❌ [UPDATE SELF PAWRENT] Error:', error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ 
+        message: 'Nomor HP sudah terdaftar oleh pawrent lain' 
+      });
+    }
     if (error.sqlState === '45000') {
       return res.status(400).json({ message: error.sqlMessage });
     }

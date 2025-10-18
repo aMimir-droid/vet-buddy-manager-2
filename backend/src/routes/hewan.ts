@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, AuthRequest } from '../middleware/auth'; // ✅ Import AuthRequest
+import { RowDataPacket } from 'mysql2';
 
 const router = express.Router();
 
@@ -237,6 +238,64 @@ router.put('/:id', authenticate, authorize(1), async (req, res) => {
 });
 
 // ========================================================
+// UPDATE HEWAN BY PAWRENT - Pawrent dapat update hewan sendiri
+// ========================================================
+router.put('/my/:id', authenticate, authorize(3), async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  console.log(`📋 [UPDATE MY HEWAN] Request received for Hewan ID: ${id}`);
+  console.log('📝 [UPDATE MY HEWAN] Request body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const { 
+      nama_hewan, 
+      tanggal_lahir, 
+      jenis_kelamin, 
+      status_hidup,  // ✅ TAMBAHKAN ini
+      jenis_hewan_id 
+    } = req.body;
+    
+    const pawrent_id = req.user?.pawrent_id;
+    
+    if (!pawrent_id) {
+      return res.status(403).json({ 
+        message: 'User tidak terhubung dengan pawrent' 
+      });
+    }
+
+    console.log('🔄 [UPDATE MY HEWAN] Calling stored procedure UpdateHewanByPawrent');
+    console.log(`📊 [UPDATE MY HEWAN] Parameters: Hewan ID: ${id}, Pawrent ID: ${pawrent_id}, Status: ${status_hidup || 'No change'}`);
+    
+    const [result]: any = await pool.execute(
+      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?, ?)',  // ✅ 7 parameters
+      [
+        id,
+        pawrent_id,
+        nama_hewan,
+        tanggal_lahir || null,
+        jenis_kelamin,
+        status_hidup || 'Hidup',  // ✅ TAMBAHKAN ini dengan default
+        jenis_hewan_id
+      ]
+    );
+    
+    const updatedHewan = result[0][0];
+    console.log(`✅ [UPDATE MY HEWAN] Success for Hewan ID: ${id}`);
+    console.log(`📊 [UPDATE MY HEWAN] Updated status: ${updatedHewan?.status_hidup}`);
+    res.json(updatedHewan);
+  } catch (error: any) {
+    console.error(`❌ [UPDATE MY HEWAN] Error for Hewan ID: ${id}`, error);
+    
+    if (error.sqlState === '45000') {
+      return res.status(403).json({ message: error.sqlMessage });
+    }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
 // DELETE HEWAN - Menggunakan Stored Procedure (Admin only)
 // ========================================================
 router.delete('/:id', authenticate, authorize(1), async (req, res) => {
@@ -261,6 +320,37 @@ router.delete('/:id', authenticate, authorize(1), async (req, res) => {
     if (error.sqlState === '45000') {
       return res.status(400).json({ message: error.sqlMessage });
     }
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
+// GET HEWANS BY CURRENT PAWRENT - Pawrent hanya lihat hewan miliknya
+// ========================================================
+router.get('/my-pets', authenticate, authorize(3), async (req: AuthRequest, res) => { // ✅ Use AuthRequest
+  console.log('📋 [GET MY PETS] Request received');
+  try {
+    const pawrentId = req.user?.pawrent_id; // ✅ Now accessible with optional chaining
+    
+    if (!pawrentId) {
+      return res.status(400).json({ 
+        message: 'Pawrent ID tidak ditemukan. Pastikan user login sebagai pawrent.' 
+      });
+    }
+
+    console.log(`🔄 [GET MY PETS] Fetching pets for pawrent ID: ${pawrentId}`);
+    const [rows]: any = await pool.execute('CALL GetAllHewans()');
+    
+    // Filter hewan berdasarkan pawrent_id
+    const myPets = rows[0].filter((hewan: any) => hewan.pawrent_id === pawrentId);
+    
+    console.log(`✅ [GET MY PETS] Success - ${myPets.length} pets found for pawrent ${pawrentId}`);
+    res.json(myPets);
+  } catch (error: any) {
+    console.error('❌ [GET MY PETS] Error:', error);
     res.status(500).json({ 
       message: 'Terjadi kesalahan server',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

@@ -33,7 +33,7 @@ const PawrentDashboard = () => {
       title: "Profil Saya",
       description: "Update data pribadi",
       icon: User,
-      path: "/pawrent/profile",
+      path: "/pawrent/profil", // ✅ PERBAIKAN: Ubah dari /pawrent/profile ke /pawrent/profil
       color: "bg-primary"
     }
   ];

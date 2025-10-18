@@ -74,10 +74,10 @@ const PawrentProfilPage = () => {
   });
 
   // Filter data by current pawrent
-  const currentPawrent = pawrents?.find((p: any) => p.pawrent_id === user?.pawrent_id);
-  const myHewans = hewans?.filter((h: any) => h.pawrent_id === user?.pawrent_id) || [];
+  const currentPawrent = Array.isArray(pawrents) ? pawrents.find((p: any) => p.pawrent_id === user?.pawrent_id) : undefined;
+  const myHewans = (Array.isArray(hewans) ? hewans : []).filter((h: any) => h.pawrent_id === user?.pawrent_id);
   const myHewanIds = myHewans.map((h: any) => h.hewan_id);
-  const myKunjungans = kunjungans?.filter((k: any) => myHewanIds.includes(k.hewan_id)) || [];
+  const myKunjungans = (Array.isArray(kunjungans) ? kunjungans : []).filter((k: any) => myHewanIds.includes(k.hewan_id));
 
   const handleOpenEditDialog = () => {
     if (currentPawrent) {

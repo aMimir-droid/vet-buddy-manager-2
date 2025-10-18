@@ -48,14 +48,20 @@ const DokterPage = () => {
     klinik_id: "",
   });
 
-  const { data: dokters, isLoading } = useQuery({
+  const { data: dokters, isLoading } = useQuery<any[]>({
     queryKey: ["dokters"],
-    queryFn: () => dokterApi.getAll(token!),
+    queryFn: async () => {
+      const result = await dokterApi.getAll(token!);
+      return result as any[];
+    },
   });
 
-  const { data: kliniks } = useQuery({
+  const { data: kliniks } = useQuery<any[]>({
     queryKey: ["kliniks"],
-    queryFn: () => klinikApi.getAll(token!),
+    queryFn: async () => {
+      const result = await klinikApi.getAll(token!);
+      return result as any[];
+    },
   });
 
   const saveMutation = useMutation({

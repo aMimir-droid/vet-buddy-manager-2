@@ -48,14 +48,20 @@ const HewanPage = () => {
     pawrent_id: "",
   });
 
-  const { data: hewans, isLoading } = useQuery({
+  const { data: hewans, isLoading } = useQuery<any[]>({
     queryKey: ["hewans"],
-    queryFn: () => hewanApi.getAll(token!),
+    queryFn: async () => {
+      const result = await hewanApi.getAll(token!);
+      return result as any[];
+    },
   });
 
-  const { data: pawrents } = useQuery({
+  const { data: pawrents } = useQuery<any[]>({
     queryKey: ["pawrents"],
-    queryFn: () => pawrentApi.getAll(token!),
+    queryFn: async () => {
+      const result = await pawrentApi.getAll(token!);
+      return result as any[];
+    },
   });
 
   const saveMutation = useMutation({
@@ -118,6 +124,20 @@ const HewanPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ VALIDASI: Pastikan pawrent_id dipilih
+    if (!formData.pawrent_id) {
+      toast.error("Pawrent wajib dipilih!");
+      return;
+    }
+    
+    // ✅ VALIDASI: Pastikan jenis_hewan_id dipilih
+    if (!formData.jenis_hewan_id) {
+      toast.error("Jenis hewan wajib dipilih!");
+      return;
+    }
+    
+    console.log("📤 [SUBMIT HEWAN] Form data:", formData);
     saveMutation.mutate(formData);
   };
 

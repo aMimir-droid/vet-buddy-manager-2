@@ -103,7 +103,8 @@ CREATE PROCEDURE CreateHewan(
     IN p_tanggal_lahir DATE,
     IN p_jenis_kelamin ENUM('Jantan','Betina'),
     IN p_jenis_hewan_id INT,
-    IN p_pawrent_id INT
+    IN p_pawrent_id INT,
+    IN p_status_hidup ENUM('Hidup', 'Mati')  -- ✅ ADDED: Parameter ke-6
 )
 BEGIN
     DECLARE new_hewan_id INT;
@@ -150,13 +151,12 @@ BEGIN
     -- Validate jenis_kelamin is provided
     IF p_jenis_kelamin IS NULL THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis kelamin wajib dipilih';
+        SET MESSAGE_TEXT = 'Jenis kelamin hewan wajib dipilih';
     END IF;
     
-    -- Validate tanggal lahir tidak di masa depan
-    IF p_tanggal_lahir IS NOT NULL AND p_tanggal_lahir > CURDATE() THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
+    -- ✅ Set default status_hidup if NULL
+    IF p_status_hidup IS NULL THEN
+        SET p_status_hidup = 'Hidup';
     END IF;
     
     -- Insert new hewan
@@ -164,17 +164,17 @@ BEGIN
         nama_hewan,
         tanggal_lahir,
         jenis_kelamin,
-        status_hidup,
         jenis_hewan_id,
-        pawrent_id
+        pawrent_id,
+        status_hidup  -- ✅ ADDED
     )
     VALUES (
         p_nama_hewan,
         p_tanggal_lahir,
         p_jenis_kelamin,
-        'Hidup',
         p_jenis_hewan_id,
-        p_pawrent_id
+        p_pawrent_id,
+        p_status_hidup  -- ✅ ADDED
     );
     
     SET new_hewan_id = LAST_INSERT_ID();
@@ -189,7 +189,9 @@ BEGIN
         h.jenis_hewan_id,
         h.pawrent_id,
         jh.nama_jenis_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
+        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
+        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
     FROM Hewan h
     INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
     INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
@@ -205,67 +207,52 @@ CREATE PROCEDURE UpdateHewan(
     IN p_nama_hewan VARCHAR(50),
     IN p_tanggal_lahir DATE,
     IN p_jenis_kelamin ENUM('Jantan','Betina'),
-    IN p_status_hidup ENUM('Hidup','Mati'),
     IN p_jenis_hewan_id INT,
-    IN p_pawrent_id INT
+    IN p_pawrent_id INT,
+    IN p_status_hidup ENUM('Hidup', 'Mati')
 )
 BEGIN
     DECLARE duplicate_check INT;
+    DECLARE hewan_exists INT;
     
-    -- MANDATORY: Validate pawrent_id is provided
-    IF p_pawrent_id IS NULL THEN
+    -- Check if hewan exists
+    SELECT COUNT(*) INTO hewan_exists
+    FROM Hewan
+    WHERE hewan_id = p_hewan_id;
+    
+    IF hewan_exists = 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Pawrent wajib dipilih. Setiap hewan harus memiliki pemilik (pawrent)';
+        SET MESSAGE_TEXT = 'Hewan tidak ditemukan';
     END IF;
     
-    -- Validate pawrent exists
-    SELECT COUNT(*) INTO duplicate_check
-    FROM Pawrent
-    WHERE pawrent_id = p_pawrent_id;
-    
-    IF duplicate_check = 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Pawrent tidak ditemukan. Silakan pilih pawrent yang valid';
+    -- PERBAIKAN: Validate pawrent exists (hanya jika p_pawrent_id diberikan)
+    IF p_pawrent_id IS NOT NULL THEN
+        SELECT COUNT(*) INTO duplicate_check
+        FROM Pawrent
+        WHERE pawrent_id = p_pawrent_id;
+        
+        IF duplicate_check = 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Pawrent tidak ditemukan. Silakan pilih pawrent yang valid';
+        END IF;
     END IF;
     
-    -- MANDATORY: Validate jenis_hewan_id is provided
-    IF p_jenis_hewan_id IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis hewan wajib dipilih';
+    -- PERBAIKAN: Validate jenis hewan exists (hanya jika p_jenis_hewan_id diberikan)
+    IF p_jenis_hewan_id IS NOT NULL THEN
+        SELECT COUNT(*) INTO duplicate_check
+        FROM Jenis_Hewan
+        WHERE jenis_hewan_id = p_jenis_hewan_id;
+        
+        IF duplicate_check = 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
+        END IF;
     END IF;
     
-    -- Validate jenis hewan exists
-    SELECT COUNT(*) INTO duplicate_check
-    FROM Jenis_Hewan
-    WHERE jenis_hewan_id = p_jenis_hewan_id;
-    
-    IF duplicate_check = 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
-    END IF;
-    
-    -- Validate nama_hewan is provided
+    -- Validate nama_hewan tidak kosong
     IF p_nama_hewan IS NULL OR TRIM(p_nama_hewan) = '' THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Nama hewan wajib diisi';
-    END IF;
-    
-    -- Validate jenis_kelamin is provided
-    IF p_jenis_kelamin IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis kelamin wajib dipilih';
-    END IF;
-    
-    -- Validate status_hidup is provided
-    IF p_status_hidup IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Status hidup wajib dipilih';
-    END IF;
-    
-    -- Validate tanggal lahir tidak di masa depan
-    IF p_tanggal_lahir IS NOT NULL AND p_tanggal_lahir > CURDATE() THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
     END IF;
     
     -- Update hewan
@@ -274,9 +261,9 @@ BEGIN
         nama_hewan = p_nama_hewan,
         tanggal_lahir = p_tanggal_lahir,
         jenis_kelamin = p_jenis_kelamin,
-        status_hidup = p_status_hidup,
         jenis_hewan_id = p_jenis_hewan_id,
-        pawrent_id = p_pawrent_id
+        pawrent_id = p_pawrent_id,
+        status_hidup = p_status_hidup
     WHERE hewan_id = p_hewan_id;
     
     -- Return updated hewan with joined data
@@ -287,9 +274,11 @@ BEGIN
         h.jenis_kelamin,
         h.status_hidup,
         h.jenis_hewan_id,
-        h.pawrent_id,
         jh.nama_jenis_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent
+        h.pawrent_id,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
+        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
+        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
     FROM Hewan h
     INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
     INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id

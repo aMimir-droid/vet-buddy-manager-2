@@ -39,19 +39,28 @@ const KunjunganPage = () => {
     kunjungan_sebelumnya: "",
   });
 
-  const { data: kunjungans, isLoading } = useQuery<any[]>({
+  const { data: kunjungans, isLoading } = useQuery({
     queryKey: ["kunjungans"],
-    queryFn: () => kunjunganApi.getAll(token!),
+    queryFn: async () => {
+      const result = await kunjunganApi.getAll(token!);
+      return result as any[];
+    },
   });
 
-  const { data: hewans } = useQuery<any[]>({
+  const { data: hewans } = useQuery({
     queryKey: ["hewans"],
-    queryFn: () => hewanApi.getAll(token!),
+    queryFn: async () => {
+      const result = await hewanApi.getAll(token!);
+      return result as any[];
+    },
   });
 
-  const { data: dokters } = useQuery<any[]>({
+  const { data: dokters } = useQuery({
     queryKey: ["dokters"],
-    queryFn: () => dokterApi.getAll(token!),
+    queryFn: async () => {
+      const result = await dokterApi.getAll(token!);
+      return result as any[];
+    },
   });
 
   const saveMutation = useMutation({

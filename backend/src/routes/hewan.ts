@@ -12,376 +12,323 @@ const router = express.Router();
 // PAWRENT-SPECIFIC ROUTES (Harus di atas route generic)
 // ========================================================
 
-// UPDATE HEWAN BY PAWRENT
-router.put('/my/:id', authenticate, authorize(3), async (req: AuthRequest, res) => {
-  console.log('✏️ [UPDATE MY HEWAN] Request received');
-  console.log('📝 [UPDATE MY HEWAN] Request body:', JSON.stringify(req.body, null, 2));
+// GET MY HEWANS - Pawrent melihat hewan miliknya
+router.get('/my', authenticate, authorize(3), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   
   try {
-    const hewanId = parseInt(req.params.id);
-    const { nama_hewan, jenis_hewan_id, tanggal_lahir, jenis_kelamin, status_hidup } = req.body;
+    console.log('🔍 [GET MY HEWANS] Getting hewans for pawrent_id:', req.user.pawrent_id);
     
-    // Get pawrent_id from authenticated user
-    const pawrent_id = req.user.pawrent_id;
-    
-    if (!pawrent_id) {
-      return res.status(403).json({ 
-        message: 'Pawrent ID tidak ditemukan untuk user ini' 
-      });
+    if (!req.user.pawrent_id) {
+      return res.status(400).json({ message: 'Pawrent ID tidak ditemukan' });
     }
 
-    // Verify ownership before update
-    const [checkOwnership]: any = await pool.execute(
-      'SELECT pawrent_id FROM Hewan WHERE hewan_id = ?',
-      [hewanId]
-    );
+    const [rows] = await pool.execute(
+      'SELECT * FROM Hewan WHERE pawrent_id = ? ORDER BY nama_hewan',
+      [req.user.pawrent_id]
+    ) as [RowDataPacket[], any];
 
-    if (checkOwnership.length === 0) {
-      return res.status(404).json({ message: 'Hewan tidak ditemukan' });
-    }
-
-    if (checkOwnership[0].pawrent_id !== pawrent_id) {
-      return res.status(403).json({ 
-        message: 'Anda tidak memiliki izin untuk mengubah hewan ini' 
-      });
-    }
-
-    console.log('🔄 [UPDATE MY HEWAN] Calling stored procedure UpdateHewanByPawrent');
-    console.log(`📊 [UPDATE MY HEWAN] Parameters: hewan_id=${hewanId}, pawrent_id=${pawrent_id}`);
-    
-    // PERBAIKAN: Kirim 6 parameter, bukan 7
-    const [result]: any = await pool.execute(
-      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?)',
-      [
-        hewanId,                      // p_hewan_id
-        nama_hewan,                   // p_nama_hewan
-        tanggal_lahir || null,        // p_tanggal_lahir
-        jenis_kelamin,                // p_jenis_kelamin
-        jenis_hewan_id,               // p_jenis_hewan_id
-        status_hidup                  // p_status_hidup
-      ]
-    );
-    
-    const updatedHewan = result[0][0];
-    console.log(`✅ [UPDATE MY HEWAN] Success - Hewan ID: ${hewanId}`);
-    res.json(updatedHewan);
-  } catch (error: any) {
-    console.error('❌ [UPDATE MY HEWAN] Error:', error);
-    
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage || 'Validasi gagal' });
-    }
-    
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.json(rows);
+  } catch (error) {
+    console.error('❌ [GET MY HEWANS] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
 // CREATE HEWAN BY PAWRENT
 router.post('/my', authenticate, authorize(3), async (req: AuthRequest, res) => {
-  console.log('📋 [CREATE MY HEWAN] Request received');
-  console.log('📝 [CREATE MY HEWAN] Request body:', JSON.stringify(req.body, null, 2));
   const pool = req.dbPool;
   
   try {
-    const { nama_hewan, jenis_hewan_id, tanggal_lahir, jenis_kelamin, status_hidup } = req.body;
+    console.log('➕ [CREATE MY HEWAN] Request body:', req.body);
+    console.log('👤 [CREATE MY HEWAN] User pawrent_id:', req.user.pawrent_id);
+    
+    const { nama_hewan, tanggal_lahir, jenis_kelamin, jenis_hewan_id, status_hidup } = req.body;
     
     // Validate required fields
-    if (!nama_hewan || !jenis_hewan_id) {
+    if (!nama_hewan || !jenis_kelamin || !jenis_hewan_id) {
       return res.status(400).json({ 
-        message: 'Nama hewan dan jenis hewan wajib diisi' 
+        message: 'Data tidak lengkap. Nama hewan, jenis kelamin, dan jenis hewan wajib diisi' 
       });
     }
 
-    // Get pawrent_id from authenticated user
-    const pawrent_id = req.user.pawrent_id;
-    
-    if (!pawrent_id) {
-      return res.status(403).json({ 
-        message: 'Pawrent ID tidak ditemukan untuk user ini' 
-      });
+    if (!req.user.pawrent_id) {
+      return res.status(400).json({ message: 'Pawrent ID tidak ditemukan' });
     }
 
-    console.log('🔄 [CREATE MY HEWAN] Calling stored procedure CreateHewanByPawrent');
-    console.log(`📊 [CREATE MY HEWAN] Parameters: nama=${nama_hewan}, jenis=${jenis_hewan_id}, pawrent=${pawrent_id}`);
-    
-    const [result]: any = await pool.execute(
+    const [result] = await pool.execute(
       'CALL CreateHewanByPawrent(?, ?, ?, ?, ?, ?)',
       [
         nama_hewan,
         tanggal_lahir || null,
-        jenis_kelamin || 'Jantan',
+        jenis_kelamin,
         jenis_hewan_id,
-        pawrent_id,
+        req.user.pawrent_id, // Use logged-in user's pawrent_id
         status_hidup || 'Hidup'
       ]
-    );
-    
-    const newHewan = result[0][0];
-    console.log(`✅ [CREATE MY HEWAN] Success - New Hewan ID: ${newHewan?.hewan_id}`);
-    res.status(201).json(newHewan);
+    ) as [RowDataPacket[][], any];
+
+    console.log('✅ [CREATE MY HEWAN] Success:', result[0][0]);
+    res.status(201).json(result[0][0]);
   } catch (error: any) {
     console.error('❌ [CREATE MY HEWAN] Error:', error);
-    
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage || 'Validasi gagal' });
-    }
-    
     res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.sqlMessage || 'Terjadi kesalahan saat membuat data hewan' 
+    });
+  }
+});
+
+// UPDATE HEWAN BY PAWRENT
+router.put('/my/:id', authenticate, authorize(3), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { id } = req.params;
+  
+  try {
+    console.log('✏️ [UPDATE MY HEWAN] Updating hewan:', id);
+    console.log('👤 [UPDATE MY HEWAN] User pawrent_id:', req.user.pawrent_id);
+    
+    const { nama_hewan, tanggal_lahir, jenis_kelamin, jenis_hewan_id, status_hidup } = req.body;
+
+    if (!req.user.pawrent_id) {
+      return res.status(400).json({ message: 'Pawrent ID tidak ditemukan' });
+    }
+
+    const [result] = await pool.execute(
+      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?, ?)',
+      [
+        parseInt(id),
+        nama_hewan,
+        tanggal_lahir || null,
+        jenis_kelamin,
+        jenis_hewan_id,
+        req.user.pawrent_id, // Verify ownership
+        status_hidup || 'Hidup'
+      ]
+    ) as [RowDataPacket[][], any];
+
+    console.log('✅ [UPDATE MY HEWAN] Success:', result[0][0]);
+    res.json(result[0][0]);
+  } catch (error: any) {
+    console.error('❌ [UPDATE MY HEWAN] Error:', error);
+    res.status(500).json({ 
+      message: error.sqlMessage || 'Terjadi kesalahan saat mengupdate data hewan' 
     });
   }
 });
 
 // DELETE HEWAN BY PAWRENT
 router.delete('/my/:id', authenticate, authorize(3), async (req: AuthRequest, res) => {
-  console.log('🗑️ [DELETE MY HEWAN] Request received');
   const pool = req.dbPool;
+  const { id } = req.params;
   
   try {
-    const hewanId = parseInt(req.params.id);
-    const pawrent_id = req.user.pawrent_id;
-    
-    if (!pawrent_id) {
-      return res.status(403).json({ 
-        message: 'Pawrent ID tidak ditemukan untuk user ini' 
-      });
+    console.log('🗑️ [DELETE MY HEWAN] Deleting hewan:', id);
+    console.log('👤 [DELETE MY HEWAN] User pawrent_id:', req.user.pawrent_id);
+
+    if (!req.user.pawrent_id) {
+      return res.status(400).json({ message: 'Pawrent ID tidak ditemukan' });
     }
 
-    console.log(`🔄 [DELETE MY HEWAN] Calling stored procedure DeleteHewanByPawrent`);
-    console.log(`📊 [DELETE MY HEWAN] Parameters: hewan_id=${hewanId}, pawrent_id=${pawrent_id}`);
-    
-    const [result]: any = await pool.execute(
+    await pool.execute(
       'CALL DeleteHewanByPawrent(?, ?)',
-      [hewanId, pawrent_id]
+
+      [parseInt(id), req.user.pawrent_id]
     );
-    
-    console.log(`✅ [DELETE MY HEWAN] Success - Hewan ID ${hewanId} deleted`);
+
+    console.log('✅ [DELETE MY HEWAN] Success');
     res.json({ message: 'Hewan berhasil dihapus' });
   } catch (error: any) {
     console.error('❌ [DELETE MY HEWAN] Error:', error);
-    
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage || 'Validasi gagal' });
-    }
-    
     res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.sqlMessage || 'Terjadi kesalahan saat menghapus data hewan' 
     });
   }
 });
 
 // ========================================================
-// GENERIC ROUTES (Untuk Admin & Vet)
+// ADMIN & VET ROUTES (Generic - untuk semua hewan)
 // ========================================================
 
 // GET ALL HEWANS
 router.get('/', authenticate, async (req: AuthRequest, res) => {
-  console.log('📋 [GET ALL HEWANS] Request received');
   const pool = req.dbPool;
   
   try {
-    console.log(`🔄 [GET ALL HEWANS] Using DB pool for role_id: ${req.user.role_id}`);
-    const [rows]: any = await pool.execute('CALL GetAllHewans()');
-    console.log(`✅ [GET ALL HEWANS] Success - ${rows[0]?.length || 0} hewans found`);
+    console.log('📋 [GET ALL HEWANS] Role:', req.user.role_id);
+    const [rows] = await pool.execute('CALL GetAllHewans()') as [RowDataPacket[][], any];
     res.json(rows[0]);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ [GET ALL HEWANS] Error:', error);
-    
-    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR' || error.code === 'ER_PROCACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak. Anda tidak memiliki izin untuk operasi ini.' 
-      });
-    }
-    
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
 // GET HEWAN BY ID
 router.get('/:id', authenticate, async (req: AuthRequest, res) => {
-  const { id } = req.params;
-  console.log(`📋 [GET HEWAN BY ID] Request received for ID: ${id}`);
   const pool = req.dbPool;
+  const { id } = req.params;
   
   try {
-    console.log(`🔄 [GET HEWAN BY ID] Calling stored procedure GetHewanById with ID: ${id}`);
-    const [rows]: any = await pool.execute('CALL GetHewanById(?)', [id]);
+    console.log('🔍 [GET HEWAN BY ID] Getting hewan:', id);
+    const [rows] = await pool.execute(
+      'CALL GetHewanById(?)', 
+      [parseInt(id)]
+    ) as [RowDataPacket[][], any];
     
     if (rows[0].length === 0) {
-      console.log(`⚠️ [GET HEWAN BY ID] Not found for ID: ${id}`);
       return res.status(404).json({ message: 'Hewan tidak ditemukan' });
     }
     
-    console.log(`✅ [GET HEWAN BY ID] Success for ID: ${id}`);
     res.json(rows[0][0]);
-  } catch (error: any) {
-    console.error(`❌ [GET HEWAN BY ID] Error for ID: ${id}`, error);
+  } catch (error) {
+    console.error('❌ [GET HEWAN BY ID] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// CREATE HEWAN (Admin/Vet)
+router.post('/', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  
+  try {
+    console.log('➕ [CREATE HEWAN] Request body:', req.body);
     
-    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR' || error.code === 'ER_PROCACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak. Anda tidak memiliki izin untuk operasi ini.' 
+    const { 
+      nama_hewan, 
+      tanggal_lahir, 
+      jenis_kelamin, 
+      jenis_hewan_id, 
+      pawrent_id,
+      status_hidup 
+    } = req.body;
+    
+    // ✅ Admin HARUS memilih pawrent
+    if (!pawrent_id) {
+      return res.status(400).json({ 
+        message: 'Pawrent wajib dipilih. Setiap hewan harus memiliki pemilik' 
       });
+    }
+
+    const [result] = await pool.execute(
+      'CALL CreateHewan(?, ?, ?, ?, ?, ?)',
+
+      [
+        nama_hewan,
+        tanggal_lahir || null,
+        jenis_kelamin,
+        jenis_hewan_id,
+        pawrent_id, // ✅ From form selection
+        status_hidup || 'Hidup'
+      ]
+    ) as [RowDataPacket[][], any];
+
+    console.log('✅ [CREATE HEWAN] Success:', result[0][0]);
+    res.status(201).json(result[0][0]);
+  } catch (error: any) {
+    console.error('❌ [CREATE HEWAN] Error:', error);
+    res.status(500).json({ 
+      message: error.sqlMessage || 'Terjadi kesalahan saat membuat data hewan' 
+    });
+  }
+});
+
+// UPDATE HEWAN (Admin/Vet)
+router.put('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { id } = req.params;
+  
+  try {
+    console.log(`✏️ [UPDATE HEWAN] Updating hewan: ${id}`);
+    console.log('📝 [UPDATE HEWAN] Request body:', JSON.stringify(req.body, null, 2));
+    
+    const { 
+      nama_hewan, 
+      tanggal_lahir, 
+      jenis_kelamin, 
+      jenis_hewan_id, 
+      pawrent_id,
+      status_hidup 
+    } = req.body;
+
+    // Validate required fields
+    if (!nama_hewan || !jenis_kelamin || !jenis_hewan_id) {
+      return res.status(400).json({ 
+        message: 'Nama hewan, jenis kelamin, dan jenis hewan wajib diisi' 
+      });
+    }
+
+    // ✅ PERBAIKAN: Validate pawrent_id hanya jika provided
+    if (pawrent_id === null || pawrent_id === undefined || pawrent_id === '') {
+      return res.status(400).json({ 
+        message: 'Pawrent wajib dipilih. Setiap hewan harus memiliki pemilik (pawrent)' 
+      });
+    }
+
+    console.log('🔄 [UPDATE HEWAN] Calling stored procedure UpdateHewan');
+    console.log(`📊 [UPDATE HEWAN] Parameters: ID=${id}, Nama=${nama_hewan}, Pawrent=${pawrent_id}`);
+
+    const [result] = await pool.execute(
+      'CALL UpdateHewan(?, ?, ?, ?, ?, ?, ?)',
+      [
+        parseInt(id),
+        nama_hewan,
+        tanggal_lahir || null,
+        jenis_kelamin,
+        parseInt(jenis_hewan_id),
+        pawrent_id ? parseInt(pawrent_id) : null, // ✅ Convert to int or null
+        status_hidup || 'Hidup'
+      ]
+    ) as [RowDataPacket[][], any];
+
+    const updatedHewan = result[0][0];
+    console.log(`✅ [UPDATE HEWAN] Success - Hewan ID: ${id}`);
+    res.json(updatedHewan);
+
+  } catch (error: any) {
+    console.error(`❌ [UPDATE HEWAN] Error for ID: ${id}`, error);
+    
+    if (error.sqlState === '45000') {
+      return res.status(400).json({ message: error.sqlMessage });
     }
     
     res.status(500).json({ 
       message: 'Terjadi kesalahan server',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// DELETE HEWAN (Admin/Vet)
+router.delete('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { id } = req.params;
+  
+  try {
+    console.log('🗑️ [DELETE HEWAN] Deleting hewan:', id);
+    
+    await pool.execute('CALL DeleteHewan(?)', [parseInt(id)]);
+    
+    console.log('✅ [DELETE HEWAN] Success');
+    res.json({ message: 'Hewan berhasil dihapus' });
+  } catch (error: any) {
+    console.error('❌ [DELETE HEWAN] Error:', error);
+    res.status(500).json({ 
+      message: error.sqlMessage || 'Terjadi kesalahan saat menghapus data hewan' 
     });
   }
 });
 
 // GET ALL JENIS HEWAN
-router.get('/jenis/list', authenticate, async (req: AuthRequest, res) => {
-  console.log('📋 [GET ALL JENIS HEWAN] Request received');
+router.get('/jenis/all', authenticate, async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   
   try {
-    console.log('🔄 [GET ALL JENIS HEWAN] Calling stored procedure GetAllJenisHewan');
-    const [rows]: any = await pool.execute('CALL GetAllJenisHewan()');
-    console.log(`✅ [GET ALL JENIS HEWAN] Success - ${rows[0]?.length || 0} jenis found`);
+    console.log('📋 [GET ALL JENIS HEWAN]');
+    const [rows] = await pool.execute('CALL GetAllJenisHewan()') as [RowDataPacket[][], any];
     res.json(rows[0]);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ [GET ALL JENIS HEWAN] Error:', error);
-    
-    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR' || error.code === 'ER_PROCACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak. Anda tidak memiliki izin untuk operasi ini.' 
-      });
-    }
-    
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// CREATE HEWAN (Admin only)
-router.post('/', authenticate, authorize(1), async (req: AuthRequest, res) => {
-  console.log('📋 [CREATE HEWAN] Request received');
-  console.log('📝 [CREATE HEWAN] Request body:', JSON.stringify(req.body, null, 2));
-  const pool = req.dbPool;
-  
-  try {
-    const { nama_hewan, jenis_hewan_id, tanggal_lahir, jenis_kelamin, pawrent_id, status_hidup } = req.body;
-    
-    // Validate required fields
-    if (!nama_hewan || !jenis_hewan_id || !pawrent_id) {
-      return res.status(400).json({ 
-        message: 'Nama hewan, jenis hewan, dan pawrent wajib diisi' 
-      });
-    }
-
-    console.log('🔄 [CREATE HEWAN] Calling stored procedure CreateHewan');
-    
-    const [result]: any = await pool.execute(
-      'CALL CreateHewan(?, ?, ?, ?, ?, ?)',
-      [
-        nama_hewan,
-        tanggal_lahir || null,
-        jenis_kelamin || 'Jantan',
-        jenis_hewan_id,
-        pawrent_id,
-        status_hidup || 'Hidup'
-      ]
-    );
-    
-    const newHewan = result[0][0];
-    console.log(`✅ [CREATE HEWAN] Success - New Hewan ID: ${newHewan?.hewan_id}`);
-    res.status(201).json(newHewan);
-  } catch (error: any) {
-    console.error('❌ [CREATE HEWAN] Error:', error);
-    
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage || 'Validasi gagal' });
-    }
-    
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// UPDATE HEWAN (Admin only)
-router.put('/:id', authenticate, authorize(1), async (req: AuthRequest, res) => {
-  const { id } = req.params;
-  console.log(`📋 [UPDATE HEWAN] Request received for ID: ${id}`);
-  const pool = req.dbPool;
-  
-  try {
-    const { nama_hewan, jenis_hewan_id, tanggal_lahir, jenis_kelamin, pawrent_id, status_hidup } = req.body;
-    
-    console.log('🔄 [UPDATE HEWAN] Calling stored procedure UpdateHewan');
-    
-    const [result]: any = await pool.execute(
-      'CALL UpdateHewan(?, ?, ?, ?, ?, ?, ?)',
-      [
-        id,
-        nama_hewan,
-        tanggal_lahir || null,
-        jenis_kelamin,
-        jenis_hewan_id,
-        pawrent_id,
-        status_hidup
-      ]
-    );
-    
-    const updatedHewan = result[0][0];
-    console.log(`✅ [UPDATE HEWAN] Success for ID: ${id}`);
-    res.json(updatedHewan);
-  } catch (error: any) {
-    console.error(`❌ [UPDATE HEWAN] Error for ID: ${id}`, error);
-    
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage || 'Validasi gagal' });
-    }
-    
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// DELETE HEWAN (Admin only)
-router.delete('/:id', authenticate, authorize(1), async (req: AuthRequest, res) => {
-  const { id } = req.params;
-  console.log(`📋 [DELETE HEWAN] Request received for ID: ${id}`);
-  const pool = req.dbPool;
-  
-  try {
-    console.log(`🔄 [DELETE HEWAN] Calling stored procedure DeleteHewan for ID: ${id}`);
-    const [result]: any = await pool.execute('CALL DeleteHewan(?)', [id]);
-    
-    const affectedRows = result[0][0].affected_rows;
-
-    if (affectedRows === 0) {
-      return res.status(404).json({ message: 'Hewan tidak ditemukan' });
-    }
-
-    console.log(`✅ [DELETE HEWAN] Success - Deleted ID: ${id}`);
-    res.json({ message: 'Hewan berhasil dihapus' });
-  } catch (error: any) {
-    console.error(`❌ [DELETE HEWAN] Error for ID: ${id}`, error);
-    
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage || 'Validasi gagal' });
-    }
-    
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 

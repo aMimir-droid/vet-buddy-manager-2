@@ -30,9 +30,13 @@ const KlinikPage = () => {
     telepon_klinik: "",
   });
 
-  const { data: kliniks, isLoading } = useQuery({
+  // ✅ FIX: Add type assertion
+  const { data: kliniks, isLoading } = useQuery<any[]>({
     queryKey: ["kliniks"],
-    queryFn: () => klinikApi.getAll(token!),
+    queryFn: async () => {
+      const result = await klinikApi.getAll(token!);
+      return result as any[];
+    },
   });
 
   const saveMutation = useMutation({
@@ -120,6 +124,7 @@ const KlinikPage = () => {
             </Button>
           </CardHeader>
           <CardContent>
+            {/* ✅ FIX: Add proper null/undefined checks */}
             {kliniks && kliniks.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {kliniks.map((klinik: any) => (

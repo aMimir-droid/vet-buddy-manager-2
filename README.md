@@ -1,73 +1,146 @@
-# Welcome to your Lovable project
+# Vet Buddy Manager
 
-## Project info
+Sistem Manajemen Klinik Hewan Sahabat Satwa  
+Frontend: React + Vite + Shadcn  
+Backend: Express + MySQL + Stored Procedures
 
-**URL**: https://lovable.dev/projects/94532a6c-fc6c-44f9-9714-2237f7ab9ef3
+## Fitur Utama
 
-## How can I edit this code?
+- Manajemen user (Admin, Dokter, Pawrent)
+- CRUD Kunjungan, Hewan, Obat, Layanan, Klinik
+- Hak akses berbasis role (admin/vet/pawrent)
+- Audit log & dashboard statistik
+- Registrasi dengan validasi unik
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## 1. Persiapan Database
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/94532a6c-fc6c-44f9-9714-2237f7ab9ef3) and start prompting.
+1. **Install MySQL** dan buat database baru:
+   ```sql
+   CREATE DATABASE vet_buddy CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
 
-Changes made via Lovable will be committed automatically to this repo.
+2. **Import schema dan prosedur:**
+   - Jalankan file SQL berikut secara berurutan:
+     - `sql/complete_schema.sql`
+     - `sql/Admin_StoredProcedure_*.sql` (semua file prosedur)
+     - `sql/Admin_Trigger.sql`
+     - `sql/Admin_GrantTables.sql`
+     - `sql/Admin_GrantExecute.sql`
+     - `sql/Admin_HakAkses.sql`
 
-**Use your preferred IDE**
+3. **Buat user MySQL sesuai .env backend:**
+   ```sql
+   CREATE USER 'admin_user'@'localhost' IDENTIFIED BY 'Admin@123';
+   CREATE USER 'vet_user'@'localhost' IDENTIFIED BY 'Vet@123';
+   CREATE USER 'pawrent_user'@'localhost' IDENTIFIED BY 'Pawrent@123';
+   FLUSH PRIVILEGES;
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+4. **Isi data demo (opsional):**
+   - Tambahkan minimal 1 admin, dokter, pawrent, hewan, dll.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 2. Konfigurasi Backend
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. Masuk folder backend:
+   ```bash
+   cd backend
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. Edit file `.env` (sudah tersedia):
+   - Pastikan user/password MySQL sesuai dengan user yang dibuat di atas.
+   - Contoh:
+     ```
+     DB_HOST=localhost
+     DB_NAME=vet_buddy
+     DB_ADMIN_USER=admin_user
+     DB_ADMIN_PASSWORD=Admin@123
+     DB_VET_USER=vet_user
+     DB_VET_PASSWORD=Vet@123
+     DB_PAWRENT_USER=pawrent_user
+     DB_PAWRENT_PASSWORD=Pawrent@123
+     JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+     PORT=3000
+     ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+4. Jalankan backend (dev mode):
+   ```bash
+   npm run dev
+   ```
+   - Server berjalan di: [http://localhost:3000](http://localhost:3000)
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 3. Konfigurasi Frontend
 
-**Use GitHub Codespaces**
+1. Kembali ke root project:
+   ```bash
+   cd ..
+   ```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## What technologies are used for this project?
+3. Pastikan file `.env` frontend sudah ada:
+   ```
+   VITE_API_BASE_URL=http://localhost:3000
+   ```
 
-This project is built with:
+4. Jalankan frontend:
+   ```bash
+   npm run dev
+   ```
+   - Web berjalan di: [http://localhost:5173](http://localhost:5173)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## 4. Akun Demo
 
-Simply open [Lovable](https://lovable.dev/projects/94532a6c-fc6c-44f9-9714-2237f7ab9ef3) and click on Share -> Publish.
+- **Admin:**  
+  username: `admin`  
+  password: `password123`
+- **Dokter:**  
+  username: `drh.budi`  
+  password: `password123`
+- **Pawrent:**  
+  username: `pawrent1`  
+  password: `password123`
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## 5. Troubleshooting
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- Jika gagal login, cek koneksi database dan user MySQL.
+- Jika error permission, pastikan GRANT sudah dijalankan di SQL.
+- Untuk reset password demo, gunakan script di `backend/scripts/update-passwords.js`.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+
+## 6. Struktur Folder
+
+- `src/` : Frontend React
+- `backend/` : Backend Express
+- `sql/` : Kumpulan file SQL schema, prosedur, trigger, grant
+
+---
+
+## 7. Kontribusi
+
+Pull request & issue sangat diterima!  
+Pastikan mengikuti format dan standar yang ada.
+
+---
+
+## License
+
+MIT

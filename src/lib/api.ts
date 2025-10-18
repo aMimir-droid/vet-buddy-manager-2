@@ -20,7 +20,7 @@ export async function apiCall<T>(config: ApiConfig): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}/api${endpoint}`, {
+  const response = await fetch(`${API_URL}${endpoint}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -44,7 +44,7 @@ export const authApi = {
 };
 
 export const usersApi = {
-  getAll: (token: string) => 
+  getAll: (token: string): Promise<any[]> => 
     apiCall({ endpoint: '/users', token }),
   getById: (id: number, token: string) => 
     apiCall({ endpoint: `/users/${id}`, token }),
@@ -57,7 +57,7 @@ export const usersApi = {
 };
 
 export const dokterApi = {
-  getAll: (token: string) => 
+  getAll: (token: string): Promise<any[]> => 
     apiCall({ endpoint: '/dokter', token }),
   getById: (id: number, token: string) => 
     apiCall({ endpoint: `/dokter/${id}`, token }),
@@ -70,7 +70,7 @@ export const dokterApi = {
 };
 
 export const pawrentApi = {
-  getAll: (token: string) => 
+  getAll: (token: string): Promise<any[]> => 
     apiCall({ endpoint: '/pawrent', token }),
   getById: (id: number, token: string) => 
     apiCall({ endpoint: `/pawrent/${id}`, token }),
@@ -83,7 +83,7 @@ export const pawrentApi = {
 };
 
 export const hewanApi = {
-  getAll: (token: string) => 
+  getAll: (token: string): Promise<any[]> => 
     apiCall({ endpoint: '/hewan', token }),
   getById: (id: number, token: string) => 
     apiCall({ endpoint: `/hewan/${id}`, token }),
@@ -98,7 +98,7 @@ export const hewanApi = {
 };
 
 export const kunjunganApi = {
-  getAll: (token: string) => 
+  getAll: (token: string): Promise<any[]> => 
     apiCall({ endpoint: '/kunjungan', token }),
   getByDateRange: (startDate: string, endDate: string, token: string) => 
     apiCall({ endpoint: `/kunjungan/date-range?start_date=${startDate}&end_date=${endDate}`, token }),
@@ -113,7 +113,7 @@ export const kunjunganApi = {
 };
 
 export const obatApi = {
-  getAll: (token: string) => 
+  getAll: (token: string): Promise<any[]> => 
     apiCall({ endpoint: '/obat', token }),
   getById: (id: number, token: string) => 
     apiCall({ endpoint: `/obat/${id}`, token }),
@@ -126,7 +126,7 @@ export const obatApi = {
 };
 
 export const klinikApi = {
-  getAll: async (token: string) => {
+  getAll: async (token: string): Promise<any[]> => {
     const response = await fetch(`${API_URL}/klinik`, {
       headers: {
         'Authorization': `Bearer ${token}`,

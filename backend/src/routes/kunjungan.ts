@@ -259,10 +259,16 @@ router.get('/hewan/:hewanId/history', authenticate, async (req, res) => {
         k.waktu_kunjungan,
         k.catatan,
         k.total_biaya,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter
+        k.metode_pembayaran,
+        CONCAT(d.title_dokter, ' ', d.nama_dokter) as nama_dokter,
+        d.dokter_id,
+        GROUP_CONCAT(DISTINCT CONCAT(o.nama_obat, ' (', ko.dosis, ')') SEPARATOR ', ') as obat_resep
       FROM Kunjungan k
       LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
+      LEFT JOIN Kunjungan_Obat ko ON k.kunjungan_id = ko.kunjungan_id
+      LEFT JOIN Obat o ON ko.obat_id = o.obat_id
       WHERE k.hewan_id = ?
+      GROUP BY k.kunjungan_id
       ORDER BY k.tanggal_kunjungan DESC, k.waktu_kunjungan DESC
       LIMIT 10
     `, [req.params.hewanId]) as [RowDataPacket[], any];

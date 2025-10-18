@@ -1,45 +1,19 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useAuth } from "@/contexts/AuthContext";
-import { kunjunganApi, hewanApi, dokterApi } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Calendar, FileText, Clock, Wallet, Info, History, Link2, Eye, ArrowRight } from "lucide-react";
+import { Calendar, Plus, Pencil, Trash2, FileText, Eye, Clock, AlertCircle, Info } from "lucide-react";
+import { kunjunganApi, hewanApi, dokterApi } from "@/lib/api";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const KunjunganPage = () => {
   const { token } = useAuth();
@@ -63,17 +37,17 @@ const KunjunganPage = () => {
     kunjungan_sebelumnya: "",
   });
 
-  const { data: kunjungans, isLoading } = useQuery({
+  const { data: kunjungans, isLoading } = useQuery<any[]>({
     queryKey: ["kunjungans"],
     queryFn: () => kunjunganApi.getAll(token!),
   });
 
-  const { data: hewans } = useQuery({
+  const { data: hewans } = useQuery<any[]>({
     queryKey: ["hewans"],
     queryFn: () => hewanApi.getAll(token!),
   });
 
-  const { data: dokters } = useQuery({
+  const { data: dokters } = useQuery<any[]>({
     queryKey: ["dokters"],
     queryFn: () => dokterApi.getAll(token!),
   });
@@ -106,35 +80,52 @@ const KunjunganPage = () => {
     },
   });
 
+  const handlePreviousVisitChange = (visitId: string) => {
+    // Convert "none" to empty string for backend
+    const actualValue = visitId === "none" ? "" : visitId;
+    setFormData({ ...formData, kunjungan_sebelumnya: actualValue });
+    
+    if (visitId && visitId !== "none") {
+      const visit = hewanHistory.find(v => v.kunjungan_id.toString() === visitId);
+      setSelectedPreviousVisit(visit);
+    } else {
+      setSelectedPreviousVisit(null);
+    }
+  };
+
   const handleHewanChange = async (hewanId: string) => {
     setSelectedHewan(hewanId);
     setFormData({ ...formData, hewan_id: hewanId, kunjungan_sebelumnya: "" });
     setSelectedPreviousVisit(null);
     
+    if (!hewanId) {
+      setHewanHistory([]);
+      return;
+    }
+    
     // Fetch history for this hewan
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/kunjungan/hewan/${hewanId}/history`, {
-        headers:
-         {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/kunjungan/hewan/${hewanId}/history`, {
+        headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      const history = await response.json();
-      setHewanHistory(history);
+      
+      if (response.ok) {
+        const history = await response.json();
+        setHewanHistory(history);
+        
+        // Show info if there's history
+        if (history.length > 0 && !editingKunjungan) {
+          toast.info(`Ditemukan ${history.length} riwayat kunjungan sebelumnya`);
+        }
+      } else {
+        setHewanHistory([]);
+      }
     } catch (error) {
       console.error('Error fetching history:', error);
       setHewanHistory([]);
-    }
-  };
-
-  const handlePreviousVisitChange = (visitId: string) => {
-    setFormData({ ...formData, kunjungan_sebelumnya: visitId });
-    
-    if (visitId) {
-      const visit = hewanHistory.find(v => v.kunjungan_id.toString() === visitId);
-      setSelectedPreviousVisit(visit);
-    } else {
-      setSelectedPreviousVisit(null);
+      toast.error('Gagal mengambil riwayat kunjungan');
     }
   };
 
@@ -178,6 +169,7 @@ const KunjunganPage = () => {
       });
       setHewanHistory([]);
       setSelectedPreviousVisit(null);
+      setSelectedHewan("");
     }
     setIsDialogOpen(true);
   };
@@ -187,11 +179,25 @@ const KunjunganPage = () => {
     setEditingKunjungan(null);
     setHewanHistory([]);
     setSelectedPreviousVisit(null);
+    setSelectedHewan("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    saveMutation.mutate(formData);
+    
+    // Validasi: Jika ada history tapi tidak dipilih
+    if (hewanHistory.length > 0 && !formData.kunjungan_sebelumnya && !editingKunjungan) {
+      toast.error("Silakan pilih kunjungan sebelumnya atau pilih 'Tidak Ada'");
+      return;
+    }
+    
+    // Clean up data before sending
+    const submitData = {
+      ...formData,
+      kunjungan_sebelumnya: formData.kunjungan_sebelumnya || null,
+    };
+    
+    saveMutation.mutate(submitData);
   };
 
   const getMetodeBadge = (metode: string) => {
@@ -257,13 +263,13 @@ const KunjunganPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tanggal & Waktu</TableHead>
+                  <TableHead>Tanggal</TableHead>
                   <TableHead>Hewan</TableHead>
                   <TableHead>Pemilik</TableHead>
                   <TableHead>Dokter</TableHead>
                   <TableHead>Catatan</TableHead>
                   <TableHead>Total Biaya</TableHead>
-                  <TableHead>Metode Bayar</TableHead>
+                  <TableHead>Pembayaran</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -275,64 +281,62 @@ const KunjunganPage = () => {
                         <span className="font-medium">
                           {new Date(kunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")}
                         </span>
-                        <span className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
+                        <span className="text-xs text-muted-foreground">
                           {kunjungan.waktu_kunjungan}
                         </span>
                         {kunjungan.kunjungan_sebelumnya && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge 
-                                  variant="outline" 
-                                  className="w-fit text-xs gap-1 cursor-pointer hover:bg-accent"
-                                  onClick={() => handleViewPreviousVisit(kunjungan.kunjungan_sebelumnya)}
-                                >
-                                  <Link2 className="h-3 w-3" />
-                                  Kunjungan Sebelumnya
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Klik untuk melihat kunjungan sebelumnya:</p>
-                                <p className="font-semibold">
-                                  {kunjungan.tanggal_kunjungan_sebelumnya 
-                                    ? new Date(kunjungan.tanggal_kunjungan_sebelumnya).toLocaleDateString("id-ID")
-                                    : "-"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs gap-1 mt-1 hover:bg-primary/10"
+                            onClick={() => handleViewPreviousVisit(kunjungan.kunjungan_sebelumnya)}
+                          >
+                            <Eye className="h-3 w-3" />
+                            Lihat Kunjungan Sebelumnya
+                          </Button>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {kunjungan.nama_hewan || "-"}
-                      <span className="block text-xs text-muted-foreground">
-                        {kunjungan.nama_jenis_hewan}
-                      </span>
-                    </TableCell>
                     <TableCell>
-                      {kunjungan.nama_pawrent || "-"}
-                      {kunjungan.telepon_pawrent && (
-                        <span className="block text-xs text-muted-foreground">
-                          {kunjungan.telepon_pawrent}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>{kunjungan.nama_dokter || "-"}</TableCell>
-                    <TableCell className="max-w-xs">
-                      <div className="truncate" title={kunjungan.catatan}>
-                        {kunjungan.catatan || "-"}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{kunjungan.nama_hewan}</span>
+                        <span className="text-xs text-muted-foreground">{kunjungan.nama_jenis_hewan}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-semibold">
-                      {kunjungan.total_biaya 
-                        ? formatCurrency(parseInt(kunjungan.total_biaya))
-                        : "-"}
-                    </TableCell>
+                    <TableCell>{kunjungan.nama_pawrent}</TableCell>
+                    <TableCell>{kunjungan.nama_dokter}</TableCell>
                     <TableCell>
-                      {getMetodeBadge(kunjungan.metode_pembayaran)}
+                      <div className="max-w-xs">
+                        {kunjungan.catatan ? (
+                          <div className="flex flex-col gap-1">
+                            <p className="text-sm line-clamp-2 text-muted-foreground">
+                              {kunjungan.catatan}
+                            </p>
+                            {kunjungan.catatan.length > 100 && (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs"
+                                onClick={() => {
+                                  setViewingKunjungan(kunjungan);
+                                  setIsDetailDialogOpen(true);
+                                }}
+                              >
+                                Lihat selengkapnya
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">
+                            Tidak ada catatan
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
+                    <TableCell className="font-semibold text-green-600">
+                      {formatCurrency(parseFloat(kunjungan.total_biaya || 0))}
+                    </TableCell>
+                    <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -378,52 +382,161 @@ const KunjunganPage = () => {
             </DialogHeader>
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="hewan_id">Hewan</Label>
+                <div className="col-span-2">
+                  <Label htmlFor="hewan_id">Hewan *</Label>
                   <Select
                     value={formData.hewan_id}
                     onValueChange={handleHewanChange}
+                    required
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih hewan" />
                     </SelectTrigger>
                     <SelectContent>
                       {hewans?.map((hewan: any) => (
-                        <SelectItem
-                          key={hewan.hewan_id}
-                          value={hewan.hewan_id.toString()}
-                        >
-                          {hewan.nama_hewan} ({hewan.nama_jenis_hewan}) - {hewan.nama_pawrent}
+                        <SelectItem key={hewan.hewan_id} value={hewan.hewan_id.toString()}>
+                          {hewan.nama_hewan} - {hewan.nama_jenis_hewan} ({hewan.nama_pawrent})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Show history alert if available */}
+                {hewanHistory.length > 0 && !editingKunjungan && (
+                  <div className="col-span-2">
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Riwayat Kunjungan Ditemukan:</strong> Hewan ini memiliki {hewanHistory.length} kunjungan sebelumnya.
+                        Silakan pilih kunjungan sebelumnya yang relevan di bawah.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {/* Previous Visit Selection */}
+                {selectedHewan && (
+                  <div className="col-span-2">
+                    <Label htmlFor="kunjungan_sebelumnya">
+                      Kunjungan Sebelumnya {hewanHistory.length > 0 && <span className="text-red-500">*</span>}
+                    </Label>
+                    <Select
+                      value={formData.kunjungan_sebelumnya}
+                      onValueChange={handlePreviousVisitChange}
+                      required={hewanHistory.length > 0 && !editingKunjungan}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          hewanHistory.length > 0 
+                            ? "Pilih kunjungan sebelumnya" 
+                            : "Tidak ada riwayat kunjungan"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          {hewanHistory.length > 0 ? "Tidak Ada / Kunjungan Pertama" : "Tidak ada riwayat"}
+                        </SelectItem>
+                        {hewanHistory.map((visit: any) => (
+                          <SelectItem key={visit.kunjungan_id} value={visit.kunjungan_id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3 w-3" />
+                              {new Date(visit.tanggal_kunjungan).toLocaleDateString("id-ID")} - 
+                              {visit.nama_dokter} - 
+                              {formatCurrency(parseFloat(visit.total_biaya || 0))}
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({calculateDaysSince(visit.tanggal_kunjungan)})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Show selected previous visit details */}
+                {selectedPreviousVisit && (
+                  <div className="col-span-2">
+                    <Card className="bg-muted/50">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm">Detail Kunjungan Sebelumnya</CardTitle>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewPreviousVisit(selectedPreviousVisit.kunjungan_id)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Lihat Detail
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="text-sm space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-muted-foreground">Tanggal:</span>
+                            <span className="ml-2 font-medium">
+                              {new Date(selectedPreviousVisit.tanggal_kunjungan).toLocaleDateString("id-ID")}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Dokter:</span>
+                            <span className="ml-2 font-medium">{selectedPreviousVisit.nama_dokter}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Biaya:</span>
+                            <span className="ml-2 font-medium text-green-600">
+                              {formatCurrency(parseFloat(selectedPreviousVisit.total_biaya || 0))}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Pembayaran:</span>
+                            <span className="ml-2">{getMetodeBadge(selectedPreviousVisit.metode_pembayaran)}</span>
+                          </div>
+                        </div>
+                        {selectedPreviousVisit.catatan && (
+                          <div>
+                            <span className="text-muted-foreground">Catatan:</span>
+                            <p className="mt-1 text-xs italic">{selectedPreviousVisit.catatan}</p>
+                          </div>
+                        )}
+                        {selectedPreviousVisit.obat_resep && (
+                          <div>
+                            <span className="text-muted-foreground">Obat:</span>
+                            <p className="mt-1 text-xs">{selectedPreviousVisit.obat_resep}</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 <div>
-                  <Label htmlFor="dokter_id">Dokter</Label>
+                  <Label htmlFor="dokter_id">Dokter *</Label>
                   <Select
                     value={formData.dokter_id}
                     onValueChange={(value) =>
                       setFormData({ ...formData, dokter_id: value })
                     }
+                    required
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih dokter" />
                     </SelectTrigger>
                     <SelectContent>
                       {dokters?.map((dokter: any) => (
-                        <SelectItem
-                          key={dokter.dokter_id}
-                          value={dokter.dokter_id.toString()}
-                        >
-                          {dokter.title_dokter} {dokter.nama_dokter}
+                        <SelectItem key={dokter.dokter_id} value={dokter.dokter_id.toString()}>
+                          {dokter.title_dokter} {dokter.nama_dokter} - {dokter.nama_spesialisasi || "Umum"}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div>
-                  <Label htmlFor="tanggal_kunjungan">Tanggal Kunjungan</Label>
+                  <Label htmlFor="tanggal_kunjungan">Tanggal Kunjungan *</Label>
                   <Input
                     id="tanggal_kunjungan"
                     type="date"
@@ -434,8 +547,9 @@ const KunjunganPage = () => {
                     required
                   />
                 </div>
+
                 <div>
-                  <Label htmlFor="waktu_kunjungan">Waktu Kunjungan</Label>
+                  <Label htmlFor="waktu_kunjungan">Waktu Kunjungan *</Label>
                   <Input
                     id="waktu_kunjungan"
                     type="time"
@@ -446,137 +560,24 @@ const KunjunganPage = () => {
                     required
                   />
                 </div>
-                
-                {/* History Kunjungan Sebelumnya dengan Info Lengkap */}
-                {hewanHistory.length > 0 && (
-                  <div className="col-span-2">
-                    <Label htmlFor="kunjungan_sebelumnya" className="flex items-center gap-2">
-                      <History className="h-4 w-4" />
-                      Hubungkan dengan Kunjungan Sebelumnya (Opsional)
-                    </Label>
-                    <Select
-                      value={formData.kunjungan_sebelumnya}
-                      onValueChange={handlePreviousVisitChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih kunjungan sebelumnya (jika ada)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">
-                          <span className="text-muted-foreground">Tidak ada kunjungan sebelumnya</span>
-                        </SelectItem>
-                        {hewanHistory.map((visit: any) => (
-                          <SelectItem
-                            key={visit.kunjungan_id}
-                            value={visit.kunjungan_id.toString()}
-                          >
-                            <div className="flex flex-col py-1">
-                              <span className="font-medium">
-                                {new Date(visit.tanggal_kunjungan).toLocaleDateString('id-ID', {
-                                  weekday: 'long',
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {visit.waktu_kunjungan} • {visit.nama_dokter} • {formatCurrency(visit.total_biaya)}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    {/* Detail Info Kunjungan Sebelumnya yang Dipilih */}
-                    {selectedPreviousVisit && (
-                      <Alert className="mt-3 bg-blue-50 border-blue-200">
-                        <Info className="h-4 w-4 text-blue-600" />
-                        <AlertDescription>
-                          <div className="space-y-2 text-sm">
-                            <div className="font-semibold text-blue-900 flex items-center justify-between">
-                              <span>Informasi Kunjungan Sebelumnya:</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-xs"
-                                onClick={() => handleViewPreviousVisit(selectedPreviousVisit.kunjungan_id)}
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                Lihat Detail
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <span className="text-muted-foreground">Tanggal:</span>
-                                <p className="font-medium">
-                                  {new Date(selectedPreviousVisit.tanggal_kunjungan).toLocaleDateString('id-ID')}
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    ({calculateDaysSince(selectedPreviousVisit.tanggal_kunjungan)})
-                                  </span>
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Waktu:</span>
-                                <p className="font-medium">{selectedPreviousVisit.waktu_kunjungan}</p>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Dokter:</span>
-                                <p className="font-medium">{selectedPreviousVisit.nama_dokter}</p>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Biaya:</span>
-                                <p className="font-medium">{formatCurrency(selectedPreviousVisit.total_biaya)}</p>
-                              </div>
-                            </div>
-                            {selectedPreviousVisit.catatan && (
-                              <div>
-                                <span className="text-muted-foreground">Catatan Sebelumnya:</span>
-                                <p className="mt-1 p-2 bg-white rounded border border-blue-100 text-xs">
-                                  {selectedPreviousVisit.catatan}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-                )}
 
-                <div className="col-span-2">
-                  <Label htmlFor="catatan">Catatan / Keluhan</Label>
-                  <textarea
-                    id="catatan"
-                    className="w-full min-h-[120px] px-3 py-2 border rounded-md"
-                    placeholder="Masukkan keluhan hewan, gejala, atau catatan penting lainnya..."
-                    value={formData.catatan}
+                <div>
+                  <Label htmlFor="total_biaya">Total Biaya (Rp) *</Label>
+                  <Input
+                    id="total_biaya"
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    value={formData.total_biaya}
                     onChange={(e) =>
-                      setFormData({ ...formData, catatan: e.target.value })
+                      setFormData({ ...formData, total_biaya: e.target.value })
                     }
+                    required
                   />
                 </div>
-                
+
                 <div>
-                  <Label htmlFor="total_biaya">Total Biaya (Rp)</Label>
-                  <div className="relative">
-                    <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="total_biaya"
-                      type="number"
-                      className="pl-10"
-                      placeholder="0"
-                      value={formData.total_biaya}
-                      onChange={(e) =>
-                        setFormData({ ...formData, total_biaya: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="metode_pembayaran">Metode Pembayaran</Label>
+                  <Label htmlFor="metode_pembayaran">Metode Pembayaran *</Label>
                   <Select
                     value={formData.metode_pembayaran}
                     onValueChange={(value) =>
@@ -589,9 +590,22 @@ const KunjunganPage = () => {
                     <SelectContent>
                       <SelectItem value="Cash">💵 Cash</SelectItem>
                       <SelectItem value="Transfer">🏦 Transfer Bank</SelectItem>
-                      <SelectItem value="E-Wallet">📱 E-Wallet (GoPay, OVO, dll)</SelectItem>
+                      <SelectItem value="E-Wallet">📱 E-Wallet</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="catatan">Catatan / Diagnosa</Label>
+                  <textarea
+                    id="catatan"
+                    className="w-full min-h-[100px] px-3 py-2 border rounded-md resize-none"
+                    placeholder="Catatan dokter, diagnosa, atau informasi tambahan..."
+                    value={formData.catatan}
+                    onChange={(e) =>
+                      setFormData({ ...formData, catatan: e.target.value })
+                    }
+                  />
                 </div>
               </div>
               <DialogFooter className="mt-6">
@@ -622,113 +636,46 @@ const KunjunganPage = () => {
             {viewingKunjungan && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Tanggal Kunjungan</Label>
-                    <p className="font-medium flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(viewingKunjungan.tanggal_kunjungan).toLocaleDateString('id-ID', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                  <div>
+                    <Label>Hewan</Label>
+                    <p className="text-sm font-medium">{viewingKunjungan.nama_hewan}</p>
+                  </div>
+                  <div>
+                    <Label>Pemilik</Label>
+                    <p className="text-sm font-medium">{viewingKunjungan.nama_pawrent}</p>
+                  </div>
+                  <div>
+                    <Label>Dokter</Label>
+                    <p className="text-sm font-medium">{viewingKunjungan.nama_dokter}</p>
+                  </div>
+                  <div>
+                    <Label>Tanggal & Waktu</Label>
+                    <p className="text-sm font-medium">
+                      {new Date(viewingKunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingKunjungan.waktu_kunjungan}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Waktu</Label>
-                    <p className="font-medium flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      {viewingKunjungan.waktu_kunjungan}
+                  <div>
+                    <Label>Total Biaya</Label>
+                    <p className="text-sm font-bold text-green-600">
+                      {formatCurrency(parseFloat(viewingKunjungan.total_biaya || 0))}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Hewan</Label>
-                    <p className="font-medium">
-                      {viewingKunjungan.nama_hewan}
-                      <span className="text-sm text-muted-foreground ml-2">
-                        ({viewingKunjungan.nama_jenis_hewan})
-                      </span>
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Pemilik</Label>
-                    <p className="font-medium">{viewingKunjungan.nama_pawrent}</p>
-                    {viewingKunjungan.telepon_pawrent && (
-                      <p className="text-sm text-muted-foreground">{viewingKunjungan.telepon_pawrent}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Dokter</Label>
-                    <p className="font-medium">{viewingKunjungan.nama_dokter}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Metode Pembayaran</Label>
-                    <div>{getMetodeBadge(viewingKunjungan.metode_pembayaran)}</div>
+                  <div>
+                    <Label>Metode Pembayaran</Label>
+                    <div className="mt-1">{getMetodeBadge(viewingKunjungan.metode_pembayaran)}</div>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Total Biaya</Label>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatCurrency(parseInt(viewingKunjungan.total_biaya))}
-                  </p>
-                </div>
-
                 {viewingKunjungan.catatan && (
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Catatan / Keluhan</Label>
-                    <div className="p-4 bg-muted rounded-md">
-                      <p className="whitespace-pre-wrap">{viewingKunjungan.catatan}</p>
-                    </div>
+                  <div>
+                    <Label>Catatan</Label>
+                    <p className="text-sm mt-1 p-3 bg-muted rounded-md">{viewingKunjungan.catatan}</p>
                   </div>
-                )}
-
-                {viewingKunjungan.kunjungan_sebelumnya && (
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="flex items-center justify-between">
-                      <span className="text-sm">
-                        Kunjungan ini terhubung dengan kunjungan tanggal{' '}
-                        <strong>
-                          {viewingKunjungan.tanggal_kunjungan_sebelumnya 
-                            ? new Date(viewingKunjungan.tanggal_kunjungan_sebelumnya).toLocaleDateString("id-ID")
-                            : "-"}
-                        </strong>
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setIsDetailDialogOpen(false);
-                          handleViewPreviousVisit(viewingKunjungan.kunjungan_sebelumnya);
-                        }}
-                      >
-                        <ArrowRight className="h-4 w-4 mr-1" />
-                        Lihat
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
                 )}
               </div>
             )}
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDetailDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
                 Tutup
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  setIsDetailDialogOpen(false);
-                  handleOpenDialog(viewingKunjungan);
-                }}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Kunjungan
               </Button>
             </DialogFooter>
           </DialogContent>

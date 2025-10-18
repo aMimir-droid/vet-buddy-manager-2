@@ -2,20 +2,31 @@ import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { LogOut, PawPrint } from "lucide-react";
+import { LogOut, PawPrint, ArrowLeft } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
   title: string;
+  showBackButton?: boolean;
+  backTo?: string;
 }
 
-export function DashboardLayout({ children, title }: DashboardLayoutProps) {
+export function DashboardLayout({ 
+  children, 
+  title, 
+  showBackButton = false,
+  backTo = "/admin/dashboard" 
+}: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleBack = () => {
+    navigate(backTo);
   };
 
   return (
@@ -46,8 +57,23 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         </div>
       </header>
 
+      {/* Back Button (if enabled) */}
+      {showBackButton && (
+        <div className="container px-4 pt-6">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleBack}
+            className="gap-2 hover:bg-primary/10"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Dashboard
+          </Button>
+        </div>
+      )}
+
       {/* Main Content */}
-      <main className="container px-4 py-8">
+      <main className={`container px-4 ${showBackButton ? 'py-4' : 'py-8'}`}>
         {children}
       </main>
     </div>

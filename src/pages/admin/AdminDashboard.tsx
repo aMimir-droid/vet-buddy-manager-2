@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Stethoscope, PawPrint, Calendar, Database, FileText } from "lucide-react";
+import { Users, Stethoscope, PawPrint, Calendar, Database, FileText, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
@@ -58,10 +58,10 @@ const AdminDashboard = () => {
       color: "bg-primary"
     },
     {
-      title: "Laporan",
-      description: "Stored procedures & reports",
-      icon: FileText,
-      path: "/admin/reports",
+      title: "Audit Log",
+      description: "Riwayat aktivitas sistem",
+      icon: Activity,
+      path: "/admin/auditlog",
       color: "bg-secondary"
     }
   ];

@@ -1,7 +1,6 @@
-// API configuration and utility functions
-// This will connect to your MySQL backend API
+import { API_BASE_URL } from './config';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export interface ApiConfig {
   endpoint: string;
@@ -21,73 +20,263 @@ export async function apiCall<T>(config: ApiConfig): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const options: RequestInit = {
+  const response = await fetch(`${API_BASE_URL}/api${endpoint}`, {
     method,
     headers,
-  };
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
-  if (body && method !== 'GET') {
-    options.body = JSON.stringify(body);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Network error' }));
+    throw new Error(error.message || 'Request failed');
   }
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'API request failed');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
+  return response.json();
 }
 
-// Auth API
 export const authApi = {
   login: (username: string, password: string) => 
-    apiCall({ endpoint: '/auth/login', method: 'POST', body: { username, password } }),
-  
-  logout: (token: string) => 
-    apiCall({ endpoint: '/auth/logout', method: 'POST', token }),
-  
-  getCurrentUser: (token: string) => 
-    apiCall({ endpoint: '/auth/me', token }),
+    apiCall({ 
+      endpoint: '/auth/login', 
+      method: 'POST', 
+      body: { username, password } 
+    }),
 };
 
-// CRUD API generators
-export function createCrudApi<T>(resource: string) {
-  return {
-    getAll: (token: string) => 
-      apiCall<T[]>({ endpoint: `/${resource}`, token }),
-    
-    getById: (id: number, token: string) => 
-      apiCall<T>({ endpoint: `/${resource}/${id}`, token }),
-    
-    create: (data: Partial<T>, token: string) => 
-      apiCall<T>({ endpoint: `/${resource}`, method: 'POST', body: data, token }),
-    
-    update: (id: number, data: Partial<T>, token: string) => 
-      apiCall<T>({ endpoint: `/${resource}/${id}`, method: 'PUT', body: data, token }),
-    
-    delete: (id: number, token: string) => 
-      apiCall<void>({ endpoint: `/${resource}/${id}`, method: 'DELETE', token }),
-  };
-}
+export const usersApi = {
+  getAll: (token: string) => 
+    apiCall({ endpoint: '/users', token }),
+  getById: (id: number, token: string) => 
+    apiCall({ endpoint: `/users/${id}`, token }),
+  create: (data: any, token: string) => 
+    apiCall({ endpoint: '/users', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) => 
+    apiCall({ endpoint: `/users/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => 
+    apiCall({ endpoint: `/users/${id}`, method: 'DELETE', token }),
+};
 
-// Stored Procedures API
-export const storedProceduresApi = {
-  getRiwayatKunjunganByHewan: (hewan_id: number, token: string) =>
-    apiCall({ endpoint: `/procedures/riwayat-kunjungan/${hewan_id}`, token }),
-  
-  getHewanByJenis: (jenis_hewan_id: number, token: string) =>
-    apiCall({ endpoint: `/procedures/hewan-by-jenis/${jenis_hewan_id}`, token }),
-  
-  getKunjunganByDateRange: (start_date: string, end_date: string, token: string) =>
-    apiCall({ 
-      endpoint: `/procedures/kunjungan-by-date?start=${start_date}&end=${end_date}`, 
-      token 
-    }),
+export const dokterApi = {
+  getAll: (token: string) => 
+    apiCall({ endpoint: '/dokter', token }),
+  getById: (id: number, token: string) => 
+    apiCall({ endpoint: `/dokter/${id}`, token }),
+  create: (data: any, token: string) => 
+    apiCall({ endpoint: '/dokter', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) => 
+    apiCall({ endpoint: `/dokter/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => 
+    apiCall({ endpoint: `/dokter/${id}`, method: 'DELETE', token }),
+};
+
+export const pawrentApi = {
+  getAll: (token: string) => 
+    apiCall({ endpoint: '/pawrent', token }),
+  getById: (id: number, token: string) => 
+    apiCall({ endpoint: `/pawrent/${id}`, token }),
+  create: (data: any, token: string) => 
+    apiCall({ endpoint: '/pawrent', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) => 
+    apiCall({ endpoint: `/pawrent/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => 
+    apiCall({ endpoint: `/pawrent/${id}`, method: 'DELETE', token }),
+};
+
+export const hewanApi = {
+  getAll: (token: string) => 
+    apiCall({ endpoint: '/hewan', token }),
+  getById: (id: number, token: string) => 
+    apiCall({ endpoint: `/hewan/${id}`, token }),
+  getByJenis: (jenisId: number, token: string) => 
+    apiCall({ endpoint: `/hewan/jenis/${jenisId}`, token }),
+  create: (data: any, token: string) => 
+    apiCall({ endpoint: '/hewan', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) => 
+    apiCall({ endpoint: `/hewan/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => 
+    apiCall({ endpoint: `/hewan/${id}`, method: 'DELETE', token }),
+};
+
+export const kunjunganApi = {
+  getAll: (token: string) => 
+    apiCall({ endpoint: '/kunjungan', token }),
+  getByDateRange: (startDate: string, endDate: string, token: string) => 
+    apiCall({ endpoint: `/kunjungan/date-range?start_date=${startDate}&end_date=${endDate}`, token }),
+  getByHewan: (hewanId: number, token: string) => 
+    apiCall({ endpoint: `/kunjungan/hewan/${hewanId}`, token }),
+  create: (data: any, token: string) => 
+    apiCall({ endpoint: '/kunjungan', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) => 
+    apiCall({ endpoint: `/kunjungan/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => 
+    apiCall({ endpoint: `/kunjungan/${id}`, method: 'DELETE', token }),
+};
+
+export const obatApi = {
+  getAll: (token: string) => 
+    apiCall({ endpoint: '/obat', token }),
+  getById: (id: number, token: string) => 
+    apiCall({ endpoint: `/obat/${id}`, token }),
+  create: (data: any, token: string) => 
+    apiCall({ endpoint: '/obat', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) => 
+    apiCall({ endpoint: `/obat/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => 
+    apiCall({ endpoint: `/obat/${id}`, method: 'DELETE', token }),
+};
+
+export const klinikApi = {
+  getAll: async (token: string) => {
+    const response = await fetch(`${API_URL}/klinik`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to fetch' }));
+      throw new Error(error.message || 'Failed to fetch kliniks');
+    }
+    return response.json();
+  },
+
+  getById: async (id: number, token: string) => {
+    const response = await fetch(`${API_URL}/klinik/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch klinik');
+    return response.json();
+  },
+
+  create: async (data: any, token: string) => {
+    const response = await fetch(`${API_URL}/klinik`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to create' }));
+      throw new Error(error.message || 'Failed to create klinik');
+    }
+    return response.json();
+  },
+
+  update: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_URL}/klinik/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to update' }));
+      throw new Error(error.message || 'Failed to update klinik');
+    }
+    return response.json();
+  },
+
+  delete: async (id: number, token: string) => {
+    const response = await fetch(`${API_URL}/klinik/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to delete' }));
+      throw new Error(error.message || 'Failed to delete klinik');
+    }
+    return response.json();
+  },
+
+  getDokters: async (id: number, token: string) => {
+    const response = await fetch(`${API_URL}/klinik/${id}/dokters`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch clinic doctors');
+    return response.json();
+  },
+};
+
+export const dashboardApi = {
+  getStats: (token: string) => 
+    apiCall({ endpoint: '/dashboard/stats', token }),
+};
+
+export const auditlogApi = {
+  getAll: async (token: string, params?: {
+    start_date?: string;
+    end_date?: string;
+    table_name?: string;
+    action_type?: string;
+    executed_by?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const url = `${API_URL}/auditlog${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch audit logs');
+    return response.json();
+  },
+
+  getStats: async (token: string) => {
+    const response = await fetch(`${API_URL}/auditlog/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch stats');
+    return response.json();
+  },
+
+  getByTable: async (token: string) => {
+    const response = await fetch(`${API_URL}/auditlog/by-table`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch by table');
+    return response.json();
+  },
+
+  getByUser: async (token: string) => {
+    const response = await fetch(`${API_URL}/auditlog/by-user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch by user');
+    return response.json();
+  },
+
+  getById: async (id: number, token: string) => {
+    const response = await fetch(`${API_URL}/auditlog/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch log detail');
+    return response.json();
+  },
 };

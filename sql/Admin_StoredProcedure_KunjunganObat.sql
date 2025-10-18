@@ -64,19 +64,17 @@ BEGIN
         SET MESSAGE_TEXT = 'Obat sudah ada dalam kunjungan ini';
     END IF;
     
-    -- Insert kunjungan obat
+    -- Insert kunjungan obat (removed CURDATE())
     INSERT INTO Kunjungan_Obat (
         kunjungan_id,
         obat_id,
         dosis,
-        frekuensi,
-        tanggal_pemberian
+        frekuensi
     ) VALUES (
         p_kunjungan_id,
         p_obat_id,
         p_dosis,
-        p_frekuensi,
-        CURDATE()
+        p_frekuensi
     );
     
     -- Return created data
@@ -87,8 +85,7 @@ BEGIN
         o.kegunaan,
         o.harga_obat,
         ko.dosis,
-        ko.frekuensi,
-        ko.tanggal_pemberian
+        ko.frekuensi
     FROM Kunjungan_Obat ko
     INNER JOIN Obat o ON ko.obat_id = o.obat_id
     WHERE ko.kunjungan_id = p_kunjungan_id 

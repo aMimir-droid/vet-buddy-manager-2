@@ -154,6 +154,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
   
   try {
     const { 
+      hewan_id,
+      dokter_id,
       tanggal_kunjungan, 
       waktu_kunjungan, 
       catatan, 
@@ -165,9 +167,11 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
     console.log(`🔄 [UPDATE KUNJUNGAN] Updating kunjungan ID: ${id}`);
     
     const [result]: any = await pool.execute(
-      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?)',
+      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
+        hewan_id,
+        dokter_id,
         tanggal_kunjungan,
         waktu_kunjungan,
         catatan || null,

@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, PawPrint, Database, Syringe } from "lucide-react";
+import { Calendar, PawPrint, Database, Syringe, Stethoscope } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const VetDashboard = () => {
@@ -39,6 +39,14 @@ const VetDashboard = () => {
       path: "/vet/obat",
       color: "bg-secondary",
       highlight: true
+    },
+    {
+      title: "Data Layanan",
+      description: "Referensi layanan medis",
+      icon: Stethoscope,
+      path: "/vet/layanan",
+      color: "bg-indigo-500",
+      highlight: true
     }
   ];
 
@@ -54,7 +62,7 @@ const VetDashboard = () => {
           </CardHeader>
         </Card>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
           {menuItems.map((item, idx) => (
             <Card 
               key={idx} 

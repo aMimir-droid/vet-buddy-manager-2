@@ -30,6 +30,7 @@ import PawrentHewanPage from "./pages/pawrent/PawrentHewanPage";
 import PawrentRiwayatPage from "./pages/pawrent/PawrentRiwayatPage";
 import PawrentRekamMedisPage from "./pages/pawrent/PawrentRekamMedisPage";
 import PawrentProfilPage from "./pages/pawrent/PawrentProfilPage";
+import VetLayananPage from "./pages/vet/LayananPage";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
                     <Route path="hewan" element={<VetHewanPage />} />
                     <Route path="obat" element={<VetObatPage />} />
                     <Route path="kunjungan-obat" element={<VetKunjunganObatPage />} />
+                    <Route path="layanan" element={<VetLayananPage />} />
                     <Route path="*" element={<Navigate to="/vet/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

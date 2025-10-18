@@ -12,7 +12,6 @@ export interface UserLogin {
   email: string;
   password_hash: string;
   role_id: number;
-  db_user: string;
   is_active: boolean;
   last_login?: string;
   created_at: string;

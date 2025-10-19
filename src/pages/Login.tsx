@@ -91,15 +91,6 @@ const Login = () => {
               </Link>
             </p>
           </div>
-
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <p className="text-sm font-medium mb-2">Akun Demo:</p>
-            <div className="text-xs space-y-1 text-muted-foreground">
-              <p><strong>Admin:</strong> username: admin / password: password123</p>
-              <p><strong>Dokter:</strong> username: drh.budi / password: password123</p>
-              <p><strong>Pawrent:</strong> username: pawrent1 / password: password123</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

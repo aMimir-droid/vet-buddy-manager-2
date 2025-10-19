@@ -94,14 +94,13 @@ router.put('/my/:id', authenticate, authorize(3), async (req: AuthRequest, res) 
     }
 
     const [result] = await pool.execute(
-      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?, ?)',
+      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?)', // <-- 6 parameter
       [
         parseInt(id),
         nama_hewan,
         tanggal_lahir || null,
         jenis_kelamin,
-        jenis_hewan_id,
-        req.user.pawrent_id, // Verify ownership
+        parseInt(jenis_hewan_id),
         status_hidup || 'Hidup'
       ]
     ) as [RowDataPacket[][], any];

@@ -14,9 +14,9 @@ CREATE ROLE IF NOT EXISTS 'pawrent_role';
 -- 2. CREATE USERS
 -- ========================================================
 -- Gunakan password yang aman, ini hanya contoh
-CREATE USER IF NOT EXISTS 'admin_user'@'localhost' IDENTIFIED BY 'Admin@123';
-CREATE USER IF NOT EXISTS 'vet_user'@'localhost' IDENTIFIED BY 'Vet@123';
-CREATE USER IF NOT EXISTS 'pawrent_user'@'localhost' IDENTIFIED BY 'Pawrent@123';
+CREATE USER IF NOT EXISTS 'admin_user'@'localhost' ;
+CREATE USER IF NOT EXISTS 'vet_user'@'localhost' ;
+CREATE USER IF NOT EXISTS 'pawrent_user'@'localhost';
 
 -- ========================================================
 -- 3. GRANT PERMISSIONS TO ROLES

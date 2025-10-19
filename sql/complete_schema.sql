@@ -125,7 +125,6 @@ CREATE TABLE User_Login (
     email VARCHAR(100) NOT NULL UNIQUE COMMENT 'Email user',
     password_hash VARCHAR(255) NOT NULL COMMENT 'Hashed password',
     role_id INT NOT NULL COMMENT 'Foreign Key ke tabel Role',
-    db_user VARCHAR(50) COMMENT 'MySQL database user untuk akses',
     is_active BOOLEAN DEFAULT TRUE COMMENT 'Status aktif user',
     dokter_id INT NULL COMMENT 'Foreign Key ke Dokter jika role = Vet',
     pawrent_id INT NULL COMMENT 'Foreign Key ke Pawrent jika role = Pawrent',

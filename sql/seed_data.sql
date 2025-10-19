@@ -17,7 +17,7 @@ TRUNCATE TABLE AuditLog;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ======================
--- INSERT DATA KLINIK HEWAN (sesuai struktur baru)
+-- INSERT DATA SESUAI SCHEMA BARU
 -- ======================
 
 -- Role
@@ -32,7 +32,7 @@ INSERT INTO Klinik (nama_klinik, alamat_klinik, telepon_klinik) VALUES
 ('Animal Hospital Plus', 'Jl. Gatot Subroto No. 45, Bandung', '022-87654321'),
 ('Happy Pet Veterinary', 'Jl. Ahmad Yani No. 78, Surabaya', '031-11223344');
 
--- Spesialisasi (nama_spesialisasi wajib, jadi saya tambahkan)
+-- Spesialisasi
 INSERT INTO Spesialisasi (nama_spesialisasi, deskripsi_spesialisasi) VALUES
 ('Bedah Umum', 'Bedah Umum - Spesialisasi dalam operasi dan pembedahan hewan'),
 ('Penyakit Dalam', 'Penyakit Dalam - Spesialisasi dalam diagnosis dan pengobatan penyakit internal hewan');
@@ -46,13 +46,13 @@ INSERT INTO Dokter (title_dokter, nama_dokter, telepon_dokter, tanggal_mulai_ker
 ('drh.', 'Rizky Pratama', '081234567894', '2022-02-28', 1, 3);
 
 -- Pawrent
-INSERT INTO Pawrent (nama_depan_pawrent, nama_belakang_pawrent, alamat_pawrent, kota_pawrent, kode_pos_pawrent, nomor_hp, dokter_id) VALUES
-('Andi', 'Wijaya', 'Jl. Merdeka No. 15', 'Jakarta', '12345', '081234567890', 1),
-('Sari', 'Dewi', 'Jl. Pahlawan No. 22', 'Jakarta', '12346', '082134567891', 1),
-('Bima', 'Sakti', 'Jl. Diponegoro No. 8', 'Bandung', '40123', '083134567892', 3),
-('Linda', 'Sari', 'Jl. Veteran No. 31', 'Bandung', '40124', '084134567893', 4),
-('Roni', 'Hartono', 'Jl. Pemuda No. 17', 'Surabaya', '60111', '085134567894', 5),
-('Dian', 'Pratiwi', 'Jl. Kenangan No. 9', 'Surabaya', '60112', '086134567895', 5);
+INSERT INTO Pawrent (nama_depan_pawrent, nama_belakang_pawrent, alamat_pawrent, kota_pawrent, kode_pos_pawrent, dokter_id, nomor_hp) VALUES
+('Andi', 'Wijaya', 'Jl. Merdeka No. 15', 'Jakarta', '12345', 1, '081234567890'),
+('Sari', 'Dewi', 'Jl. Pahlawan No. 22', 'Jakarta', '12346', 1, '082134567891'),
+('Bima', 'Sakti', 'Jl. Diponegoro No. 8', 'Bandung', '40123', 3, '083134567892'),
+('Linda', 'Sari', 'Jl. Veteran No. 31', 'Bandung', '40124', 4, '084134567893'),
+('Roni', 'Hartono', 'Jl. Pemuda No. 17', 'Surabaya', '60111', 5, '085134567894'),
+('Dian', 'Pratiwi', 'Jl. Kenangan No. 9', 'Surabaya', '60112', 5, '086134567895');
 
 -- Jenis Hewan
 INSERT INTO Jenis_Hewan (nama_jenis_hewan, deskripsi_jenis_hewan) VALUES
@@ -74,13 +74,13 @@ INSERT INTO Hewan (nama_hewan, tanggal_lahir, jenis_kelamin, status_hidup, jenis
 ('Buddy', '2022-02-28', 'Jantan', 'Hidup', 2, 5),
 ('Princess', '2023-04-05', 'Betina', 'Hidup', 1, 6);
 
--- User_Login (minimal admin, vet, pawrent, agar aplikasi bisa login)
-INSERT INTO User_Login (username, email, password_hash, role_id, db_user, is_active, dokter_id, pawrent_id) VALUES
-('admin', 'admin@vetbuddy.com', 'hashed_admin', 1, 'admin_db', TRUE, NULL, NULL),
-('ahmad', 'ahmad@vetbuddy.com', 'hashed_ahmad', 2, 'vet_db', TRUE, 1, NULL),
-('siti', 'siti@vetbuddy.com', 'hashed_siti', 2, 'vet_db', TRUE, 2, NULL),
-('andi', 'andi@vetbuddy.com', 'hashed_andi', 3, 'paw_db', TRUE, NULL, 1),
-('sari', 'sari@vetbuddy.com', 'hashed_sari', 3, 'paw_db', TRUE, NULL, 2);
+-- User_Login
+INSERT INTO User_Login (username, email, password_hash, role_id, is_active, dokter_id, pawrent_id) VALUES
+('admin', 'admin@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 1, TRUE, NULL, NULL),
+('ahmad', 'ahmad@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLOd', 2, TRUE, 1, NULL),
+('siti', 'siti@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 2, TRUE, 2, NULL),
+('andi', 'andi@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 3, TRUE, NULL, 1),
+('pawrent1', 'sari@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 3, TRUE, NULL, 2);
 
 -- Detail_Layanan
 INSERT INTO Detail_Layanan (kode_layanan, nama_layanan, deskripsi_layanan, biaya_layanan) VALUES

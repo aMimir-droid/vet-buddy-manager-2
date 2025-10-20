@@ -2,35 +2,43 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Building2, Search, MapPin, Phone } from "lucide-react";
+import { Building2, Search, MapPin, Phone, UserCog } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
+import { klinikApi } from "@/lib/api";
 
 const fetchKliniks = async (token: string) => {
-  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/klinik/public/list`, {
+  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/klinik/vet/list`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error("Gagal mengambil data klinik");
   return res.json();
 };
 
-const PawrentKlinikPage = () => {
+const VetKlinikPage = () => {
   const { token } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedKlinik, setSelectedKlinik] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: kliniks, isLoading } = useQuery({
-    queryKey: ["klinik-pawrent"],
+    queryKey: ["klinik-vet"],
     queryFn: () => fetchKliniks(token!),
     enabled: !!token
   });
 
+  // Fetch dokter untuk selected klinik
+  const { data: dokters, isLoading: isLoadingDokters } = useQuery({
+    queryKey: ["dokters-by-klinik", selectedKlinik?.klinik_id],
+    queryFn: () => klinikApi.getDoktersByKlinik(selectedKlinik.klinik_id, token!),
+    enabled: !!selectedKlinik,
+  });
+
   // Fetch stats (total dokter & kunjungan) untuk selected klinik
   const { data: klinikStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["klinik-stats-pawrent", selectedKlinik?.klinik_id],
+    queryKey: ["klinik-stats", selectedKlinik?.klinik_id],
     queryFn: async () => {
       const res = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/api/klinik/${selectedKlinik.klinik_id}/stats`,
@@ -42,26 +50,12 @@ const PawrentKlinikPage = () => {
     enabled: !!selectedKlinik,
   });
 
-  // Fetch dokter untuk selected klinik
-  const { data: dokters, isLoading: isLoadingDokters } = useQuery({
-    queryKey: ["dokters-by-klinik-pawrent", selectedKlinik?.klinik_id],
-    queryFn: async () => {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/klinik/${selectedKlinik.klinik_id}/dokters`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!res.ok) throw new Error("Gagal mengambil data dokter");
-      return res.json();
-    },
-    enabled: !!selectedKlinik,
-  });
-
   const filteredKliniks = kliniks?.filter((k: any) =>
     k.nama_klinik?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <DashboardLayout title="Klinik" showBackButton={true} backTo="/pawrent/dashboard">
+    <DashboardLayout title="Klinik" showBackButton={true} backTo="/vet/dashboard">
       <div className="space-y-6">
         {/* Info Card */}
         <Card className="bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-200">
@@ -173,12 +167,6 @@ const PawrentKlinikPage = () => {
               <b>Telepon:</b> {selectedKlinik?.telepon_klinik || "-"}
             </div>
             <div>
-              <b>Total Dokter:</b>{" "}
-              {isLoadingStats
-                ? "Loading..."
-                : klinikStats?.total_dokter ?? 0}
-            </div>
-            <div>
               <b>Total Pengunjung:</b>{" "}
               {isLoadingStats
                 ? "Loading..."
@@ -192,6 +180,7 @@ const PawrentKlinikPage = () => {
                 <ul className="mt-2 space-y-1">
                   {dokters.map((d: any) => (
                     <li key={d.dokter_id} className="flex items-center gap-2">
+                      <UserCog className="h-4 w-4" />
                       <span>
                         {d.title_dokter} {d.nama_dokter}
                         {d.spesialisasi && (
@@ -214,4 +203,4 @@ const PawrentKlinikPage = () => {
   );
 };
 
-export default PawrentKlinikPage;
+export default VetKlinikPage;

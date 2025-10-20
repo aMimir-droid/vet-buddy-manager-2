@@ -56,6 +56,11 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetDokterById TO 'vet_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKlinik TO 'vet_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetKlinikById TO 'vet_user'@'localhost';
 
+
+-- jenis hewan (read only)
+
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllJenisHewan TO 'vet_user'@'localhost';
+
 -- Dashboard
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetDashboardStats TO 'vet_user'@'localhost';
 

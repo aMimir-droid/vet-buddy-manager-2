@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, PawPrint, Database, Syringe, Stethoscope } from "lucide-react";
+import { Calendar, PawPrint, Database, Syringe, Stethoscope, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const VetDashboard = () => {
@@ -13,40 +13,49 @@ const VetDashboard = () => {
       description: "Input dan kelola kunjungan pasien",
       icon: Calendar,
       path: "/vet/kunjungan",
-      color: "bg-green-500",
-      highlight: true
+      color: "bg-green-500"
     },
     {
       title: "Kelola Obat Kunjungan",
       description: "Atur resep obat untuk setiap kunjungan",
       icon: Syringe,
       path: "/vet/kunjungan-obat",
-      color: "bg-purple-500",
-      highlight: true
+      color: "bg-purple-500"
     },
     {
       title: "Data Hewan",
       description: "Lihat data hewan pasien",
       icon: PawPrint,
       path: "/vet/hewan",
-      color: "bg-primary",
-      highlight: true
+      color: "bg-primary"
     },
     {
       title: "Data Obat",
       description: "Daftar obat dan resep",
       icon: Database,
       path: "/vet/obat",
-      color: "bg-secondary",
-      highlight: true
+      color: "bg-secondary"
     },
     {
       title: "Data Layanan",
       description: "Referensi layanan medis",
       icon: Stethoscope,
       path: "/vet/layanan",
-      color: "bg-indigo-500",
-      highlight: true
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Daftar Klinik",
+      description: "Lihat semua klinik & klinik Anda",
+      icon: Building2,
+      path: "/vet/klinik",
+      color: "bg-yellow-500"
+    },
+    {
+      title: "Jenis Hewan",
+      description: "Lihat daftar jenis hewan peliharaan",
+      icon: PawPrint,
+      path: "/vet/jenis-hewan",
+      color: "bg-teal-500"
     }
   ];
 
@@ -62,7 +71,7 @@ const VetDashboard = () => {
           </CardHeader>
         </Card>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {menuItems.map((item, idx) => (
             <Card 
               key={idx} 

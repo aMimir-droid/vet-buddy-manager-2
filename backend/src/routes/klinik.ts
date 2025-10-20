@@ -181,7 +181,7 @@ router.delete('/:id', authenticate, authorize(1), async (req, res) => {
   }
 });
 
-// ========================================================
+/// ========================================================
 // GET DOKTERS BY KLINIK - Menggunakan Stored Procedure
 // ========================================================
 router.get('/:id/dokters', authenticate, async (req, res) => {
@@ -190,7 +190,7 @@ router.get('/:id/dokters', authenticate, async (req, res) => {
   try {
     console.log(`🔄 [GET DOKTERS BY KLINIK] Calling stored procedure GetDoktersByKlinik with ID: ${id}`);
     const [rows]: any = await pool.execute('CALL GetDoktersByKlinik(?)', [id]);
-    console.log(`✅ [GET DOKTERS BY KLINIK] Success - ${rows[0]?.length || 0} dokters found`);
+    console.log(`✅ [GET DOKTERS BY KLINIK] Success - ${rows[0]?.length || 0} dokter found for Klinik ID: ${id}`);
     res.json(rows[0]);
   } catch (error: any) {
     console.error(`❌ [GET DOKTERS BY KLINIK] Error for Klinik ID: ${id}`, error);
@@ -201,14 +201,57 @@ router.get('/:id/dokters', authenticate, async (req, res) => {
   }
 });
 
+// ========================================================
+// GET STATS BY KLINIK - Total Dokter & Kunjungan
+// ========================================================
+router.get('/:id/stats', authenticate, async (req, res) => {
+  const { id } = req.params;
+  console.log(`📊 [GET KLINIK STATS] Request received for Klinik ID: ${id}`);
+  try {
+    // Get dokter count & kunjungan count dengan satu query ke stored procedure
+    console.log(`🔄 [GET KLINIK STATS] Calling stored procedure GetDoktersByKlinik`);
+    const [dokterRows]: any = await pool.execute('CALL GetDoktersByKlinik(?)', [id]);
+    
+    const total_dokter = dokterRows[0]?.length || 0;
+    const total_kunjungan = dokterRows[0]?.reduce((sum: number, d: any) => 
+      sum + (d.jumlah_kunjungan || 0), 0) || 0;
+    
+    console.log(`✅ [GET KLINIK STATS] Success - Dokter: ${total_dokter}, Kunjungan: ${total_kunjungan}`);
+    res.json({
+      total_dokter,
+      total_kunjungan
+    });
+  } catch (error: any) {
+    console.error(`❌ [GET KLINIK STATS] Error for Klinik ID: ${id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
 // GET ALL KLINIK FOR PAWRENT
+// ========================================================
 router.get('/public/list', authenticate, authorize(3), async (req: AuthRequest, res) => {
-  const pool = req.dbPool;
   try {
     const [rows] = await pool.execute('CALL GetAllKlinik()') as [RowDataPacket[][], any];
     res.json(rows[0]);
   } catch (error) {
     console.error('❌ [GET ALL KLINIK PAWRENT] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ========================================================
+// GET ALL KLINIK FOR VET (Dokter)
+// ========================================================
+router.get('/vet/list', authenticate, authorize(2), async (req: AuthRequest, res) => {
+  try {
+    const [rows] = await pool.execute('CALL GetAllKlinik()') as [any[][], any];
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('❌ [GET ALL KLINIK VET] Error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });

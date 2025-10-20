@@ -114,7 +114,7 @@ const AdminDashboard = () => {
           </CardHeader>
         </Card>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {menuItems.map((item, idx) => (
             <Card 
               key={idx} 

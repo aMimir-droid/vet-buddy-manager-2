@@ -28,6 +28,18 @@ router.get('/public/list', authenticate, authorize(3), async (req: AuthRequest, 
   }
 });
 
+// GET ALL JENIS HEWAN (Vet only)
+router.get('/vet/list', authenticate, authorize(2), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  try {
+    const [rows] = await pool.execute('CALL GetAllJenisHewan()') as [RowDataPacket[][], any];
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('❌ [GET ALL JENIS HEWAN VET] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
 // CREATE JENIS HEWAN
 router.post('/', authenticate, authorize(1), async (req: AuthRequest, res) => {
   const pool = req.dbPool;

@@ -289,6 +289,9 @@ export const klinikApi = {
   
   delete: (id: number, token: string) => 
     apiCall({ endpoint: `/klinik/${id}`, method: 'DELETE', token }),
+
+  getDoktersByKlinik: (klinikId: number, token: string) =>
+    apiCall({ endpoint: `/klinik/${klinikId}/dokters`, token }),
 };
 
 // ========================================================
@@ -379,4 +382,12 @@ export const jenisHewanApi = {
     apiCall({ endpoint: `/jenis-hewan/${id}`, method: 'PUT', body: data, token }),
   delete: (id: number, token: string) =>
     apiCall({ endpoint: `/jenis-hewan/${id}`, method: 'DELETE', token }),
+};
+
+export const getDoktersByKlinik = async (klinikId: number, token: string) => {
+  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/klinik/${klinikId}/dokters`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error("Gagal mengambil data dokter");
+  return res.json();
 };

@@ -45,6 +45,7 @@ import KlinikPage from "./pages/admin/KlinikPage";
 import LayananPage from "./pages/admin/LayananPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
 import JenisHewanPage from "./pages/admin/JenisHewanPage";
+import AdminPencarianPage from "./pages/admin/AdminPencarianPage";
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -128,6 +129,7 @@ const App = () => (
                     <Route path="layanan" element={<LayananPage />} />
                     <Route path="auditlog" element={<AuditLogPage />} />
                     <Route path="jenis-hewan" element={<JenisHewanPage />} />
+                    <Route path="pencarian" element={<AdminPencarianPage />} />
                     <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

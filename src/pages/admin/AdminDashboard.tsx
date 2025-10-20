@@ -44,6 +44,20 @@ const AdminDashboard = () => {
       path: "/admin/hewan",
       color: "bg-blue-500"
     },
+        {
+      title: "Kelola Jenis Hewan",
+      description: "Manajemen jenis hewan peliharaan",
+      icon: PawPrint,
+      path: "/admin/jenis-hewan",
+      color: "bg-teal-500"
+    },
+        {
+      title: "Kelola Users",
+      description: "Manajemen pengguna sistem",
+      icon: Shield,
+      path: "/admin/users",
+      color: "bg-red-500"
+    },
     {
       title: "Kelola Pawrent",
       description: "Data pemilik hewan",
@@ -79,12 +93,12 @@ const AdminDashboard = () => {
       path: "/admin/klinik",
       color: "bg-yellow-500"
     },
-    {
-      title: "Kelola Users",
-      description: "Manajemen pengguna sistem",
-      icon: Shield,
-      path: "/admin/users",
-      color: "bg-red-500"
+        {
+      title: "Pencarian Data",
+      description: "Tes dan eksplorasi 3 stored procedure pencarian",
+      icon: Activity,
+      path: "/admin/pencarian",
+      color: "bg-lime-500"
     },
     {
       title: "Audit Log",
@@ -92,14 +106,9 @@ const AdminDashboard = () => {
       icon: Shield,
       path: "/admin/auditlog",
       color: "bg-gray-500"
-    },
-    {
-      title: "Kelola Jenis Hewan",
-      description: "Manajemen jenis hewan peliharaan",
-      icon: PawPrint,
-      path: "/admin/jenis-hewan",
-      color: "bg-teal-500"
     }
+
+
   ];
 
   return (

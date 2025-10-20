@@ -14,6 +14,7 @@ import dashboardRoutes from './routes/dashboard';
 import auditlogRoutes from './routes/auditlog';
 import layananRoutes from './routes/layanan';
 import kunjunganObatRoutes from './routes/kunjungan-obat';
+import jenisHewanRoutes from './routes/jenis-hewan';
 
 dotenv.config();
 
@@ -79,6 +80,7 @@ app.use('/api/auditlog', auditlogRoutes);
 app.use('/api/klinik', klinikRoutes);
 app.use('/api/layanan', layananRoutes);
 app.use('/api/kunjungan-obat', kunjunganObatRoutes);
+app.use('/api/jenis-hewan', jenisHewanRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -104,5 +106,6 @@ testConnections().then(() => {
     console.log(`📡 CORS enabled for: http://localhost:8080`);
   });
 });
+
 
 export default app;

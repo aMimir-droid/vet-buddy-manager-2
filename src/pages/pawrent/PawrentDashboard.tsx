@@ -1,8 +1,11 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PawPrint, Calendar, FileText, User } from "lucide-react";
+import { PawPrint, Calendar, FileText, User, Pill, Building2, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { UserCog } from "lucide-react";
+import klinikRoutes from './routes/klinik';
+import layananRoutes from './routes/layanan';
 
 const PawrentDashboard = () => {
   const navigate = useNavigate();
@@ -29,13 +32,49 @@ const PawrentDashboard = () => {
       path: "/pawrent/rekam-medis",
       color: "bg-accent"
     },
+        {
+      title: "Klinik",
+      description: "Lihat daftar klinik hewan",
+      icon: Building2,
+      path: "/pawrent/klinik",
+      color: "bg-yellow-500"
+    },
+        {
+      title: "Layanan Klinik",
+      description: "Lihat daftar layanan yang tersedia",
+      icon: Activity,
+      path: "/pawrent/layanan",
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Daftar Dokter",
+      description: "Lihat dokter, kontak, dan spesialisasi",
+      icon: UserCog,
+      path: "/pawrent/dokter-list",
+      color: "bg-cyan-500"
+    },
+    {
+      title: "Daftar Obat",
+      description: "Lihat obat, kegunaan, dan harga",
+      icon: Pill,
+      path: "/pawrent/obat-list",
+      color: "bg-pink-500"
+    },
+        {
+      title: "Jenis Hewan",
+      description: "Lihat daftar jenis hewan peliharaan",
+      icon: PawPrint,
+      path: "/pawrent/jenis-hewan",
+      color: "bg-teal-500"
+    },
     {
       title: "Profil Saya",
       description: "Update data pribadi",
       icon: User,
-      path: "/pawrent/profil", // ✅ PERBAIKAN: Ubah dari /pawrent/profile ke /pawrent/profil
+      path: "/pawrent/profil", 
       color: "bg-primary"
     }
+
   ];
 
   return (

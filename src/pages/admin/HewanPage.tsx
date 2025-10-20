@@ -64,6 +64,19 @@ const HewanPage = () => {
     },
   });
 
+  const { data: jenisHewans } = useQuery<any[]>({
+    queryKey: ["jenis-hewan"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/jenis-hewan`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      return await res.json();
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
       if (editingHewan) {
@@ -73,7 +86,9 @@ const HewanPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hewans"] });
-      toast.success(editingHewan ? "Hewan berhasil diupdate" : "Hewan berhasil ditambahkan");
+      toast.success(
+        editingHewan ? "Hewan berhasil diupdate" : "Hewan berhasil ditambahkan"
+      );
       handleCloseDialog();
     },
     onError: (error: any) => {
@@ -98,7 +113,7 @@ const HewanPage = () => {
       setFormData({
         nama_hewan: hewan.nama_hewan,
         jenis_hewan_id: hewan.jenis_hewan_id?.toString() || "",
-        tanggal_lahir: hewan.tanggal_lahir?.split('T')[0] || "",
+        tanggal_lahir: hewan.tanggal_lahir?.split("T")[0] || "",
         jenis_kelamin: hewan.jenis_kelamin || "Jantan",
         status_hidup: hewan.status_hidup || "Hidup",
         pawrent_id: hewan.pawrent_id?.toString() || "",
@@ -124,19 +139,19 @@ const HewanPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // ✅ VALIDASI: Pastikan pawrent_id dipilih
     if (!formData.pawrent_id) {
       toast.error("Pawrent wajib dipilih!");
       return;
     }
-    
+
     // ✅ VALIDASI: Pastikan jenis_hewan_id dipilih
     if (!formData.jenis_hewan_id) {
       toast.error("Jenis hewan wajib dipilih!");
       return;
     }
-    
+
     console.log("📤 [SUBMIT HEWAN] Form data:", formData);
     saveMutation.mutate(formData);
   };
@@ -167,12 +182,12 @@ const HewanPage = () => {
     const birth = new Date(birthDate);
     let years = today.getFullYear() - birth.getFullYear();
     let months = today.getMonth() - birth.getMonth();
-    
+
     if (months < 0) {
       years--;
       months += 12;
     }
-    
+
     if (years > 0) {
       return `${years} tahun ${months} bulan`;
     } else {
@@ -230,9 +245,7 @@ const HewanPage = () => {
                     <TableCell>
                       {getJenisKelaminBadge(hewan.jenis_kelamin)}
                     </TableCell>
-                    <TableCell>
-                      {calculateAge(hewan.tanggal_lahir)}
-                    </TableCell>
+                    <TableCell>{calculateAge(hewan.tanggal_lahir)}</TableCell>
                     <TableCell>{hewan.nama_pawrent || "-"}</TableCell>
                     <TableCell>
                       {getStatusHidupBadge(hewan.status_hidup)}
@@ -326,11 +339,14 @@ const HewanPage = () => {
                       <SelectValue placeholder="Pilih jenis" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Anjing</SelectItem>
-                      <SelectItem value="2">Kucing</SelectItem>
-                      <SelectItem value="3">Burung</SelectItem>
-                      <SelectItem value="4">Hamster</SelectItem>
-                      <SelectItem value="5">Kelinci</SelectItem>
+                      {jenisHewans?.map((jenis: any) => (
+                        <SelectItem
+                          key={jenis.jenis_hewan_id}
+                          value={jenis.jenis_hewan_id.toString()}
+                        >
+                          {jenis.nama_jenis_hewan}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

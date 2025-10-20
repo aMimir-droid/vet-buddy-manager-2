@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { RowDataPacket } from 'mysql2';
 
 const router = express.Router();
 
@@ -197,6 +198,18 @@ router.get('/:id/dokters', authenticate, async (req, res) => {
       message: 'Terjadi kesalahan server',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// GET ALL KLINIK FOR PAWRENT
+router.get('/public/list', authenticate, authorize(3), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  try {
+    const [rows] = await pool.execute('CALL GetAllKlinik()') as [RowDataPacket[][], any];
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('❌ [GET ALL KLINIK PAWRENT] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 

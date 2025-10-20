@@ -239,4 +239,16 @@ router.delete('/:id', authenticate, authorize(1), async (req: AuthRequest, res) 
   }
 });
 
+// GET ALL DOKTERS FOR PAWRENT
+router.get('/public/list', authenticate, authorize(3), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  try {
+    const [rows] = await pool.execute('CALL GetAllDoktersForPawrent()') as [RowDataPacket[][], any];
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('❌ [GET ALL DOKTERS FOR PAWRENT] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
 export default router;

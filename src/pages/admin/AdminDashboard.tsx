@@ -85,6 +85,20 @@ const AdminDashboard = () => {
       icon: Shield,
       path: "/admin/users",
       color: "bg-red-500"
+    },
+    {
+      title: "Audit Log",
+      description: "Riwayat perubahan data & aktivitas",
+      icon: Shield,
+      path: "/admin/auditlog",
+      color: "bg-gray-500"
+    },
+    {
+      title: "Kelola Jenis Hewan",
+      description: "Manajemen jenis hewan peliharaan",
+      icon: PawPrint,
+      path: "/admin/jenis-hewan",
+      color: "bg-teal-500"
     }
   ];
 
@@ -95,7 +109,7 @@ const AdminDashboard = () => {
           <CardHeader>
             <CardTitle className="text-2xl">Selamat Datang, Admin!</CardTitle>
             <CardDescription className="text-primary-foreground/80">
-              Kelola semua data sistem Vet Buddy Manager
+              Kelola semua data sistem Klinik Sahabat Satwa
             </CardDescription>
           </CardHeader>
         </Card>

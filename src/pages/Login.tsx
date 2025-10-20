@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { PawPrint, Lock, User } from "lucide-react";
+import { PawPrint, Lock, User, ArrowLeft } from "lucide-react";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -90,6 +90,14 @@ const Login = () => {
                 Daftar di sini
               </Link>
             </p>
+          </div>
+          <div className="mt-6 text-center">
+            <Link to="/">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Kembali ke Beranda
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

@@ -44,6 +44,7 @@ import ObatPage from "./pages/admin/ObatPage";
 import KlinikPage from "./pages/admin/KlinikPage";
 import LayananPage from "./pages/admin/LayananPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
+import JenisHewanPage from "./pages/admin/JenisHewanPage";
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -63,6 +64,11 @@ import PawrentHewanPage from "./pages/pawrent/PawrentHewanPage";
 import PawrentRiwayatPage from "./pages/pawrent/PawrentRiwayatPage";
 import PawrentRekamMedisPage from "./pages/pawrent/PawrentRekamMedisPage";
 import PawrentProfilPage from "./pages/pawrent/PawrentProfilPage";
+import PawrentDokterListPage from "./pages/pawrent/PawrentDokterListPage";
+import PawrentObatListPage from "./pages/pawrent/PawrentObatListPage";
+import PawrentJenisHewanPage from "./pages/pawrent/PawrentJenisHewanPage";
+import PawrentKlinikPage from "./pages/pawrent/PawrentKlinikPage";
+import PawrentLayananPage from "./pages/pawrent/PawrentLayananPage";
 
 // ========================================================
 // QUERY CLIENT CONFIGURATION
@@ -118,6 +124,7 @@ const App = () => (
                     <Route path="klinik" element={<KlinikPage />} />
                     <Route path="layanan" element={<LayananPage />} />
                     <Route path="auditlog" element={<AuditLogPage />} />
+                    <Route path="jenis-hewan" element={<JenisHewanPage />} />
                     <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>
@@ -157,6 +164,11 @@ const App = () => (
                     <Route path="riwayat" element={<PawrentRiwayatPage />} />
                     <Route path="rekam-medis" element={<PawrentRekamMedisPage />} />
                     <Route path="profil" element={<PawrentProfilPage />} />
+                    <Route path="dokter-list" element={<PawrentDokterListPage />} />
+                    <Route path="obat-list" element={<PawrentObatListPage />} />
+                    <Route path="jenis-hewan" element={<PawrentJenisHewanPage />} />
+                    <Route path="klinik" element={<PawrentKlinikPage />} />
+                    <Route path="layanan" element={<PawrentLayananPage />} />
                     <Route path="*" element={<Navigate to="/pawrent/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

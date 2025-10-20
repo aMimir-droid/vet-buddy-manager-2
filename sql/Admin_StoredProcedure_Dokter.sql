@@ -277,4 +277,24 @@ BEGIN
     SELECT rows_affected as affected_rows;
 END$$
 
+-- ========================================================
+-- GET ALL DOKTERS FOR PAWRENT
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetAllDoktersForPawrent$$
+CREATE PROCEDURE GetAllDoktersForPawrent()
+BEGIN
+    SELECT 
+        d.dokter_id,
+        d.title_dokter,
+        d.nama_dokter,
+        d.telepon_dokter,
+        s.nama_spesialisasi,
+        s.deskripsi_spesialisasi,
+        k.nama_klinik
+    FROM Dokter d
+    LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
+    ORDER BY d.nama_dokter;
+END$$
+
 DELIMITER ;

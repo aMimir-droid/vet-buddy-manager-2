@@ -102,6 +102,10 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananById TO 'pawrent_user'@'localhost
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetObatById TO 'pawrent_user'@'localhost';
 
+-- Dokter Procedures (Read Only untuk melihat detail)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllDoktersForPawrent TO 'pawrent_user'@'localhost';
+
+
 -- ========================================================
 -- GRANT EXECUTE untuk ADMIN_USER (Full Access)
 -- ========================================================
@@ -173,8 +177,11 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.CreateUser TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateUser TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteUser TO 'admin_user'@'localhost';
 
--- Dashboard
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetDashboardStats TO 'admin_user'@'localhost';
+-- All Jenis Hewan
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllJenisHewan TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateJenisHewan TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateJenisHewan TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteJenisHewan TO 'admin_user'@'localhost';
 
 -- ========================================================
 -- FLUSH PRIVILEGES

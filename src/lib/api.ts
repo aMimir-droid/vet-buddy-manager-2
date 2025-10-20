@@ -366,3 +366,17 @@ export const auditLogApi = {
   getById: (id: number, token: string) =>
     apiCall({ endpoint: `/auditlog/${id}`, token }),
 };
+
+// ========================================================
+// JENIS HEWAN API
+// ========================================================
+export const jenisHewanApi = {
+  getAll: (token: string) =>
+    apiCall({ endpoint: '/jenis-hewan', token }),
+  create: (data: any, token: string) =>
+    apiCall({ endpoint: '/jenis-hewan', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) =>
+    apiCall({ endpoint: `/jenis-hewan/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) =>
+    apiCall({ endpoint: `/jenis-hewan/${id}`, method: 'DELETE', token }),
+};

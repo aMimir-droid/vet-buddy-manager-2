@@ -152,58 +152,36 @@ router.post('/', authenticate, authorize(1), async (req: AuthRequest, res) => {
 });
 
 // ========================================================
-// UPDATE DOKTER (Admin only)
+// UPDATE DOKTER (Dokter sendiri & Admin)
 // ========================================================
-router.put('/:id', authenticate, authorize(1), async (req: AuthRequest, res) => {
-  const { id } = req.params;
-  console.log(`📋 [UPDATE DOKTER] Request received for ID: ${id}`);
+router.put('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
-  
+  const { id } = req.params;
+  const { title_dokter, nama_dokter, telepon_dokter, tanggal_mulai_kerja, spesialisasi_id, klinik_id } = req.body;
+
   try {
-    const { 
-      title_dokter, 
-      nama_dokter, 
-      telepon_dokter, 
-      tanggal_mulai_kerja, 
-      spesialisasi_id, 
-      klinik_id 
-    } = req.body;
-    
-    if (!title_dokter || !nama_dokter) {
-      return res.status(400).json({ 
-        message: 'Title dokter dan nama dokter wajib diisi' 
-      });
+    // Jika vet, hanya boleh update data dirinya sendiri
+    if (req.user.role_id === 2 && req.user.dokter_id !== parseInt(id)) {
+      return res.status(403).json({ message: "Akses ditolak" });
     }
 
-    const [result]: any = await pool.execute(
+    const [result] = await pool.execute(
       'CALL UpdateDokter(?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         title_dokter,
         nama_dokter,
-        telepon_dokter || null,
-        tanggal_mulai_kerja || null,
+        telepon_dokter,
+        tanggal_mulai_kerja,
         spesialisasi_id || null,
         klinik_id || null
       ]
-    );
-    
-    const updatedDokter = result[0][0];
-    console.log(`✅ [UPDATE DOKTER] Success for ID: ${id}`);
-    res.json(updatedDokter);
+    ) as [RowDataPacket[][], any];
+
+    res.json(result[0][0]);
   } catch (error: any) {
-    console.error(`❌ [UPDATE DOKTER] Error for ID: ${id}`, error);
-    
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ message: 'Nomor telepon sudah terdaftar' });
-    }
-    if (error.sqlState === '45000') {
-      return res.status(400).json({ message: error.sqlMessage });
-    }
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    console.error('❌ [UPDATE DOKTER] Error:', error);
+    res.status(500).json({ message: error.message || 'Terjadi kesalahan server' });
   }
 });
 

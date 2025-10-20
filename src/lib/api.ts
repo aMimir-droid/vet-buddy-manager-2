@@ -169,6 +169,14 @@ export const dokterApi = {
 
   getSpesialisasi: (token: string) =>
     apiCall({ endpoint: '/dokter/spesialisasi/list', token }),
+
+  getKlinikList: async (token: string) => {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/klinik/vet/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error("Gagal mengambil data klinik");
+    return res.json();
+  },
 };
 
 // ========================================================

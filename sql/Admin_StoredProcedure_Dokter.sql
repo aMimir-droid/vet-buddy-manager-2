@@ -66,9 +66,9 @@ DROP PROCEDURE IF EXISTS GetAllSpesialisasi$$
 CREATE PROCEDURE GetAllSpesialisasi()
 BEGIN
     SELECT 
-        spesialisasi_id,
-        nama_spesialisasi,
-        deskripsi_spesialisasi,
+        s.spesialisasi_id,
+        s.nama_spesialisasi,
+        s.deskripsi_spesialisasi,
         COUNT(d.dokter_id) as jumlah_dokter
     FROM Spesialisasi s
     LEFT JOIN Dokter d ON s.spesialisasi_id = d.spesialisasi_id

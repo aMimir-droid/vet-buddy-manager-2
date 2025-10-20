@@ -57,6 +57,7 @@ import VetKunjunganObatPage from "./pages/vet/KunjunganObatPage";
 import VetLayananPage from "./pages/vet/LayananPage";
 import VetKlinikPage from "./pages/vet/VetKlinikPage";
 import VetJenisHewanPage from "./pages/vet/VetJenisHewanPage";
+import VetProfilPage from "./pages/vet/VetProfilPage";
 
 // ========================================================
 // PAWRENT PAGES
@@ -149,6 +150,7 @@ const App = () => (
                     <Route path="layanan" element={<VetLayananPage />} />
                     <Route path="klinik" element={<VetKlinikPage />} />
                     <Route path="jenis-hewan" element={<VetJenisHewanPage />} />
+                    <Route path="profil" element={<VetProfilPage />} />
                     <Route path="*" element={<Navigate to="/vet/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

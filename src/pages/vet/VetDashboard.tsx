@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, PawPrint, Database, Syringe, Stethoscope, Building2 } from "lucide-react";
+import { Calendar, PawPrint, Database, Syringe, Stethoscope, Building2, UserCog } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const VetDashboard = () => {
@@ -56,6 +56,13 @@ const VetDashboard = () => {
       icon: PawPrint,
       path: "/vet/jenis-hewan",
       color: "bg-teal-500"
+    },
+    {
+      title: "Profil Saya",
+      description: "Update data pribadi dokter",
+      icon: UserCog,
+      path: "/vet/profil",
+      color: "bg-primary"
     }
   ];
 

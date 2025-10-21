@@ -318,88 +318,55 @@ END$$
 -- ========================================================
 DROP PROCEDURE IF EXISTS UpdateHewanByPawrent$$
 CREATE PROCEDURE UpdateHewanByPawrent(
-    IN p_hewan_id INT,
-    IN p_nama_hewan VARCHAR(50),
-    IN p_tanggal_lahir DATE,
-    IN p_jenis_kelamin ENUM('Jantan','Betina'),
-    IN p_jenis_hewan_id INT,
-    IN p_status_hidup ENUM('Hidup', 'Mati')
+  IN p_hewan_id INT,
+  IN p_nama_hewan VARCHAR(100),
+  IN p_tanggal_lahir DATE,
+  IN p_jenis_kelamin VARCHAR(10),
+  IN p_jenis_hewan_id INT,
+  IN p_pawrent_id INT,
+  IN p_status_hidup VARCHAR(10)
 )
 BEGIN
-    DECLARE v_owner_pawrent_id INT;
-    DECLARE duplicate_check INT;
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-    
-    START TRANSACTION;
-    
-    -- Validate hewan exists and get owner
-    SELECT pawrent_id INTO v_owner_pawrent_id
-    FROM Hewan
-    WHERE hewan_id = p_hewan_id;
-    
-    IF v_owner_pawrent_id IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Hewan tidak ditemukan';
-    END IF;
-    
-    -- Note: Ownership check dilakukan di aplikasi layer (backend)
-    -- karena pawrent_id diambil dari session user yang login
-    
-    -- Validate jenis hewan exists
-    SELECT COUNT(*) INTO duplicate_check
-    FROM Jenis_Hewan
-    WHERE jenis_hewan_id = p_jenis_hewan_id;
-    
-    IF duplicate_check = 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
-    END IF;
-    
-    -- Validate nama_hewan is provided
-    IF p_nama_hewan IS NULL OR TRIM(p_nama_hewan) = '' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Nama hewan wajib diisi';
-    END IF;
-    
-    -- Validate tanggal lahir tidak di masa depan
-    IF p_tanggal_lahir IS NOT NULL AND p_tanggal_lahir > CURDATE() THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
-    END IF;
-    
-    -- Update hewan data
-    UPDATE Hewan
-    SET 
-        nama_hewan = p_nama_hewan,
-        tanggal_lahir = p_tanggal_lahir,
-        jenis_kelamin = p_jenis_kelamin,
-        jenis_hewan_id = p_jenis_hewan_id,
-        status_hidup = p_status_hidup
-    WHERE hewan_id = p_hewan_id;
-    
-    -- Return the updated hewan with joined data
-    SELECT 
-        h.hewan_id,
-        h.nama_hewan,
-        h.tanggal_lahir,
-        h.jenis_kelamin,
-        h.status_hidup,
-        h.jenis_hewan_id,
-        h.pawrent_id,
-        jh.nama_jenis_hewan,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
-        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
-        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
-    FROM Hewan h
-    INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
-    INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-    WHERE h.hewan_id = p_hewan_id;
-    
-    COMMIT;
+  DECLARE v_owner_pawrent_id INT;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  -- Pastikan hewan ada dan ambil owner
+  SELECT pawrent_id INTO v_owner_pawrent_id
+  FROM Hewan
+  WHERE hewan_id = p_hewan_id
+  FOR UPDATE;
+
+  IF v_owner_pawrent_id IS NULL THEN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hewan tidak ditemukan';
+  END IF;
+
+  -- Validasi ownership
+  IF v_owner_pawrent_id != p_pawrent_id THEN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Anda tidak memiliki hak untuk mengubah hewan ini';
+  END IF;
+
+  -- Lakukan update
+  UPDATE Hewan
+  SET
+    nama_hewan = p_nama_hewan,
+    tanggal_lahir = p_tanggal_lahir,
+    jenis_kelamin = p_jenis_kelamin,
+    jenis_hewan_id = p_jenis_hewan_id,
+    status_hidup = p_status_hidup
+  WHERE hewan_id = p_hewan_id;
+
+  -- Kembalikan baris yang diupdate
+  SELECT * FROM Hewan WHERE hewan_id = p_hewan_id;
+
+  COMMIT;
 END$$
 
 -- ========================================================

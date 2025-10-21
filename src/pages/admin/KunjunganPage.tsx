@@ -92,7 +92,9 @@ const KunjunganPage = () => {
   });
 
   const handlePreviousVisitChange = (visitId: string) => {
-    const actualValue = visitId === "none" ? "" : visitId;
+    // simpan "none" secara eksplisit agar kita bisa membedakan
+    // antara belum memilih dan memilih "Tidak Ada"
+    const actualValue = visitId === "none" ? "none" : visitId;
     setFormData({ ...formData, kunjungan_sebelumnya: actualValue });
     
     if (visitId && visitId !== "none") {
@@ -126,6 +128,8 @@ const KunjunganPage = () => {
         
         if (history.length > 0 && !editingKunjungan) {
           toast.info(`Ditemukan ${history.length} riwayat kunjungan sebelumnya`);
+          // set explicit default "none" untuk membuat state sinkron dengan tampilan
+          setFormData(prev => ({ ...prev, kunjungan_sebelumnya: "none" }));
         }
       } else {
         setHewanHistory([]);
@@ -201,15 +205,50 @@ const KunjunganPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // validasi field wajib (kecuali kunjungan_sebelumnya)
+    const requiredChecks: { key: keyof typeof formData; label: string }[] = [
+      { key: "hewan_id", label: "Hewan" },
+      { key: "dokter_id", label: "Dokter" },
+      { key: "tanggal_kunjungan", label: "Tanggal Kunjungan" },
+      { key: "waktu_kunjungan", label: "Waktu Kunjungan" },
+      { key: "total_biaya", label: "Total Biaya" },
+      { key: "metode_pembayaran", label: "Metode Pembayaran" },
+    ];
+
+    const missing = requiredChecks
+      .filter(check => {
+        const val = formData[check.key];
+        return val === "" || val === null || val === undefined;
+      })
+      .map(c => c.label);
+
+    if (missing.length > 0) {
+      toast.error(`Field wajib belum lengkap: ${missing.join(", ")}`);
+      return;
+    }
     
-    if (hewanHistory.length > 0 && !formData.kunjungan_sebelumnya && !editingKunjungan) {
+    // jika ada riwayat, pastikan user sudah memilih salah satu opsi:
+    // - id kunjungan sebelumnya (string angka)
+    // - "none" untuk memilih Tidak Ada
+    if (
+      hewanHistory.length > 0 &&
+      !editingKunjungan &&
+      (formData.kunjungan_sebelumnya === "" ||
+        formData.kunjungan_sebelumnya === null ||
+        formData.kunjungan_sebelumnya === undefined)
+    ) {
       toast.error("Silakan pilih kunjungan sebelumnya atau pilih 'Tidak Ada'");
       return;
     }
     
     const submitData = {
       ...formData,
-      kunjungan_sebelumnya: formData.kunjungan_sebelumnya || null,
+      // kirim null ke backend saat user memilih "Tidak Ada"
+      kunjungan_sebelumnya:
+        formData.kunjungan_sebelumnya === "none"
+          ? null
+          : (formData.kunjungan_sebelumnya || null),
     };
     
     saveMutation.mutate(submitData);

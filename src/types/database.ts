@@ -3,7 +3,7 @@ export interface Role {
   role_id: number;
   role_name: 'admin' | 'vet' | 'pawrent';
   role_description?: string;
-  created_at: string;
+  created_at: string;d
 }
 
 export interface UserLogin {

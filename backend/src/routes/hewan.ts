@@ -93,14 +93,35 @@ router.put('/my/:id', authenticate, authorize(3), async (req: AuthRequest, res) 
       return res.status(400).json({ message: 'Pawrent ID tidak ditemukan' });
     }
 
+    // pastikan jenis_hewan_id valid number
+    const jenisId = jenis_hewan_id ? parseInt(jenis_hewan_id) : null;
+    if (!jenisId) {
+      return res.status(400).json({ message: 'Jenis hewan tidak valid' });
+    }
+
+    // CEK OWNERSHIP sebelum panggil stored procedure
+    const [ownerRows] = await pool.execute(
+      'SELECT pawrent_id FROM Hewan WHERE hewan_id = ?',
+      [parseInt(id)]
+    ) as [RowDataPacket[], any];
+
+    if (!ownerRows || ownerRows.length === 0) {
+      return res.status(404).json({ message: 'Hewan tidak ditemukan' });
+    }
+
+    if (ownerRows[0].pawrent_id !== req.user.pawrent_id) {
+      return res.status(403).json({ message: 'Anda tidak memiliki hak untuk mengubah hewan ini' });
+    }
+
     const [result] = await pool.execute(
-      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?)', // <-- 6 parameter
+      'CALL UpdateHewanByPawrent(?, ?, ?, ?, ?, ?, ?)', // 7 params: id, nama, tanggal, jenis_kelamin, jenis_hewan_id, pawrent_id, status_hidup
       [
-        parseInt(id),
+        parseInt(id, 10),
         nama_hewan,
         tanggal_lahir || null,
         jenis_kelamin,
-        parseInt(jenis_hewan_id),
+        jenisId,
+        req.user.pawrent_id,
         status_hidup || 'Hidup'
       ]
     ) as [RowDataPacket[][], any];

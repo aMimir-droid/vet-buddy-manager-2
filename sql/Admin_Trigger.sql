@@ -231,6 +231,50 @@ BEGIN
     SET NEW.updated_at = CURRENT_TIMESTAMP;
 END$$
 
+-- ========================================================
+-- 6. TRIGGERS untuk Audit Trail (Hewan)
+-- ========================================================
+
+-- Audit log untuk INSERT Hewan
+DROP TRIGGER IF EXISTS trg_audit_hewan_insert$$
+CREATE TRIGGER trg_audit_hewan_insert
+AFTER INSERT ON Hewan
+FOR EACH ROW
+BEGIN
+    INSERT INTO AuditLog (table_name, action_type, executed_by, new_data)
+    VALUES (
+        'Hewan',
+        'INSERT',
+        USER(),
+        JSON_OBJECT(
+            'hewan_id', NEW.hewan_id,
+            'nama_hewan', NEW.nama_hewan,
+            'tanggal_lahir', NEW.tanggal_lahir,
+            'status_hidup', NEW.status_hidup
+        )
+    );
+END$$
+
+-- Audit log untuk DELETE Hewan
+DROP TRIGGER IF EXISTS trg_audit_hewan_delete$$
+CREATE TRIGGER trg_audit_hewan_delete
+AFTER DELETE ON Hewan
+FOR EACH ROW
+BEGIN
+    INSERT INTO AuditLog (table_name, action_type, executed_by, old_data)
+    VALUES (
+        'Hewan',
+        'DELETE',
+        USER(),
+        JSON_OBJECT(
+            'hewan_id', OLD.hewan_id,
+            'nama_hewan', OLD.nama_hewan,
+            'tanggal_lahir', OLD.tanggal_lahir,
+            'status_hidup', OLD.status_hidup
+        )
+    );
+END$$
+
 DELIMITER ;
 
 -- ========================================================

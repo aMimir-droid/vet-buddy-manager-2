@@ -100,7 +100,7 @@ Backend: Express + MySQL + Stored Procedures
    ```bash
    npm run dev
    ```
-   - Web berjalan di: [http://localhost:5173](http://localhost:5173)
+   - Web berjalan di: [http://localhost:8080](http://localhost:8080)
 
 ---
 

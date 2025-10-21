@@ -56,7 +56,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetHewanByJenis TO 'vet_role';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetKunjunganByDateRange TO 'vet_role';
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateKunjungan TO 'vet_role';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateKunjungan TO 'vet_role';
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetDokterProfile TO 'vet_role';
 
 -- 3c. Role Pawrent (Pemilik Hewan)
 -- Hak baca master data (terbatas)
@@ -85,7 +84,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetRiwayatKunjunganByHewan TO 'pawrent_role
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetHewanByJenis TO 'pawrent_role';
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateHewan TO 'pawrent_role';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateHewan TO 'pawrent_role';
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetPawrentProfile TO 'pawrent_role';
 
 -- ========================================================
 -- 4. ASSIGN ROLES TO USERS

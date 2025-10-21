@@ -42,7 +42,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteKunjunganObat TO 'vet_user'@'localhos
 
 -- Layanan Procedures
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'vet_user'@'localhost';
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananById TO 'vet_user'@'localhost';
 
 -- Pawrent Procedures (Read Only)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllPawrents TO 'vet_user'@'localhost';
@@ -68,8 +67,7 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateDokter TO 'vet_user'@'localhost';
 
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllJenisHewan TO 'vet_user'@'localhost';
 
--- Dashboard
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetDashboardStats TO 'vet_user'@'localhost';
+
 
 -- ========================================================
 -- GRANT EXECUTE untuk PAWRENT_USER
@@ -108,7 +106,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetKlinikById TO 'pawrent_user'@'localhost'
 
 -- Layanan Procedures (Read Only)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'pawrent_user'@'localhost';
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananById TO 'pawrent_user'@'localhost';
 
 -- Obat Procedures (Read Only untuk melihat detail)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'pawrent_user'@'localhost';
@@ -156,7 +153,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteKunjunganObat TO 'admin_user'@'localh
 
 -- All Layanan
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'admin_user'@'localhost';
-GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananById TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateLayanan TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateLayanan TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteLayanan TO 'admin_user'@'localhost';
@@ -207,22 +203,6 @@ SHOW GRANTS FOR 'admin_user'@'localhost';
 SHOW GRANTS FOR 'vet_user'@'localhost';
 SHOW GRANTS FOR 'pawrent_user'@'localhost';
 
--- Check Stored Procedure privileges
-SELECT 
-    GRANTEE,
-    ROUTINE_SCHEMA,
-    ROUTINE_NAME,
-    PRIVILEGE_TYPE
-FROM 
-    information_schema.ROUTINE_PRIVILEGES
-WHERE 
-    GRANTEE IN (
-        "'admin_user'@'localhost'",
-        "'vet_user'@'localhost'",
-        "'pawrent_user'@'localhost'"
-    )
-ORDER BY 
-    GRANTEE, ROUTINE_NAME;
 
 -- Check Table privileges
 SELECT 

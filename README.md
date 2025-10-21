@@ -32,9 +32,9 @@ Backend: Express + MySQL + Stored Procedures
 
 3. **Buat user MySQL sesuai .env backend:**
    ```sql
-   CREATE USER 'admin_user'@'localhost' IDENTIFIED BY 'Admin@123';
-   CREATE USER 'vet_user'@'localhost' IDENTIFIED BY 'Vet@123';
-   CREATE USER 'pawrent_user'@'localhost' IDENTIFIED BY 'Pawrent@123';
+   CREATE USER 'admin_user'@'localhost';
+   CREATE USER 'vet_user'@'localhost';
+   CREATE USER 'pawrent_user'@'localhost';
    FLUSH PRIVILEGES;
    ```
 
@@ -62,11 +62,11 @@ Backend: Express + MySQL + Stored Procedures
      DB_HOST=localhost
      DB_NAME=vet_buddy
      DB_ADMIN_USER=admin_user
-     DB_ADMIN_PASSWORD=Admin@123
+     DB_ADMIN_PASSWORD=
      DB_VET_USER=vet_user
-     DB_VET_PASSWORD=Vet@123
+     DB_VET_PASSWORD=
      DB_PAWRENT_USER=pawrent_user
-     DB_PAWRENT_PASSWORD=Pawrent@123
+     DB_PAWRENT_PASSWORD=
      JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
      PORT=3000
      ```
@@ -110,7 +110,7 @@ Backend: Express + MySQL + Stored Procedures
   username: `admin`  
   password: `password123`
 - **Dokter:**  
-  username: `drh.budi`  
+  username: `siti`  
   password: `password123`
 - **Pawrent:**  
   username: `pawrent1`  

@@ -24,7 +24,7 @@ router.get('/my', authenticate, authorize(3), async (req: AuthRequest, res) => {
     }
 
     const [rows] = await pool.execute(
-      'SELECT * FROM Hewan WHERE pawrent_id = ? ORDER BY nama_hewan',
+      'SELECT * FROM Hewan WHERE pawrent_id = ? AND deleted_at IS NULL ORDER BY nama_hewan',
       [req.user.pawrent_id]
     ) as [RowDataPacket[], any];
 
@@ -338,12 +338,26 @@ router.delete('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, re
   }
 });
 
-// GET ALL JENIS HEWAN
+// GET ALL JENIS HEWAN (alias untuk kompatibilitas client)
 router.get('/jenis/all', authenticate, async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   
   try {
-    console.log('📋 [GET ALL JENIS HEWAN]');
+    console.log('📋 [GET ALL JENIS HEWAN] (all)');
+    const [rows] = await pool.execute('CALL GetAllJenisHewan()') as [RowDataPacket[][], any];
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('❌ [GET ALL JENIS HEWAN] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// New: alias endpoint expected by frontend
+router.get('/jenis/list', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  
+  try {
+    console.log('📋 [GET ALL JENIS HEWAN] (list alias)');
     const [rows] = await pool.execute('CALL GetAllJenisHewan()') as [RowDataPacket[][], any];
     res.json(rows[0]);
   } catch (error) {

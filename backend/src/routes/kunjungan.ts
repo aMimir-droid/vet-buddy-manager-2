@@ -30,6 +30,29 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // ========================================================
+// GET HEWAN HISTORY - Menggunakan Stored Procedure
+// (MOVED UP to avoid collision with '/:id')
+// ========================================================
+router.get('/hewan/:hewanId/history', authenticate, async (req: AuthRequest, res) => {
+  console.log('📋 [GET HEWAN HISTORY] Request received');
+  const pool = req.dbPool;
+  const { hewanId } = req.params;
+  
+  try {
+    console.log(`🔄 [GET HEWAN HISTORY] Getting history for hewan ID: ${hewanId}`);
+    const [rows]: any = await pool.execute('CALL GetHewanKunjunganHistory(?)', [hewanId]);
+    console.log(`✅ [GET HEWAN HISTORY] Success - ${rows[0]?.length || 0} records found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET HEWAN HISTORY] Error:', error);
+    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
+      return res.status(403).json({ message: 'Akses ditolak: Anda tidak memiliki hak akses ke resource ini' });
+    }
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ========================================================
 // GET BY ID - Menggunakan Stored Procedure
 // ========================================================
 router.get('/:id', authenticate, async (req: AuthRequest, res) => {
@@ -63,34 +86,8 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // ========================================================
-// GET HEWAN HISTORY - Menggunakan Stored Procedure
-// ========================================================
-router.get('/hewan/:hewanId/history', authenticate, async (req: AuthRequest, res) => {
-  console.log('📋 [GET HEWAN HISTORY] Request received');
-  const pool = req.dbPool;
-  const { hewanId } = req.params;
-  
-  try {
-    console.log(`🔄 [GET HEWAN HISTORY] Getting history for hewan ID: ${hewanId}`);
-    const [rows]: any = await pool.execute('CALL GetHewanKunjunganHistory(?)', [hewanId]);
-    console.log(`✅ [GET HEWAN HISTORY] Success - ${rows[0]?.length || 0} records found`);
-    res.json(rows[0]);
-  } catch (error: any) {
-    console.error('❌ [GET HEWAN HISTORY] Error:', error);
-    
-    // Handle permission errors
-    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak: Anda tidak memiliki hak akses ke resource ini' 
-      });
-    }
-    
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// ========================================================
 // CREATE - Menggunakan pool sesuai role user
+// (removed total_biaya param)
 // ========================================================
 router.post('/', authenticate, async (req: AuthRequest, res) => {
   console.log('📋 [CREATE KUNJUNGAN] Request received');
@@ -103,7 +100,6 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
       tanggal_kunjungan, 
       waktu_kunjungan, 
       catatan, 
-      total_biaya, 
       metode_pembayaran,
       kunjungan_sebelumnya 
     } = req.body;
@@ -111,14 +107,13 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
     console.log(`🔄 [CREATE KUNJUNGAN] Creating kunjungan for hewan_id: ${hewan_id}`);
     
     const [result]: any = await pool.execute(
-      'CALL CreateKunjungan(?, ?, ?, ?, ?, ?, ?, ?)',
+      'CALL CreateKunjungan(?, ?, ?, ?, ?, ?, ?)',
       [
         hewan_id,
         dokter_id,
         tanggal_kunjungan,
         waktu_kunjungan,
         catatan || null,
-        total_biaya,
         metode_pembayaran,
         kunjungan_sebelumnya || null
       ]
@@ -133,19 +128,16 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error('❌ [CREATE KUNJUNGAN] Error:', error);
-    
     if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak: Anda tidak memiliki hak akses untuk membuat data ini' 
-      });
+      return res.status(403).json({ message: 'Akses ditolak: Anda tidak memiliki hak akses untuk membuat data ini' });
     }
-    
     res.status(500).json({ message: error.message || 'Terjadi kesalahan server' });
   }
 });
 
 // ========================================================
 // UPDATE - Menggunakan pool sesuai role user
+// (removed total_biaya param)
 // ========================================================
 router.put('/:id', authenticate, async (req: AuthRequest, res) => {
   console.log('📋 [UPDATE KUNJUNGAN] Request received');
@@ -159,7 +151,6 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
       tanggal_kunjungan, 
       waktu_kunjungan, 
       catatan, 
-      total_biaya, 
       metode_pembayaran,
       kunjungan_sebelumnya 
     } = req.body;
@@ -167,7 +158,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
     console.log(`🔄 [UPDATE KUNJUNGAN] Updating kunjungan ID: ${id}`);
     
     const [result]: any = await pool.execute(
-      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         hewan_id,
@@ -175,7 +166,6 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
         tanggal_kunjungan,
         waktu_kunjungan,
         catatan || null,
-        total_biaya,
         metode_pembayaran,
         kunjungan_sebelumnya || null
       ]
@@ -193,19 +183,16 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error('❌ [UPDATE KUNJUNGAN] Error:', error);
-    
     if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak: Anda tidak memiliki hak akses untuk mengubah data ini' 
-      });
+      return res.status(403).json({ message: 'Akses ditolak: Anda tidak memiliki hak akses untuk mengubah data ini' });
     }
-    
     res.status(500).json({ message: error.message || 'Terjadi kesalahan server' });
   }
 });
 
 // ========================================================
 // DELETE - Menggunakan pool sesuai role user
+// (read affected_rows from procedure result)
 // ========================================================
 router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
   console.log('📋 [DELETE KUNJUNGAN] Request received');
@@ -216,8 +203,10 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
     console.log(`🔄 [DELETE KUNJUNGAN] Deleting kunjungan ID: ${id}`);
     const [result]: any = await pool.execute('CALL DeleteKunjungan(?)', [id]);
     
-    if (!result.affectedRows && result[0]?.affectedRows === 0) {
-      console.log(`❌ [DELETE KUNJUNGAN] Not found - ID: ${id}`);
+    // DeleteKunjungan SELECTs affected_rows AS affected_rows
+    const affected = result?.[0]?.[0]?.affected_rows ?? 0;
+    if (affected === 0) {
+      console.log(`❌ [DELETE KUNJUNGAN] Not found or already deleted - ID: ${id}`);
       return res.status(404).json({ message: 'Kunjungan tidak ditemukan' });
     }
 
@@ -225,13 +214,9 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
     res.json({ message: 'Kunjungan berhasil dihapus' });
   } catch (error: any) {
     console.error('❌ [DELETE KUNJUNGAN] Error:', error);
-    
     if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak: Anda tidak memiliki hak akses untuk menghapus data ini' 
-      });
+      return res.status(403).json({ message: 'Akses ditolak: Anda tidak memiliki hak akses untuk menghapus data ini' });
     }
-    
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });

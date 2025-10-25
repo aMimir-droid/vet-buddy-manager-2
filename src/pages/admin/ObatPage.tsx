@@ -44,10 +44,15 @@ const ObatPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
+      // ensure harga_obat dikirim sebagai number
+      const payload = {
+        ...data,
+        harga_obat: parseFloat(String(data.harga_obat)) || 0
+      };
       if (editingObat) {
-        return obatApi.update(editingObat.obat_id, data, token!);
+        return obatApi.update(editingObat.obat_id, payload, token!);
       }
-      return obatApi.create(data, token!);
+      return obatApi.create(payload, token!);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["obats"] });
@@ -171,7 +176,7 @@ const ObatPage = () => {
                       <TableCell>
                         <div className="flex items-center gap-2 font-semibold text-green-600">
                           <Wallet className="h-4 w-4" />
-                          {formatCurrency(parseFloat(obat.harga_obat || 0))}
+                          {formatCurrency(parseFloat(String(obat.harga_obat || 0)))}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

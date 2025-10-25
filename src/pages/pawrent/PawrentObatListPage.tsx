@@ -18,13 +18,14 @@ const fetchObats = async (token: string) => {
   return res.json();
 };
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number | string) => {
+  const num = Number(amount) || 0;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(num);
 };
 
 const PawrentObatListPage = () => {
@@ -46,7 +47,7 @@ const PawrentObatListPage = () => {
 
   // Filter berdasarkan nama obat
   const filteredObats = obats?.filter((o: any) =>
-    o.nama_obat.toLowerCase().includes(searchQuery.toLowerCase())
+    (o.nama_obat || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

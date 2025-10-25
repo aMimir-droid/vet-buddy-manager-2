@@ -5,7 +5,7 @@ DELIMITER $$
 -- ========================================================
 
 -- ========================================================
--- GET ALL USERS
+-- GET ALL USERS (exclude soft-deleted)
 -- ========================================================
 DROP PROCEDURE IF EXISTS GetAllUsers$$
 CREATE PROCEDURE GetAllUsers()
@@ -28,11 +28,12 @@ BEGIN
     LEFT JOIN Role r ON u.role_id = r.role_id
     LEFT JOIN Dokter d ON u.dokter_id = d.dokter_id
     LEFT JOIN Pawrent p ON u.pawrent_id = p.pawrent_id
+    WHERE u.deleted_at IS NULL
     ORDER BY u.created_at DESC;
 END$$
 
 -- ========================================================
--- GET USER BY ID
+-- GET USER BY ID (exclude soft-deleted)
 -- ========================================================
 DROP PROCEDURE IF EXISTS GetUserById$$
 CREATE PROCEDURE GetUserById(IN p_user_id INT)
@@ -55,7 +56,8 @@ BEGIN
     LEFT JOIN Role r ON u.role_id = r.role_id
     LEFT JOIN Dokter d ON u.dokter_id = d.dokter_id
     LEFT JOIN Pawrent p ON u.pawrent_id = p.pawrent_id
-    WHERE u.user_id = p_user_id;
+    WHERE u.user_id = p_user_id
+      AND u.deleted_at IS NULL;
 END$$
 
 -- ========================================================
@@ -73,7 +75,7 @@ BEGIN
 END$$
 
 -- ========================================================
--- GET AVAILABLE DOCTORS (for linking to user)
+-- GET AVAILABLE DOCTORS (exclude users that are soft-deleted)
 -- ========================================================
 DROP PROCEDURE IF EXISTS GetAvailableDoctors$$
 CREATE PROCEDURE GetAvailableDoctors(IN p_current_dokter_id INT)
@@ -84,14 +86,14 @@ BEGIN
         d.telepon_dokter,
         u.user_id
     FROM Dokter d
-    LEFT JOIN User_Login u ON d.dokter_id = u.dokter_id
+    LEFT JOIN User_Login u ON d.dokter_id = u.dokter_id AND u.deleted_at IS NULL
     WHERE u.user_id IS NULL 
        OR (p_current_dokter_id IS NOT NULL AND d.dokter_id = p_current_dokter_id)
     ORDER BY d.nama_dokter;
 END$$
 
 -- ========================================================
--- GET AVAILABLE PAWRENTS (for linking to user)
+-- GET AVAILABLE PAWRENTS (exclude users that are soft-deleted)
 -- ========================================================
 DROP PROCEDURE IF EXISTS GetAvailablePawrents$$
 CREATE PROCEDURE GetAvailablePawrents(IN p_current_pawrent_id INT)
@@ -102,7 +104,7 @@ BEGIN
         p.nomor_hp,
         u.user_id
     FROM Pawrent p
-    LEFT JOIN User_Login u ON p.pawrent_id = u.pawrent_id
+    LEFT JOIN User_Login u ON p.pawrent_id = u.pawrent_id AND u.deleted_at IS NULL
     WHERE u.user_id IS NULL 
        OR (p_current_pawrent_id IS NOT NULL AND p.pawrent_id = p_current_pawrent_id)
     ORDER BY p.nama_depan_pawrent, p.nama_belakang_pawrent;
@@ -315,31 +317,58 @@ BEGIN
 END$$
 
 -- ========================================================
--- DELETE USER
+-- DELETE USER (soft delete, mirip dengan DeleteObat)
 -- ========================================================
 DROP PROCEDURE IF EXISTS DeleteUser$$
 CREATE PROCEDURE DeleteUser(IN p_user_id INT)
 BEGIN
-    DECLARE rows_affected INT;
-    
-    -- Delete user
-    DELETE FROM User_Login 
-    WHERE user_id = p_user_id;
-    
+    DECLARE user_exists INT DEFAULT 0;
+    DECLARE rows_affected INT DEFAULT 0;
+
+    -- Check if user exists and not already soft-deleted
+    SELECT COUNT(*) INTO user_exists
+    FROM User_Login
+    WHERE user_id = p_user_id
+      AND deleted_at IS NULL;
+
+    IF user_exists = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User tidak ditemukan atau sudah dihapus';
+    END IF;
+
+    -- Soft delete user
+    UPDATE User_Login
+    SET deleted_at = CURRENT_TIMESTAMP
+    WHERE user_id = p_user_id
+      AND deleted_at IS NULL;
+
     SET rows_affected = ROW_COUNT();
-    
-    SELECT rows_affected as affected_rows;
+
+    SELECT rows_affected AS affected_rows;
 END$$
 
 -- ========================================================
--- TOGGLE USER ACTIVE STATUS
+-- TOGGLE USER ACTIVE STATUS (only for non-deleted users)
 -- ========================================================
 DROP PROCEDURE IF EXISTS ToggleUserActiveStatus$$
 CREATE PROCEDURE ToggleUserActiveStatus(IN p_user_id INT)
 BEGIN
+    DECLARE user_exists INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO user_exists
+    FROM User_Login
+    WHERE user_id = p_user_id
+      AND deleted_at IS NULL;
+
+    IF user_exists = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User tidak ditemukan atau sudah dihapus';
+    END IF;
+
     UPDATE User_Login
     SET is_active = NOT is_active
-    WHERE user_id = p_user_id;
+    WHERE user_id = p_user_id
+      AND deleted_at IS NULL;
     
     -- Return updated user
     SELECT 
@@ -350,7 +379,8 @@ BEGIN
         r.role_name
     FROM User_Login u
     LEFT JOIN Role r ON u.role_id = r.role_id
-    WHERE u.user_id = p_user_id;
+    WHERE u.user_id = p_user_id
+      AND u.deleted_at IS NULL;
 END$$
 
 DELIMITER ;

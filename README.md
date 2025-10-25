@@ -1,4 +1,4 @@
-# Vet Buddy Manager
+# Vet Buddy Manager 2
 
 Sistem Manajemen Klinik Hewan Sahabat Satwa  
 Frontend: React + Vite + Shadcn  

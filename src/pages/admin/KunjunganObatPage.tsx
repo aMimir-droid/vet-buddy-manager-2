@@ -24,6 +24,8 @@ const KunjunganObatPage = () => {
   const [editingObat, setEditingObat] = useState<any>(null);
   const [formData, setFormData] = useState({
     obat_id: "",
+    qty: "1",
+    // harga_saat_itu removed to force server to use master price when creating
     dosis: "",
     frekuensi: "",
   });
@@ -50,16 +52,29 @@ const KunjunganObatPage = () => {
   // Mutation save obat
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
+      const payload = {
+        obat_id: data.obat_id ? Number(data.obat_id) : undefined,
+        qty: Number(data.qty),
+        // always send null for create so stored procedure picks master price.
+        // for update we keep harga_saat_itu = null => stored procedure will NOT override existing price.
+        harga_saat_itu: null,
+        dosis: data.dosis || null,
+        frekuensi: data.frekuensi || null,
+      };
+
       if (editingObat) {
-        return kunjunganObatApi.update(
-          selectedKunjungan.kunjungan_id,
-          editingObat.obat_id,
-          data,
-          token!
-        );
+        // update by kunjungan_obat_id — do not change harga_saat_itu by default
+        return kunjunganObatApi.update(editingObat.kunjungan_obat_id, {
+          qty: payload.qty,
+          harga_saat_itu: null,
+          dosis: payload.dosis,
+          frekuensi: payload.frekuensi,
+        }, token!);
       }
+
+      // create needs kunjungan_id and obat_id
       return kunjunganObatApi.create(
-        { ...data, kunjungan_id: selectedKunjungan.kunjungan_id },
+        { ...payload, kunjungan_id: selectedKunjungan.kunjungan_id, obat_id: Number(data.obat_id) },
         token!
       );
     },
@@ -77,8 +92,8 @@ const KunjunganObatPage = () => {
 
   // Mutation delete obat
   const deleteMutation = useMutation({
-    mutationFn: (obatId: number) =>
-      kunjunganObatApi.delete(selectedKunjungan.kunjungan_id, obatId, token!),
+    mutationFn: (kunjunganObatId: number) =>
+      kunjunganObatApi.delete(kunjunganObatId, token!),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["kunjungan-obats", selectedKunjungan.kunjungan_id],
@@ -95,17 +110,19 @@ const KunjunganObatPage = () => {
     setIsDialogOpen(true);
   };
 
-  const handleOpenFormDialog = (obat?: any) => {
-    if (obat) {
-      setEditingObat(obat);
+  const handleOpenFormDialog = (ko?: any) => {
+    if (ko) {
+      // ko comes from GetObatByKunjungan -> contains kunjungan_obat_id, obat_id, qty, harga_saat_itu, dosis, frekuensi
+      setEditingObat(ko);
       setFormData({
-        obat_id: obat.obat_id.toString(),
-        dosis: obat.dosis || "",
-        frekuensi: obat.frekuensi || "",
+        obat_id: ko.obat_id?.toString() ?? "",
+        qty: ko.qty?.toString() ?? "1",
+        dosis: ko.dosis || "",
+        frekuensi: ko.frekuensi || "",
       });
     } else {
       setEditingObat(null);
-      setFormData({ obat_id: "", dosis: "", frekuensi: "" });
+      setFormData({ obat_id: "", qty: "1", /* harga_saat_itu removed */ dosis: "", frekuensi: "" });
     }
     setIsFormDialogOpen(true);
   };
@@ -117,10 +134,15 @@ const KunjunganObatPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.obat_id) {
+    if (!formData.obat_id && !editingObat) {
       toast.error("Pilih obat terlebih dahulu");
       return;
     }
+    if (!formData.qty || Number(formData.qty) <= 0) {
+      toast.error("Qty harus > 0");
+      return;
+    }
+
     saveMutation.mutate(formData);
   };
 
@@ -307,19 +329,23 @@ const KunjunganObatPage = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nama Obat</TableHead>
+                          <TableHead>Qty</TableHead>
                           <TableHead>Dosis</TableHead>
                           <TableHead>Frekuensi</TableHead>
-                          <TableHead>Harga</TableHead>
+                          <TableHead>Harga / unit</TableHead>
+                          <TableHead>Total</TableHead>
                           <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {kunjunganObats.map((ko: any) => (
-                          <TableRow key={ko.obat_id}>
+                          <TableRow key={ko.kunjungan_obat_id}>
                             <TableCell className="font-medium">{ko.nama_obat}</TableCell>
+                            <TableCell>{ko.qty ?? "-"}</TableCell>
                             <TableCell>{ko.dosis || "-"}</TableCell>
                             <TableCell>{ko.frekuensi || "-"}</TableCell>
-                            <TableCell>{formatCurrency(ko.harga_obat)}</TableCell>
+                            <TableCell>{ko.harga_saat_itu != null ? formatCurrency(ko.harga_saat_itu) : "-"}</TableCell>
+                            <TableCell>{(ko.qty != null && ko.harga_saat_itu != null) ? formatCurrency(ko.qty * ko.harga_saat_itu) : "-"}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button
@@ -334,7 +360,7 @@ const KunjunganObatPage = () => {
                                   size="sm"
                                   onClick={() => {
                                     if (confirm(`Hapus ${ko.nama_obat}?`)) {
-                                      deleteMutation.mutate(ko.obat_id);
+                                      deleteMutation.mutate(ko.kunjungan_obat_id);
                                     }
                                   }}
                                 >
@@ -385,6 +411,28 @@ const KunjunganObatPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label>Qty *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={formData.qty}
+                    onChange={(e) => setFormData({ ...formData, qty: e.target.value })}
+                  />
+                </div>
+
+                {/* Show master price as read-only preview (derived from obats list) */}
+                <div>
+                  <Label>Harga</Label>
+                  <div className="mt-1 text-sm text-foreground">
+                    {(() => {
+                      const selected = obats?.find((o: any) => o.obat_id?.toString() === formData.obat_id);
+                      return selected ? formatCurrency(selected.harga_obat ?? 0) : "-";
+                    })()}
+                  </div>
+                </div>
+
                 <div>
                   <Label>Dosis</Label>
                   <Input

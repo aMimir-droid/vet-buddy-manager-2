@@ -60,9 +60,9 @@ CREATE PROCEDURE CreateShiftDokter(
 BEGIN
     DECLARE dokter_exists INT DEFAULT 0;
 
-    -- Validasi hari_minggu 0..6
-    IF p_hari_minggu < 0 OR p_hari_minggu > 6 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hari minggu harus diantara 0 dan 6';
+    -- Validasi hari_minggu 1..7  -- UPDATE: Ubah dari 0..6 ke 1..7
+    IF p_hari_minggu < 1 OR p_hari_minggu > 7 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hari minggu harus diantara 1 dan 7';
     END IF;
 
     -- Validasi jam
@@ -128,8 +128,8 @@ BEGIN
     END IF;
 
     -- Validasi hari_minggu
-    IF p_hari_minggu < 0 OR p_hari_minggu > 6 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hari minggu harus diantara 0 dan 6';
+    IF p_hari_minggu < 1 OR p_hari_minggu > 7 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hari minggu harus diantara 1 dan 7';
     END IF;
 
     -- Validasi jam

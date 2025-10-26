@@ -227,11 +227,11 @@ INSERT INTO Shift_Dokter (dokter_id, hari_minggu, jam_mulai, jam_selesai, is_act
 (5, 7, '12:00:00', '17:00:00', TRUE),
 (2, 7, '17:00:00', '22:00:00', TRUE);
 
--- Booking
-INSERT INTO Booking (dokter_id, pawrent_id, nama_pengunjung, tanggal_booking, waktu_booking, status, catatan) VALUES
-(1, 1, NULL, '2025-09-01', '09:30:00', 'booked', 'Kontrol demam'),
-(2, 2, NULL, '2025-09-02', '11:00:00', 'booked', 'Vaksinasi rutin'),
-(3, NULL, 'Tamu NonMember', '2025-09-03', '10:00:00', 'booked', 'Konsultasi');
+-- Booking - UPDATED: Ganti nama_pengunjung dengan hewan_id, tambahkan klinik_id
+INSERT INTO Booking (klinik_id, dokter_id, pawrent_id, hewan_id, tanggal_booking, waktu_booking, status, catatan) VALUES
+(1, 1, 1, 1, '2025-09-01', '09:30:00', 'booked', 'Kontrol demam untuk Mimi'),  -- Klinik 1, Dokter 1, Pawrent 1, Hewan 1 (Mimi)
+(1, 2, 2, 3, '2025-09-02', '11:00:00', 'booked', 'Vaksinasi rutin untuk Fluffy'),  -- Klinik 1, Dokter 2, Pawrent 2, Hewan 3 (Fluffy)
+(2, 3, NULL, NULL, '2025-09-03', '10:00:00', 'booked', 'Konsultasi untuk tamu non-member');  -- Klinik 2, Dokter 3, Pawrent NULL, Hewan NULL (non-member)
 
 -- Dokter_Review
 INSERT INTO Dokter_Review (dokter_id, pawrent_id, rating, komentar) VALUES

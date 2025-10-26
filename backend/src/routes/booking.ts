@@ -61,7 +61,10 @@ router.get('/my', authenticate, authorize(3), async (req: AuthRequest, res) => {
 router.post('/', authenticate, authorize(1, 3), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   const {
+    klinik_id,
     dokter_id,
+    pawrent_id,
+    hewan_id,  // GANTI: Dari nama_pengunjung ke hewan_id
     tanggal_booking,
     waktu_booking,
     status,
@@ -69,28 +72,27 @@ router.post('/', authenticate, authorize(1, 3), async (req: AuthRequest, res) =>
   } = req.body;
 
   try {
-    if (!dokter_id || !tanggal_booking || !waktu_booking) {
-      return res.status(400).json({ message: 'dokter_id, tanggal_booking dan waktu_booking wajib diisi' });
+    if (!klinik_id || !dokter_id || !tanggal_booking || !waktu_booking) {
+      return res.status(400).json({ message: 'klinik_id, dokter_id, tanggal_booking dan waktu_booking wajib diisi' });
     }
 
-    // Ambil pawrent_id dan nama dari user yang login
+    // Ambil pawrent_id dan hewan_id dari user yang login (untuk pawrent)
     const effectivePawrentId = req.user.role_id === 3 ? req.user.pawrent_id : req.body.pawrent_id;
-    const nama_pengunjung = req.user.role_id === 3
-      ? `${req.user.nama_depan_pawrent || ''} ${req.user.nama_belakang_pawrent || ''}`.trim()
-      : req.body.nama_pengunjung || null;
+    const effectiveHewanId = req.user.role_id === 3 ? req.body.hewan_id : req.body.hewan_id;  // TAMBAHKAN: Ambil hewan_id dari request
 
     const [result]: any = await pool.execute(
-      'CALL CreateBooking(?, ?, ?, ?, ?, ?, ?)',
+      'CALL CreateBooking(?, ?, ?, ?, ?, ?, ?, ?)',  // Parameter tetap 8
       [
+        klinik_id,
         dokter_id,
         effectivePawrentId,
-        nama_pengunjung,
+        effectiveHewanId,  // GANTI: Kirim hewan_id
         tanggal_booking,
         waktu_booking,
         status || 'pending',
         catatan || null
       ]
-    ) as [RowDataPacket[][], any];
+    );
 
     const created = result?.[0]?.[0] ?? null;
     res.status(201).json({ message: 'Booking berhasil dibuat', data: created });
@@ -114,9 +116,10 @@ router.put('/:id(\\d+)', authenticate, authorize(1, 3), async (req: AuthRequest,
   const pool = req.dbPool;
   const { id } = req.params;
   const {
+    klinik_id,  // TAMBAHKAN: Destructure klinik_id
     dokter_id,
     pawrent_id,
-    nama_pengunjung,
+    hewan_id,  // GANTI: Dari nama_pengunjung ke hewan_id
     tanggal_booking,
     waktu_booking,
     status,
@@ -144,16 +147,18 @@ router.put('/:id(\\d+)', authenticate, authorize(1, 3), async (req: AuthRequest,
       }
     }
 
-    // For pawrent role override pawrent_id (ensure correct ownership)
+    // For pawrent role, override pawrent_id and hewan_id (ensure correct ownership)
     const effectivePawrentId = req.user.role_id === 3 ? req.user.pawrent_id : pawrent_id;
+    const effectiveHewanId = req.user.role_id === 3 ? req.body.hewan_id : req.body.hewan_id;  // TAMBAHKAN: Ambil hewan_id dari request (sama untuk pawrent dan admin)
 
     const [result]: any = await pool.execute(
-      'CALL UpdateBooking(?, ?, ?, ?, ?, ?, ?, ?)',
+      'CALL UpdateBooking(?, ?, ?, ?, ?, ?, ?, ?, ?)',  // PERBAIKI: 9 parameters
       [
         parseInt(id, 10),
+        klinik_id ?? null,  // TAMBAHKAN: Pass klinik_id
         dokter_id ?? null,
         effectivePawrentId ?? null,
-        nama_pengunjung ?? null,
+        effectiveHewanId ?? null,  // GANTI: Pass hewan_id
         tanggal_booking ?? null,
         waktu_booking ?? null,
         status ?? null,
@@ -198,77 +203,100 @@ router.get('/available', authenticate, async (req: AuthRequest, res) => {
   const date = String(req.query.date || '');
 
   if (!dokterId || !date) {
-    return res.status(400).json({ message: 'Parameter dokterId dan date wajib diisi (YYYY-MM-DD)' });
+    return res.status(400).json({ message: 'dokterId dan date wajib diisi' });
   }
 
   try {
-    // 1) Ambil shifts aktif untuk dokter pada hari tersebut
-    const [shiftRows]: any = await pool.execute(
-      `SELECT jam_mulai, jam_selesai
-       FROM Shift_Dokter
-       WHERE dokter_id = ?
-         AND (is_active = 1 OR is_active = TRUE)
-         AND hari_minggu = (WEEKDAY(?) + 1)`,
-      [dokterId, date]
-    );
-
-    if (!shiftRows || shiftRows.length === 0) {
-      return res.json({ availableSlots: [], shifts: [] });
+    // Parse date
+    const bookingDate = new Date(date);
+    if (isNaN(bookingDate.getTime())) {
+      return res.status(400).json({ message: 'Format tanggal tidak valid' });
     }
 
-    // 2) Ambil booking yang sudah ada untuk dokter pada tanggal itu (non-cancelled)
-    const [bookingRows]: any = await pool.execute(
-      `SELECT waktu_booking
-       FROM Booking
-       WHERE dokter_id = ?
-         AND tanggal_booking = ?
-         AND (status IS NULL OR LOWER(status) != 'cancelled')`,
-      [dokterId, date]
-    );
-
-    const existingTimes = (bookingRows || []).map((r: any) => (r.waktu_booking || '').toString().substring(0,5)); // "HH:MM"
-
-    // helper
-    const toMinutes = (t: string) => {
-      const [hh, mm] = t.split(':').map((s: string) => parseInt(s, 10) || 0);
-      return hh * 60 + mm;
-    };
-
-    const slotDuration = 30; // menit
-    const availableSlots: string[] = [];
-
-    // For each shift, generate 30-min slots where slot + duration <= jam_selesai
-    for (const s of shiftRows) {
-      const startStr = (s.jam_mulai || '').toString().substring(0,5);
-      const endStr = (s.jam_selesai || '').toString().substring(0,5);
-      if (!startStr || !endStr) continue;
-
-      const startMin = toMinutes(startStr);
-      const endMin = toMinutes(endStr);
-
-      // last slot start such that slot + slotDuration <= endMin
-      for (let slot = startMin; slot + slotDuration <= endMin; slot += slotDuration) {
-        const hh = Math.floor(slot / 60).toString().padStart(2, '0');
-        const mm = (slot % 60).toString().padStart(2, '0');
-        const slotStr = `${hh}:${mm}`;
-
-        // check existing bookings: none may be within < 30 minutes (1800s) of this slot
-        let conflict = false;
-        for (const et of existingTimes) {
-          const etMin = toMinutes(et);
-          if (Math.abs(etMin - slot) < slotDuration) {
-            conflict = true;
-            break;
-          }
-        }
-        if (!conflict) availableSlots.push(slotStr);
-      }
+    // TAMBAHKAN: Validasi tanggal tidak di masa lalu (opsional)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (bookingDate < today) {
+      return res.json({ availableSlots: [], message: 'Tidak bisa booking untuk tanggal masa lalu' });
     }
 
-    res.json({ availableSlots, shifts: shiftRows });
+    // Get shift for this dokter on this day of week
+    // UPDATE: Map getDay() ke 1-7 (1=Senin, ..., 7=Minggu)
+    let dayOfWeek = bookingDate.getDay(); // 0 = Sunday
+    if (dayOfWeek === 0) {
+      dayOfWeek = 7; // Minggu
+    }
+    // dayOfWeek sekarang: 1=Senin, 2=Selasa, ..., 7=Minggu
+    
+    console.log(`🔍 [AVAILABLE SLOTS] Checking shift for dokter ${dokterId} on day ${dayOfWeek} (date: ${date})`);
+    
+    const [shiftRows] = await pool.execute(
+      'SELECT * FROM Shift_Dokter WHERE dokter_id = ? AND hari_minggu = ? AND is_active = 1',
+      [dokterId, dayOfWeek]
+    ) as [RowDataPacket[], any];
+
+    console.log(`📊 [AVAILABLE SLOTS] Found ${shiftRows.length} shifts for dokter ${dokterId} on day ${dayOfWeek}`);
+
+    if (shiftRows.length === 0) {
+      console.log(`❌ [AVAILABLE SLOTS] No active shift found for dokter ${dokterId} on day ${dayOfWeek}`);
+      return res.json({ availableSlots: [] }); // No shift, no slots
+    }
+
+    const shift = shiftRows[0];
+    const startTime = shift.jam_mulai;
+    const endTime = shift.jam_selesai;
+
+    console.log(`⏰ [AVAILABLE SLOTS] Shift time: ${startTime} - ${endTime}`);
+
+    // Generate slots every 30 minutes
+    const slots = [];
+    let current = new Date(`${date}T${startTime}`);
+    const end = new Date(`${date}T${endTime}`);
+
+    while (current < end) {
+      slots.push(current.toTimeString().substring(0, 5)); // HH:MM
+      current.setMinutes(current.getMinutes() + 30);
+    }
+
+    console.log(`📅 [AVAILABLE SLOTS] Generated ${slots.length} potential slots: ${slots.join(', ')}`);
+
+    // Get existing bookings for this dokter on this date
+    const [bookingRows] = await pool.execute(
+      'SELECT waktu_booking FROM Booking WHERE dokter_id = ? AND tanggal_booking = ? AND status != "cancelled"',
+      [dokterId, date]
+    ) as [RowDataPacket[], any];
+
+    const bookedTimes = bookingRows.map((b: any) => b.waktu_booking);
+    console.log(`📋 [AVAILABLE SLOTS] Existing bookings: ${bookedTimes.join(', ')}`);
+
+    // Filter out booked slots and slots within 30 minutes of booked slots
+    const availableSlots = slots.filter(slot => {
+      const slotTime = new Date(`${date}T${slot}:00`);
+      return !bookedTimes.some((booked: string) => {
+        const bookedTime = new Date(`${date}T${booked}`);
+        const diff = Math.abs(slotTime.getTime() - bookedTime.getTime()) / (1000 * 60);
+        return diff < 30; // Within 30 minutes
+      });
+    });
+
+    console.log(`✅ [AVAILABLE SLOTS] Available slots: ${availableSlots.join(', ')}`);
+
+    res.json({ availableSlots });
   } catch (error: any) {
     console.error('❌ [GET AVAILABLE SLOTS] Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message ?? String(error) });
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error.message });
+  }
+});
+
+// TAMBAHKAN: GET all bookings (admin only) - menggunakan procedure GetAllBookings
+router.get('/all', authenticate, authorize(1), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  try {
+    const [rows] = await pool.execute('CALL GetAllBookings()') as [RowDataPacket[], any];
+    res.json(rows[0]); // Procedure mengembalikan result set
+  } catch (error: any) {
+    console.error('❌ [GET ALL BOOKINGS] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message });
   }
 });
 

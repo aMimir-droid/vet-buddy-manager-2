@@ -234,6 +234,9 @@ export const hewanApi = {
 
   getJenisHewan: (token: string) =>
     apiCall({ endpoint: '/hewan/jenis/list', token }),
+
+  getByPawrent: (pawrentId: string, token: string) =>
+    apiCall({ endpoint: `/hewan/by-pawrent/${pawrentId}`, token }),
 };
 
 // ========================================================
@@ -416,6 +419,17 @@ export const bookingApi = {
     apiCall({ endpoint: `/booking/${id}`, method: 'PUT', body: data, token }),
   delete: (id: number, token: string) =>
     apiCall({ endpoint: `/booking/${id}`, method: 'DELETE', token }),
+
+  // PERBAIKI: Get available slots for a dokter on a date - gunakan apiCall
+  getAvailable: (dokterId: number, date: string, token: string) =>
+    apiCall<{ availableSlots: string[] }>({
+      endpoint: `/booking/available?dokterId=${dokterId}&date=${date}`,
+      token
+    }),
+
+  // TAMBAHKAN: Query untuk semua bookings (gunakan apiCall)
+  getAll: (token: string) =>
+    apiCall({ endpoint: '/booking/all', token }),
 };
 
 // ========================================================

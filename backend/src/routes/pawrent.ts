@@ -66,6 +66,25 @@ router.put('/my/profile', authenticate, authorize(3), async (req: AuthRequest, r
   }
 });
 
+// GET my profile (pawrent) - return nama_depan_pawrent, nama_belakang_pawrent
+router.get('/me', authenticate, authorize(3), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const pawrentId = req.user?.pawrent_id;
+  try {
+    const [rows] = await pool.execute(
+      'SELECT nama_depan_pawrent, nama_belakang_pawrent FROM Pawrent WHERE pawrent_id = ?',
+      [pawrentId]
+    ) as [RowDataPacket[], any];
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Pawrent tidak ditemukan' });
+    }
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET PAWRENT ME] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message });
+  }
+});
+
 // ========================================================
 // GENERIC ROUTES (Untuk Admin)
 // ========================================================

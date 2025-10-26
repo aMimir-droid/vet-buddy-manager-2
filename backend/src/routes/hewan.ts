@@ -366,4 +366,20 @@ router.get('/jenis/list', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
+// GET hewan by pawrent
+router.get('/by-pawrent/:pawrentId', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { pawrentId } = req.params;
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM Hewan WHERE pawrent_id = ?',
+      [pawrentId]
+    ) as [RowDataPacket[], any];
+    res.json(rows);
+  } catch (error: any) {
+    console.error('❌ [GET HEWAN BY PAWRENT] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message });
+  }
+});
+
 export default router;

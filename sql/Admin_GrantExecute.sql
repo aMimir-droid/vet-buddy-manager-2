@@ -198,7 +198,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateJenisHewan TO 'admin_user'@'localhost
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteJenisHewan TO 'admin_user'@'localhost';
 
 -- Booking
-
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingById TO 'vet_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByDokter TO 'vet_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateBooking TO 'vet_user'@'localhost';
@@ -215,6 +214,9 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByDokter TO 'admin_user'@'localh
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateBooking TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateBooking TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteBooking TO 'admin_user'@'localhost';
+
+-- TAMBAHKAN: Grant untuk GetAllBookings (admin only)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllBookings TO 'admin_user'@'localhost';
 
 -- Shift_Dokter Procedures
 

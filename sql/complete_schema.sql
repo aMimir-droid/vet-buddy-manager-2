@@ -210,21 +210,29 @@ CREATE TABLE Shift_Dokter (
 -- Tabel Booking Janji Temu
 CREATE TABLE Booking (
     booking_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key Booking',
+    klinik_id INT NOT NULL COMMENT 'FK Klinik TEMPAT booking',
     dokter_id INT NOT NULL COMMENT 'FK Dokter',
     pawrent_id INT NULL COMMENT 'FK Pawrent jika sudah terdaftar',
-    nama_pengunjung VARCHAR(100) COMMENT 'Pengunjung non member',
+    hewan_id INT NULL COMMENT 'FK Hewan yang dibooking (pengganti nama_pengunjung)', -- GANTI: Dari nama_pengunjung ke hewan_id
     tanggal_booking DATE NOT NULL COMMENT 'Tanggal booking',
     waktu_booking TIME NOT NULL COMMENT 'Jam booking',
     status ENUM('pending','booked','cancelled','done') DEFAULT 'pending' COMMENT 'Status appointment',
     catatan TEXT NULL COMMENT 'Catatan keluhan awal',
     
+    CONSTRAINT fk_booking_klinik FOREIGN KEY (klinik_id)
+        REFERENCES Klinik(klinik_id) ON DELETE RESTRICT,
+        
     CONSTRAINT fk_booking_dokter FOREIGN KEY (dokter_id)
         REFERENCES Dokter(dokter_id) ON DELETE CASCADE,
     
     CONSTRAINT fk_booking_pawrent FOREIGN KEY (pawrent_id)
         REFERENCES Pawrent(pawrent_id) ON DELETE SET NULL,
         
-    CONSTRAINT uq_booking UNIQUE (dokter_id, tanggal_booking, waktu_booking)
+    CONSTRAINT fk_booking_hewan FOREIGN KEY (hewan_id) -- TAMBAHKAN: FK ke Hewan
+        REFERENCES Hewan(hewan_id) ON DELETE SET NULL,
+        
+    -- Modifikasi UQ: Booking unik per dokter, per waktu, DAN per klinik
+    CONSTRAINT uq_booking UNIQUE (klinik_id, dokter_id, tanggal_booking, waktu_booking)
 );
 
 -- ========================================================
@@ -234,6 +242,7 @@ CREATE TABLE Booking (
 -- Tabel Kunjungan (depends on: Hewan, Dokter)
 CREATE TABLE Kunjungan (
     kunjungan_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key, identitas unik kunjungan',
+    klinik_id INT NOT NULL COMMENT 'FK Klinik TEMPAT kunjungan', -- TAMBAHKAN INI
     hewan_id INT NULL COMMENT 'Foreign Key ke tabel Hewan',
     dokter_id INT NULL COMMENT 'Foreign Key ke tabel Dokter',
     tanggal_kunjungan DATE NOT NULL COMMENT 'Tanggal kunjungan',
@@ -244,6 +253,9 @@ CREATE TABLE Kunjungan (
     booking_id INT NULL COMMENT 'FK ke Booking jika kunjungan berasal dari booking',
     deleted_at DATETIME NULL COMMENT 'Soft delete kunjungan (rekam medis tetap ada)',
     
+    CONSTRAINT fk_kunjungan_klinik FOREIGN KEY (klinik_id) -- TAMBAHKAN INI
+        REFERENCES Klinik(klinik_id) ON DELETE RESTRICT,
+        
     CONSTRAINT fk_kunjungan_hewan FOREIGN KEY (hewan_id) 
         REFERENCES Hewan(hewan_id) ON DELETE SET NULL,
     CONSTRAINT fk_kunjungan_dokter FOREIGN KEY (dokter_id) 
@@ -252,7 +264,9 @@ CREATE TABLE Kunjungan (
         REFERENCES Kunjungan(kunjungan_id) ON DELETE SET NULL,
     CONSTRAINT fk_kunjungan_booking FOREIGN KEY (booking_id)
         REFERENCES Booking(booking_id) ON DELETE SET NULL,
-    CONSTRAINT uq_kunjungan_natural UNIQUE (hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan)
+        
+    -- Modifikasi UQ: Kunjungan unik per hewan, dokter, waktu, DAN klinik
+    CONSTRAINT uq_kunjungan_natural UNIQUE (klinik_id, hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan)
 );
 
 -- ========================================================

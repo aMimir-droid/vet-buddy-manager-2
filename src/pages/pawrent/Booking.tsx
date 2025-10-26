@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { bookingApi, dokterApi } from "@/lib/api";
+import { bookingApi, dokterApi, apiCall } from "@/lib/api";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ const BookingPawrentPage = () => {
     dokter_id: "",
     tanggal_booking: new Date().toISOString().split("T")[0],
     waktu_booking: "09:00",
-    nama_pengunjung: "", // kept for UI but won't be submitted for pawrent
     catatan: ""
   });
   const [dokters, setDokters] = useState<any[]>([]);
@@ -34,7 +33,7 @@ const BookingPawrentPage = () => {
   });
 
   const create = useMutation({
-    mutationFn: (data: any) => bookingApi.create(data, token!),
+    mutationFn: (data: any) => bookingApi.create({ ...data, klinik_id: dokters.find(d => d.dokter_id == data.dokter_id)?.klinik_id }, token!),  // TAMBAHKAN: Sertakan klinik_id dari dokter yang dipilih
     onSuccess: () => {
       queryClient.invalidateQueries(["bookings", "pawrent", user?.pawrent_id]);
       setOpen(false);
@@ -61,42 +60,25 @@ const BookingPawrentPage = () => {
     if (open) {
       setForm((f) => ({
         ...f,
-        nama_pengunjung: `${user?.nama_depan_pawrent || user?.username || ""} ${user?.nama_belakang_pawrent || ""}`.trim()
       }));
     }
   }, [open, user]);
 
   // Fetch available slots when dokter or date changes
   useEffect(() => {
-    const dokterId = Number(form.dokter_id);
-    const date = form.tanggal_booking;
-    if (!dokterId || !date || !token) {
-      setAvailableSlots([]);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        setSlotsLoading(true);
-        const res: any = await bookingApi.getAvailable(dokterId, date, token!);
-        // expect { availableSlots: string[] }
-        if (!cancelled) {
-          setAvailableSlots(Array.isArray(res?.availableSlots) ? res.availableSlots : []);
-          // if current selected waktu_booking not in available slots, reset to first
-          if (!res?.availableSlots?.includes(form.waktu_booking)) {
-            setForm(f => ({ ...f, waktu_booking: res?.availableSlots?.[0] ?? "" }));
-          }
-        }
-      } catch (err) {
-        console.warn('Gagal mengambil available slots:', err);
-        if (!cancelled) setAvailableSlots([]);
-      } finally {
-        if (!cancelled) setSlotsLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
+    if (!form.dokter_id || !form.tanggal_booking || !token) return;
+    console.log('🔍 Fetching slots for dokter:', form.dokter_id, 'date:', form.tanggal_booking);
+    setSlotsLoading(true);
+    bookingApi.getAvailable(Number(form.dokter_id), form.tanggal_booking, token)
+      .then((data) => {
+        console.log('✅ Available slots:', data.availableSlots);
+        setAvailableSlots(data.availableSlots);
+      })
+      .catch((err) => {
+        console.error('❌ Error fetching slots:', err);
+        setAvailableSlots([]);
+      })
+      .finally(() => setSlotsLoading(false));
   }, [form.dokter_id, form.tanggal_booking, token]);
 
   const timeToMinutes = (t: string) => {
@@ -183,6 +165,30 @@ const BookingPawrentPage = () => {
     }
   };
 
+  // TAMBAHKAN: State untuk nama pengunjung dari backend
+  const [fetchedNamaPengunjung, setFetchedNamaPengunjung] = useState('');
+
+  // TAMBAHKAN: Fetch nama pengunjung dari backend saat mount
+  useEffect(() => {
+    if (token && user?.role_id === 3) {
+      apiCall<{ nama_depan_pawrent: string; nama_belakang_pawrent: string }>({
+        endpoint: '/pawrent/me',
+        token
+      })
+        .then((data) => {
+          const fullName = `${data.nama_depan_pawrent} ${data.nama_belakang_pawrent}`.trim();
+          setFetchedNamaPengunjung(fullName);
+          setForm((prev) => ({ ...prev, nama_pengunjung: fullName }));
+        })
+        .catch((err) => {
+          console.error('Error fetching pawrent name:', err);
+          // Fallback ke username jika gagal
+          setFetchedNamaPengunjung(user.username || '');
+          setForm((prev) => ({ ...prev, nama_pengunjung: user.username || '' }));
+        });
+    }
+  }, [token, user]);
+
   return (
     <DashboardLayout title="Booking - Pawrent" showBackButton backTo="/pawrent/dashboard">
       <div className="space-y-6">
@@ -198,7 +204,6 @@ const BookingPawrentPage = () => {
                   dokter_id: "",
                   tanggal_booking: new Date().toISOString().split("T")[0],
                   waktu_booking: "09:00",
-                  nama_pengunjung: `${user?.nama_depan_pawrent || user?.username || ""} ${user?.nama_belakang_pawrent || ""}`.trim(),
                   catatan: ""
                 });
                 setOpen(true);
@@ -264,6 +269,7 @@ const BookingPawrentPage = () => {
             if (!ok) return;
             try {
               await create.mutateAsync({
+                klinik_id: dokters.find(d => d.dokter_id == Number(form.dokter_id))?.klinik_id,  // TAMBAHKAN: Ambil klinik_id dari dokter
                 dokter_id: Number(form.dokter_id),
                 tanggal_booking: form.tanggal_booking,
                 waktu_booking: form.waktu_booking,
@@ -315,11 +321,20 @@ const BookingPawrentPage = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Nama Pengunjung</label>
-                <Input value={form.nama_pengunjung} readOnly />
-                <p className="text-xs text-muted-foreground mt-1">Nama pengunjung otomatis diisi dari akun Anda (pawrent). Server akan menegakkan validasi shift & jeda 30 menit.</p>
-              </div>
+              {/* HIDE: Nama Pengunjung untuk pawrent — backend sets it */}
+              {user?.role_id !== 3 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Nama Pengunjung</label>
+                  <Input
+                    id="nama_pengunjung"
+                    value={form.nama_pengunjung}
+                    onChange={(e) => setForm({ ...form, nama_pengunjung: e.target.value })}
+                    placeholder="Nama pengunjung"
+                    disabled
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Nama pengunjung otomatis diisi dari akun Anda (pawrent). Server akan menegakkan validasi shift & jeda 30 menit.</p>
+                </div>
+              )}
 
               <Input value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} placeholder="Catatan (opsional)" />
             </div>

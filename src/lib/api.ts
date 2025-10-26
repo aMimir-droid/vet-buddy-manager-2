@@ -399,3 +399,35 @@ export const getDoktersByKlinik = async (klinikId: number, token: string) => {
   if (!res.ok) throw new Error("Gagal mengambil data dokter");
   return res.json();
 };
+
+// ========================================================
+// BOOKING API
+// ========================================================
+export const bookingApi = {
+  getById: (id: number, token?: string) =>
+    apiCall({ endpoint: `/booking/${id}`, token }),
+  getByDokter: (dokterId: number, token?: string) =>
+    apiCall({ endpoint: `/booking/dokter/${dokterId}`, token }),
+  getMy: (token: string) =>
+    apiCall({ endpoint: '/booking/my', token }),
+  create: (data: any, token: string) =>
+    apiCall({ endpoint: '/booking', method: 'POST', body: data, token }),
+  update: (id: number, data: any, token: string) =>
+    apiCall({ endpoint: `/booking/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) =>
+    apiCall({ endpoint: `/booking/${id}`, method: 'DELETE', token }),
+};
+
+// ========================================================
+// SHIFT DOKTER API
+// ========================================================
+export const shiftDokterApi = {
+  getAll: (token: string) => apiCall({ endpoint: '/shift-dokter', token }),
+  getPublicList: (token: string) => apiCall({ endpoint: '/shift-dokter/public/list', token }),
+  getById: (id: number, token: string) => apiCall({ endpoint: `/shift-dokter/${id}`, token }),
+  create: (data: { dokter_id: number; hari_minggu: number; jam_mulai: string; jam_selesai: string; is_active?: boolean }, token: string) =>
+    apiCall({ endpoint: '/shift-dokter', method: 'POST', body: data, token }),
+  update: (id: number, data: { dokter_id: number; hari_minggu: number; jam_mulai: string; jam_selesai: string; is_active?: boolean }, token: string) =>
+    apiCall({ endpoint: `/shift-dokter/${id}`, method: 'PUT', body: data, token }),
+  delete: (id: number, token: string) => apiCall({ endpoint: `/shift-dokter/${id}`, method: 'DELETE', token }),
+};

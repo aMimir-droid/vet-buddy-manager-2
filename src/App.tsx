@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound";
 // GENERAL PAGES
 // ========================================================
 import Dashboard from "./pages/Dashboard";
+import BookingPage from "@/pages/BookingPage";
 
 // ========================================================
 // ADMIN PAGES
@@ -46,6 +47,8 @@ import LayananPage from "./pages/admin/LayananPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
 import JenisHewanPage from "./pages/admin/JenisHewanPage";
 import AdminPencarianPage from "./pages/admin/AdminPencarianPage";
+import AdminBooking from "@/pages/admin/Booking";
+import ShiftDokterAdmin from "./pages/admin/ShiftDokterAdmin";
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -59,6 +62,7 @@ import VetLayananPage from "./pages/vet/LayananPage";
 import VetKlinikPage from "./pages/vet/VetKlinikPage";
 import VetJenisHewanPage from "./pages/vet/VetJenisHewanPage";
 import VetProfilPage from "./pages/vet/VetProfilPage";
+import VetBooking from "@/pages/vet/Booking";
 
 // ========================================================
 // PAWRENT PAGES
@@ -73,6 +77,7 @@ import PawrentObatListPage from "./pages/pawrent/PawrentObatListPage";
 import PawrentJenisHewanPage from "./pages/pawrent/PawrentJenisHewanPage";
 import PawrentKlinikPage from "./pages/pawrent/PawrentKlinikPage";
 import PawrentLayananPage from "./pages/pawrent/PawrentLayananPage";
+import PawrentBooking from "@/pages/pawrent/Booking";
 
 // ========================================================
 // QUERY CLIENT CONFIGURATION
@@ -129,7 +134,9 @@ const App = () => (
                     <Route path="layanan" element={<LayananPage />} />
                     <Route path="auditlog" element={<AuditLogPage />} />
                     <Route path="jenis-hewan" element={<JenisHewanPage />} />
+                    <Route path="shift-dokter" element={<ShiftDokterAdmin />} />
                     <Route path="pencarian" element={<AdminPencarianPage />} />
+                    <Route path="booking" element={<AdminBooking />} />
                     <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>
@@ -153,6 +160,7 @@ const App = () => (
                     <Route path="klinik" element={<VetKlinikPage />} />
                     <Route path="jenis-hewan" element={<VetJenisHewanPage />} />
                     <Route path="profil" element={<VetProfilPage />} />
+                    <Route path="booking" element={<VetBooking />} />
                     <Route path="*" element={<Navigate to="/vet/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>
@@ -177,6 +185,7 @@ const App = () => (
                     <Route path="jenis-hewan" element={<PawrentJenisHewanPage />} />
                     <Route path="klinik" element={<PawrentKlinikPage />} />
                     <Route path="layanan" element={<PawrentLayananPage />} />
+                    <Route path="booking" element={<PawrentBooking />} />
                     <Route path="*" element={<Navigate to="/pawrent/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

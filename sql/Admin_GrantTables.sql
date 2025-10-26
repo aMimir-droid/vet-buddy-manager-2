@@ -49,6 +49,22 @@ GRANT SELECT ON vet_buddy.Jenis_Hewan TO 'vet_user'@'localhost';
 -- Role - Read Only
 GRANT SELECT ON vet_buddy.Role TO 'vet_user'@'localhost';
 
+-- Mutasi_Obat: INSERT, SELECT (stok in/out & log)
+GRANT SELECT, INSERT ON vet_buddy.Mutasi_Obat TO 'vet_user'@'localhost';
+
+-- Stok_Obat: SELECT, UPDATE (lihat & update stok saat kunjungan)
+GRANT SELECT, UPDATE ON vet_buddy.Stok_Obat TO 'vet_user'@'localhost';
+
+-- Dokter_Review & Klinik_Review: SELECT (lihat review)
+GRANT SELECT ON vet_buddy.Dokter_Review TO 'vet_user'@'localhost';
+GRANT SELECT ON vet_buddy.Klinik_Review TO 'vet_user'@'localhost';
+
+-- Shift_Dokter: SELECT, INSERT, UPDATE (lihat, buat, ubah shift sendiri)
+GRANT SELECT, INSERT, UPDATE ON vet_buddy.Shift_Dokter TO 'vet_user'@'localhost';
+
+-- Booking: SELECT, UPDATE (lihat, approve/edit status booking)
+GRANT SELECT, UPDATE ON vet_buddy.Booking TO 'vet_user'@'localhost';
+
 -- ========================================================
 -- GRANT untuk PAWRENT_USER
 -- ========================================================
@@ -85,6 +101,18 @@ GRANT SELECT ON vet_buddy.Jenis_Hewan TO 'pawrent_user'@'localhost';
 
 -- Role - Read Only
 GRANT SELECT ON vet_buddy.Role TO 'pawrent_user'@'localhost';
+
+-- Mutasi_Obat & Stok_Obat: tidak diberi akses
+
+-- Dokter_Review & Klinik_Review: SELECT, INSERT (lihat & buat review)
+GRANT SELECT, INSERT ON vet_buddy.Dokter_Review TO 'pawrent_user'@'localhost';
+GRANT SELECT, INSERT ON vet_buddy.Klinik_Review TO 'pawrent_user'@'localhost';
+
+-- Shift_Dokter: SELECT (lihat shift dokter untuk booking)
+GRANT SELECT ON vet_buddy.Shift_Dokter TO 'pawrent_user'@'localhost';
+
+-- Booking: SELECT, INSERT, UPDATE (lihat, buat, edit/cancel/reschedule booking sendiri)
+GRANT SELECT, INSERT, UPDATE ON vet_buddy.Booking TO 'pawrent_user'@'localhost';
 
 -- ========================================================
 -- FLUSH PRIVILEGES

@@ -19,6 +19,13 @@ const PawrentDashboard = () => {
       color: "bg-primary"
     },
     {
+      title: "Booking Janji Temu",
+      description: "Buat dan lihat booking untuk hewan Anda",
+      icon: Calendar,
+      path: "/pawrent/booking",
+      color: "bg-cyan-500"
+    },
+    {
       title: "Riwayat Kunjungan",
       description: "Riwayat medis dan perawatan",
       icon: Calendar,

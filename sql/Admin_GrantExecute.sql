@@ -191,6 +191,46 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.CreateJenisHewan TO 'admin_user'@'localhost
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateJenisHewan TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteJenisHewan TO 'admin_user'@'localhost';
 
+-- Booking
+
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingById TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByDokter TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateBooking TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateBooking TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteBooking TO 'vet_user'@'localhost';
+
+-- PAWRENT_USER: baca dan buat booking (tidak diizinkan hapus/update global)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingById TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateBooking TO 'pawrent_user'@'localhost';
+
+-- ADMIN_USER: akses penuh untuk booking
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingById TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByDokter TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateBooking TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateBooking TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteBooking TO 'admin_user'@'localhost';
+
+-- Shift_Dokter Procedures
+
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateShiftDokter TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateShiftDokter TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'vet_user'@'localhost';
+
+-- Pawrent: hanya untuk melihat jadwal
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'pawrent_user'@'localhost';
+
+-- Admin: akses penuh untuk shift
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateShiftDokter TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateShiftDokter TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'admin_user'@'localhost';
+
+
+
 -- ========================================================
 -- FLUSH PRIVILEGES
 -- ========================================================

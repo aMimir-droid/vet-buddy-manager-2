@@ -31,6 +31,13 @@ const AdminDashboard = () => {
       color: "bg-green-500"
     },
     {
+      title: "Booking Janji Temu",
+      description: "Kelola dan pantau booking per dokter",
+      icon: Calendar,
+      path: "/admin/booking",
+      color: "bg-cyan-500"
+    },
+    {
       title: "Kunjungan Obat",
       description: "Kelola obat untuk setiap kunjungan",
       icon: Syringe,
@@ -78,6 +85,13 @@ const AdminDashboard = () => {
       icon: Pill,
       path: "/admin/obat",
       color: "bg-pink-500"
+    },
+    {
+      title: "Kelola Shift Dokter",
+      description: "Atur jadwal kerja dokter",
+      icon: Calendar,
+      path: "/admin/shift-dokter",
+      color: "bg-emerald-500"
     },
     {
       title: "Kelola Layanan",

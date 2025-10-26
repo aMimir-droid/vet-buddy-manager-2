@@ -99,6 +99,7 @@ CREATE TABLE Dokter (
     tanggal_mulai_kerja DATE COMMENT 'Tanggal mulai bekerja',
     spesialisasi_id INT NULL COMMENT 'Foreign Key ke tabel Spesialisasi',
     klinik_id INT NULL COMMENT 'Foreign Key ke tabel Klinik',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Status aktif dokter (true = aktif, false = non-aktif)',
     deleted_at DATETIME NULL COMMENT 'Soft delete dokter',
     CONSTRAINT fk_dokter_spesialisasi FOREIGN KEY (spesialisasi_id) 
         REFERENCES Spesialisasi(spesialisasi_id) ON DELETE SET NULL,
@@ -205,6 +206,7 @@ CREATE TABLE Kunjungan (
     catatan TEXT COMMENT 'Catatan atau keluhan',
     metode_pembayaran ENUM('Cash','Transfer','E-Wallet') NOT NULL COMMENT 'Metode pembayaran',
     kunjungan_sebelumnya INT NULL COMMENT 'Relasi ke kunjungan sebelumnya (jika ada)',
+    booking_id INT NULL COMMENT 'FK ke Booking jika kunjungan berasal dari booking',
     deleted_at DATETIME NULL COMMENT 'Soft delete kunjungan (rekam medis tetap ada)',
     
     CONSTRAINT fk_kunjungan_hewan FOREIGN KEY (hewan_id) 
@@ -213,6 +215,8 @@ CREATE TABLE Kunjungan (
         REFERENCES Dokter(dokter_id) ON DELETE SET NULL,
     CONSTRAINT fk_kunjungan_self FOREIGN KEY (kunjungan_sebelumnya) 
         REFERENCES Kunjungan(kunjungan_id) ON DELETE SET NULL,
+    CONSTRAINT fk_kunjungan_booking FOREIGN KEY (booking_id)
+        REFERENCES Booking(booking_id) ON DELETE SET NULL,
     CONSTRAINT uq_kunjungan_natural UNIQUE (hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan)
 );
 
@@ -291,7 +295,7 @@ CREATE TABLE Booking (
     nama_pengunjung VARCHAR(100) COMMENT 'Pengunjung non member',
     tanggal_booking DATE NOT NULL COMMENT 'Tanggal booking',
     waktu_booking TIME NOT NULL COMMENT 'Jam booking',
-    status ENUM('booked','cancelled','done') DEFAULT 'booked' COMMENT 'Status appointment',
+    status ENUM('pending','booked','cancelled','done') DEFAULT 'booked' COMMENT 'Status appointment',
     catatan TEXT NULL COMMENT 'Catatan keluhan awal',
     
     CONSTRAINT fk_booking_dokter FOREIGN KEY (dokter_id)

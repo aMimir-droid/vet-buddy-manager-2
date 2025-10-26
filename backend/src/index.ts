@@ -16,6 +16,8 @@ import layananRoutes from './routes/layanan';
 import kunjunganObatRoutes from './routes/kunjungan-obat';
 import jenisHewanRoutes from './routes/jenis-hewan';
 import pencarianRouter from './routes/pencarian';
+import bookingRoutes from './routes/booking';
+import shiftDokterRoutes from './routes/shiftDokter';
 
 dotenv.config();
 
@@ -83,6 +85,8 @@ app.use('/api/layanan', layananRoutes);
 app.use('/api/kunjungan-obat', kunjunganObatRoutes);
 app.use('/api/jenis-hewan', jenisHewanRoutes);
 app.use('/api/pencarian', pencarianRouter);
+app.use('/api/booking', bookingRoutes);
+app.use('/api/shift-dokter', shiftDokterRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

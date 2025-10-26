@@ -16,6 +16,13 @@ const VetDashboard = () => {
       color: "bg-green-500"
     },
     {
+      title: "Booking Janji Temu",
+      description: "Lihat dan kelola booking untuk Anda",
+      icon: Calendar,
+      path: "/vet/booking",
+      color: "bg-cyan-500"
+    },
+    {
       title: "Kelola Obat Kunjungan",
       description: "Atur resep obat untuk setiap kunjungan",
       icon: Syringe,

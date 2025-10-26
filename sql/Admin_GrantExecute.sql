@@ -114,6 +114,12 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetObatById TO 'pawrent_user'@'localhost';
 -- Dokter Procedures (Read Only untuk melihat detail)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllDoktersForPawrent TO 'pawrent_user'@'localhost';
 
+-- Shift_Dokter Procedures (Read Only untuk melihat jadwal)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'pawrent_user'@'localhost';
+
+-- Tambahkan grant untuk GetAllShiftDokterAktif
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokterAktif TO 'pawrent_user'@'localhost';
 
 -- ========================================================
 -- GRANT EXECUTE untuk ADMIN_USER (Full Access)
@@ -218,9 +224,15 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.CreateShiftDokter TO 'vet_user'@'localhost'
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateShiftDokter TO 'vet_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'vet_user'@'localhost';
 
+-- Tambahkan grant untuk GetShiftDokterByDokter
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterByDokter TO 'vet_user'@'localhost';
+
 -- Pawrent: hanya untuk melihat jadwal
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'pawrent_user'@'localhost';
+
+-- Tambahkan grant untuk GetAllShiftDokterAktif
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokterAktif TO 'pawrent_user'@'localhost';
 
 -- Admin: akses penuh untuk shift
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'admin_user'@'localhost';

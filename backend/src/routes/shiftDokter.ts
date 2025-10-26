@@ -214,4 +214,26 @@ router.delete('/:id(\\d+)', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
+// Tambahkan di shiftDokter.ts
+router.get('/by-dokter/:dokterId', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { dokterId } = req.params;
+  try {
+    const [rows]: any = await pool.execute('CALL GetShiftDokterByDokter(?)', [dokterId]);
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+router.get('/aktif/list', authenticate, async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  try {
+    const [rows]: any = await pool.execute('CALL GetAllShiftDokterAktif()');
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
 export default router;

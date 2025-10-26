@@ -70,6 +70,13 @@ const VetDashboard = () => {
       icon: UserCog,
       path: "/vet/profil",
       color: "bg-primary"
+    },
+    {
+      title: "Shift Saya",
+      description: "Lihat jadwal shift kerja saya",
+      icon: Calendar,
+      path: "/vet/shift",
+      color: "bg-orange-500"
     }
   ];
 

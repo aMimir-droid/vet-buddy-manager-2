@@ -16,9 +16,12 @@ BEGIN
         s.jam_selesai,
         s.is_active,
         d.nama_dokter,
-        d.title_dokter
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
     FROM Shift_Dokter s
     LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
     WHERE s.is_active = TRUE
     ORDER BY s.dokter_id, s.hari_minggu, s.jam_mulai;
 END$$
@@ -35,9 +38,12 @@ BEGIN
         s.jam_selesai,
         s.is_active,
         d.nama_dokter,
-        d.title_dokter
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
     FROM Shift_Dokter s
     LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
     WHERE s.shift_id = p_shift_id
       AND s.is_active = TRUE;
 END$$
@@ -92,9 +98,12 @@ BEGIN
         s.jam_selesai,
         s.is_active,
         d.nama_dokter,
-        d.title_dokter
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
     FROM Shift_Dokter s
     LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
     WHERE s.shift_id = LAST_INSERT_ID();
 END$$
 
@@ -151,9 +160,12 @@ BEGIN
         s.jam_selesai,
         s.is_active,
         d.nama_dokter,
-        d.title_dokter
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
     FROM Shift_Dokter s
     LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
     WHERE s.shift_id = p_shift_id;
 END$$
 
@@ -173,6 +185,49 @@ BEGIN
     WHERE shift_id = p_shift_id;
 
     SELECT ROW_COUNT() AS affected_rows;
+END$$
+
+-- GET SHIFT BY DOKTER (untuk vet melihat shift sendiri)
+DROP PROCEDURE IF EXISTS GetShiftDokterByDokter$$
+CREATE PROCEDURE GetShiftDokterByDokter(IN p_dokter_id INT)
+BEGIN
+    SELECT 
+        s.shift_id,
+        d.title_dokter,
+        d.nama_dokter,
+        s.hari_minggu,
+        s.jam_mulai,
+        s.jam_selesai,
+        s.is_active,
+        k.klinik_id,
+        k.nama_klinik
+    FROM Shift_Dokter s
+    LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
+    WHERE s.dokter_id = p_dokter_id
+      AND s.is_active = TRUE
+    ORDER BY s.hari_minggu, s.jam_mulai;
+END$$
+
+-- GET ALL SHIFT AKTIF (untuk pawrent melihat semua shift aktif)
+DROP PROCEDURE IF EXISTS GetAllShiftDokterAktif$$
+CREATE PROCEDURE GetAllShiftDokterAktif()
+BEGIN
+    SELECT 
+        s.shift_id,
+        d.title_dokter,
+        d.nama_dokter,
+        s.hari_minggu,
+        s.jam_mulai,
+        s.jam_selesai,
+        s.is_active,
+        k.klinik_id,
+        k.nama_klinik
+    FROM Shift_Dokter s
+    LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
+    WHERE s.is_active = TRUE
+    ORDER BY s.hari_minggu, s.jam_mulai, d.nama_dokter;
 END$$
 
 DELIMITER ;

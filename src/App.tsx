@@ -63,6 +63,7 @@ import VetKlinikPage from "./pages/vet/VetKlinikPage";
 import VetJenisHewanPage from "./pages/vet/VetJenisHewanPage";
 import VetProfilPage from "./pages/vet/VetProfilPage";
 import VetBooking from "@/pages/vet/Booking";
+import VetShiftPage from "./pages/vet/VetShiftPage"; // Tambahkan import
 
 // ========================================================
 // PAWRENT PAGES
@@ -78,6 +79,7 @@ import PawrentJenisHewanPage from "./pages/pawrent/PawrentJenisHewanPage";
 import PawrentKlinikPage from "./pages/pawrent/PawrentKlinikPage";
 import PawrentLayananPage from "./pages/pawrent/PawrentLayananPage";
 import PawrentBooking from "@/pages/pawrent/Booking";
+import PawrentShiftPage from "./pages/pawrent/PawrentShiftPage"; // Tambahkan import
 
 // ========================================================
 // QUERY CLIENT CONFIGURATION
@@ -161,6 +163,7 @@ const App = () => (
                     <Route path="jenis-hewan" element={<VetJenisHewanPage />} />
                     <Route path="profil" element={<VetProfilPage />} />
                     <Route path="booking" element={<VetBooking />} />
+                    <Route path="shift" element={<VetShiftPage />} /> {/* Tambahkan route */}
                     <Route path="*" element={<Navigate to="/vet/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>
@@ -186,6 +189,7 @@ const App = () => (
                     <Route path="klinik" element={<PawrentKlinikPage />} />
                     <Route path="layanan" element={<PawrentLayananPage />} />
                     <Route path="booking" element={<PawrentBooking />} />
+                    <Route path="shift" element={<PawrentShiftPage />} /> {/* Tambahkan route */}
                     <Route path="*" element={<Navigate to="/pawrent/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

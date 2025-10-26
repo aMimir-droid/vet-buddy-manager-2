@@ -192,6 +192,41 @@ CREATE TABLE Hewan (
         REFERENCES Pawrent(pawrent_id) ON DELETE SET NULL
 );
 
+
+-- Tabel Shift_Dokter (jadwal mingguan)
+CREATE TABLE Shift_Dokter (
+    shift_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key shift',
+    dokter_id INT NOT NULL COMMENT 'FK ke tabel Dokter',
+    hari_minggu TINYINT NOT NULL COMMENT '0=Sun ... 6=Sat',
+    jam_mulai TIME NOT NULL COMMENT 'Jam mulai shift',
+    jam_selesai TIME NOT NULL COMMENT 'Jam selesai shift',
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'Status shift aktif/tidak',
+    
+    CONSTRAINT fk_shift_dokter FOREIGN KEY (dokter_id) 
+        REFERENCES Dokter(dokter_id) ON DELETE CASCADE
+);
+
+
+-- Tabel Booking Janji Temu
+CREATE TABLE Booking (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key Booking',
+    dokter_id INT NOT NULL COMMENT 'FK Dokter',
+    pawrent_id INT NULL COMMENT 'FK Pawrent jika sudah terdaftar',
+    nama_pengunjung VARCHAR(100) COMMENT 'Pengunjung non member',
+    tanggal_booking DATE NOT NULL COMMENT 'Tanggal booking',
+    waktu_booking TIME NOT NULL COMMENT 'Jam booking',
+    status ENUM('pending','booked','cancelled','done') DEFAULT 'pending' COMMENT 'Status appointment',
+    catatan TEXT NULL COMMENT 'Catatan keluhan awal',
+    
+    CONSTRAINT fk_booking_dokter FOREIGN KEY (dokter_id)
+        REFERENCES Dokter(dokter_id) ON DELETE CASCADE,
+    
+    CONSTRAINT fk_booking_pawrent FOREIGN KEY (pawrent_id)
+        REFERENCES Pawrent(pawrent_id) ON DELETE SET NULL,
+        
+    CONSTRAINT uq_booking UNIQUE (dokter_id, tanggal_booking, waktu_booking)
+);
+
 -- ========================================================
 -- 6. TABEL DENGAN FOREIGN KEY LEVEL 4
 -- ========================================================
@@ -271,41 +306,9 @@ CREATE TABLE Kunjungan_Obat (
 );
 
 
--- Tabel Shift_Dokter (jadwal mingguan)
-CREATE TABLE Shift_Dokter (
-    shift_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key shift',
-    dokter_id INT NOT NULL COMMENT 'FK ke tabel Dokter',
-    hari_minggu TINYINT NOT NULL COMMENT '0=Sun ... 6=Sat',
-    jam_mulai TIME NOT NULL COMMENT 'Jam mulai shift',
-    jam_selesai TIME NOT NULL COMMENT 'Jam selesai shift',
-    is_active BOOLEAN DEFAULT TRUE COMMENT 'Status shift aktif/tidak',
-    
-    CONSTRAINT fk_shift_dokter FOREIGN KEY (dokter_id) 
-        REFERENCES Dokter(dokter_id) ON DELETE CASCADE
-);
 
 
 
-
--- Tabel Booking Janji Temu
-CREATE TABLE Booking (
-    booking_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key Booking',
-    dokter_id INT NOT NULL COMMENT 'FK Dokter',
-    pawrent_id INT NULL COMMENT 'FK Pawrent jika sudah terdaftar',
-    nama_pengunjung VARCHAR(100) COMMENT 'Pengunjung non member',
-    tanggal_booking DATE NOT NULL COMMENT 'Tanggal booking',
-    waktu_booking TIME NOT NULL COMMENT 'Jam booking',
-    status ENUM('pending','booked','cancelled','done') DEFAULT 'booked' COMMENT 'Status appointment',
-    catatan TEXT NULL COMMENT 'Catatan keluhan awal',
-    
-    CONSTRAINT fk_booking_dokter FOREIGN KEY (dokter_id)
-        REFERENCES Dokter(dokter_id) ON DELETE CASCADE,
-    
-    CONSTRAINT fk_booking_pawrent FOREIGN KEY (pawrent_id)
-        REFERENCES Pawrent(pawrent_id) ON DELETE SET NULL,
-        
-    CONSTRAINT uq_booking UNIQUE (dokter_id, tanggal_booking, waktu_booking)
-);
 
 -- Review dokter
 CREATE TABLE Dokter_Review (

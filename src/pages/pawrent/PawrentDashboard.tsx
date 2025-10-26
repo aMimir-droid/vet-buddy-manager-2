@@ -80,8 +80,14 @@ const PawrentDashboard = () => {
       icon: User,
       path: "/pawrent/profil", 
       color: "bg-primary"
+    },
+    {
+      title: "Jadwal Dokter",
+      description: "Lihat jadwal shift dokter aktif",
+      icon: Calendar,
+      path: "/pawrent/shift",
+      color: "bg-purple-500"
     }
-
   ];
 
   return (

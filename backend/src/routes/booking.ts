@@ -34,25 +34,16 @@ router.get('/dokter/:dokterId', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-// GET my bookings (pawrent) - convenience endpoint (direct SELECT)
+// GET my bookings (pawrent) - menggunakan stored procedure GetBookingsByPawrent
 router.get('/my', authenticate, authorize(3), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   const pawrentId = req.user?.pawrent_id;
   try {
-    const [rows] = await pool.execute(
-      `SELECT 
-        b.*, 
-        d.nama_dokter 
-      FROM Booking b 
-      LEFT JOIN Dokter d ON b.dokter_id = d.dokter_id 
-      WHERE b.pawrent_id = ? 
-      ORDER BY b.tanggal_booking, b.waktu_booking`,
-      [pawrentId]
-    ) as [RowDataPacket[], any];
-    res.json(rows);
+    const [rows]: any = await pool.execute('CALL GetBookingsByPawrent(?)', [pawrentId]);
+    res.json(rows[0]);
   } catch (error: any) {
-    console.error('❌ [GET MY BOOKINGS] Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message });
+    console.error('Error fetching my bookings:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error.message });
   }
 });
 
@@ -111,71 +102,57 @@ router.post('/', authenticate, authorize(1, 3), async (req: AuthRequest, res) =>
 });
 
 // UPDATE booking - uses stored procedure UpdateBooking
-// Allow admin and pawrent (pawrent should own the booking - ownership check + pending-only enforced)
-router.put('/:id(\\d+)', authenticate, authorize(1, 3), async (req: AuthRequest, res) => {
+router.put('/:id(\\d+)', authenticate, authorize(1, 2, 3), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
-  const { id } = req.params;
-  const {
-    klinik_id,  // TAMBAHKAN: Destructure klinik_id
-    dokter_id,
-    pawrent_id,
-    hewan_id,  // GANTI: Dari nama_pengunjung ke hewan_id
-    tanggal_booking,
-    waktu_booking,
-    status,
-    catatan
-  } = req.body;
+  const bookingId = req.params.id;
+  const { klinik_id, dokter_id, pawrent_id, hewan_id, tanggal_booking, waktu_booking, status, catatan } = req.body;
+  const user = req.user;
+
+  // Ownership check (dokter & pawrent)
+  if (user.role_id === 2) {
+    const [rows]: any = await pool.execute(
+      "SELECT dokter_id FROM booking WHERE booking_id = ?",
+      [bookingId]
+    );
+    if (!rows[0] || rows[0].dokter_id !== user.dokter_id) {
+      return res.status(403).json({ message: "Akses ditolak" });
+    }
+  }
+  if (user.role_id === 3) {
+    const [rows]: any = await pool.execute(
+      "SELECT pawrent_id, status FROM booking WHERE booking_id = ?",
+      [bookingId]
+    );
+    if (!rows[0] || rows[0].pawrent_id !== user.pawrent_id || rows[0].status !== "pending") {
+      return res.status(403).json({ message: "Akses ditolak" });
+    }
+  }
+
+  // Ambil data booking lama jika field kosong
+  const [oldRows]: any = await pool.execute(
+    "SELECT * FROM booking WHERE booking_id = ?",
+    [bookingId]
+  );
+  const old = oldRows[0];
 
   try {
-    // Fetch current booking to validate ownership and status
-    const [rows] = await pool.execute('SELECT booking_id, pawrent_id, status FROM Booking WHERE booking_id = ?', [parseInt(id, 10)]) as [any[], any];
-    if (!rows || rows.length === 0) {
-      return res.status(404).json({ message: 'Booking tidak ditemukan' });
-    }
-    const current = rows[0];
-
-    // Pawrent can only update their own booking
-    if (req.user.role_id === 3) {
-      if (!req.user.pawrent_id || current.pawrent_id !== req.user.pawrent_id) {
-        return res.status(403).json({ message: 'Anda tidak memiliki izin untuk mengubah booking ini' });
-      }
-
-      // Pawrent can only update when status is 'pending'
-      const currStatus = (current.status || '').toString().toLowerCase();
-      if (currStatus !== 'pending') {
-        return res.status(403).json({ message: 'Booking tidak dapat diubah karena status bukan pending' });
-      }
-    }
-
-    // For pawrent role, override pawrent_id and hewan_id (ensure correct ownership)
-    const effectivePawrentId = req.user.role_id === 3 ? req.user.pawrent_id : pawrent_id;
-    const effectiveHewanId = req.user.role_id === 3 ? req.body.hewan_id : req.body.hewan_id;  // TAMBAHKAN: Ambil hewan_id dari request (sama untuk pawrent dan admin)
-
-    const [result]: any = await pool.execute(
-      'CALL UpdateBooking(?, ?, ?, ?, ?, ?, ?, ?, ?)',  // PERBAIKI: 9 parameters
+    await pool.execute(
+      'CALL UpdateBooking(?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        parseInt(id, 10),
-        klinik_id ?? null,  // TAMBAHKAN: Pass klinik_id
-        dokter_id ?? null,
-        effectivePawrentId ?? null,
-        effectiveHewanId ?? null,  // GANTI: Pass hewan_id
-        tanggal_booking ?? null,
-        waktu_booking ?? null,
-        status ?? null,
-        catatan ?? null
+        bookingId,
+        klinik_id ?? old.klinik_id,
+        dokter_id ?? old.dokter_id,
+        pawrent_id ?? old.pawrent_id,
+        hewan_id ?? old.hewan_id,
+        tanggal_booking ?? old.tanggal_booking,
+        waktu_booking ?? old.waktu_booking,
+        status ?? old.status,
+        catatan ?? old.catatan
       ]
-    ) as [RowDataPacket[][], any];
-
-    const updated = result?.[0]?.[0] ?? null;
-    res.json({ message: 'Booking berhasil diupdate', data: updated });
+    );
+    res.json({ success: true });
   } catch (error: any) {
-    console.error('❌ [UPDATE BOOKING] Error:', error);
-    const sqlState = error?.sqlState ?? error?.code;
-    const msg = error?.sqlMessage ?? error?.message ?? String(error);
-    if (sqlState === '23000' || sqlState === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ message: msg || 'Conflict updating booking' });
-    }
-    res.status(500).json({ message: 'Terjadi kesalahan server', error: msg });
+    res.status(500).json({ message: error.message });
   }
 });
 

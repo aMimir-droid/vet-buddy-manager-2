@@ -117,8 +117,7 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllDoktersForPawrent TO 'pawrent_user'@'
 -- Shift_Dokter Procedures (Read Only untuk melihat jadwal)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'pawrent_user'@'localhost';
-
--- Tambahkan grant untuk GetAllShiftDokterAktif
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterByDokter TO 'pawrent_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetShiftDokterByDokter
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokterAktif TO 'pawrent_user'@'localhost';
 
 -- ========================================================
@@ -243,6 +242,8 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.CreateShiftDokter TO 'admin_user'@'localhos
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateShiftDokter TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'admin_user'@'localhost';
 
+-- TAMBAHKAN: Grant untuk GetBookingsByPawrent
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByPawrent TO 'pawrent_user'@'localhost';
 
 
 -- ========================================================

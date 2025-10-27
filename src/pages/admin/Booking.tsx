@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { bookingApi, klinikApi, dokterApi, pawrentApi, hewanApi } from "@/lib/api";
+import { bookingApi, klinikApi, dokterApi, pawrentApi, hewanApi, shiftDokterApi } from "@/lib/api";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ const BookingAdminPage = () => {
 
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [dokterShift, setDokterShift] = useState<{ jam_mulai: string; jam_selesai: string } | null>(null);
 
   // Fetch lists untuk dropdown
   const { data: kliniks = [] } = useQuery({
@@ -144,6 +145,31 @@ const BookingAdminPage = () => {
       .finally(() => setSlotsLoading(false));
   }, [editForm.dokter_id, editForm.tanggal_booking, token]);
 
+  // Fetch shift dokter
+  useEffect(() => {
+    if (!editForm.dokter_id || !token) {
+      setDokterShift(null);
+      return;
+    }
+    shiftDokterApi.getByDokter(Number(editForm.dokter_id), token)
+      .then((shifts: any[]) => {
+        // Ambil shift untuk hari booking (1=Senin, dst)
+        if (!editForm.tanggal_booking) {
+          setDokterShift(null);
+          return;
+        }
+        const bookingDate = new Date(editForm.tanggal_booking);
+        const hariMinggu = bookingDate.getDay() === 0 ? 7 : bookingDate.getDay(); // 0=Sunday, shift pakai 1=Senin, 7=Minggu
+        const shift = shifts.find(s => s.hari_minggu === hariMinggu);
+        if (shift) {
+          setDokterShift({ jam_mulai: shift.jam_mulai, jam_selesai: shift.jam_selesai });
+        } else {
+          setDokterShift(null);
+        }
+      })
+      .catch(() => setDokterShift(null));
+  }, [editForm.dokter_id, editForm.tanggal_booking, token]);
+
   const handleEdit = (booking: any) => {
     setIsCreate(false);
     setEditBooking(booking);
@@ -243,7 +269,27 @@ const BookingAdminPage = () => {
     return slots;
   };
 
-  const allSlots = generateAllSlots();
+  const generateSlotsByShift = () => {
+    if (!dokterShift) return [];
+    const slots = [];
+    const [startHour, startMin] = dokterShift.jam_mulai.split(':').map(Number);
+    const [endHour, endMin] = dokterShift.jam_selesai.split(':').map(Number);
+
+    let current = new Date();
+    current.setHours(startHour, startMin, 0, 0);
+    const end = new Date();
+    end.setHours(endHour, endMin, 0, 0);
+
+    while (current < end) {
+      const hh = current.getHours().toString().padStart(2, '0');
+      const mm = current.getMinutes().toString().padStart(2, '0');
+      slots.push(`${hh}:${mm}`);
+      current.setMinutes(current.getMinutes() + 30);
+    }
+    return slots;
+  };
+
+  const allSlots = dokterShift ? generateSlotsByShift() : [];
 
   // Filter dokter berdasarkan klinik_id yang dipilih
   const filteredDokters = editForm.klinik_id ? dokters.filter(d => d.klinik_id === Number(editForm.klinik_id)) : [];
@@ -296,6 +342,17 @@ const BookingAdminPage = () => {
                           {d.title_dokter ? `${d.title_dokter} ` : ""}{d.nama_dokter}
                         </SelectItem>
                       ))}
+                      {/* Jika dokter yang dipilih tidak ada di filteredDokters, tetap tampilkan */}
+                      {!filteredDokters.some(d => d.dokter_id.toString() === editForm.dokter_id) && editForm.dokter_id && (
+                        (() => {
+                          const dokter = dokters.find(d => d.dokter_id.toString() === editForm.dokter_id);
+                          return dokter ? (
+                            <SelectItem key={dokter.dokter_id} value={dokter.dokter_id.toString()}>
+                              {dokter.title_dokter ? `${dokter.title_dokter} ` : ""}{dokter.nama_dokter} (data lama)
+                            </SelectItem>
+                          ) : null;
+                        })()
+                      )}
                     </SelectContent>
                   </Select>
                   <Select value={editForm.pawrent_id} onValueChange={(value) => setEditForm({ ...editForm, pawrent_id: value })}>
@@ -320,6 +377,17 @@ const BookingAdminPage = () => {
                           {h.nama_hewan} - {h.jenis_hewan}
                         </SelectItem>
                       ))}
+                      {/* Jika hewan yang dipilih tidak ada di hewans, tetap tampilkan */}
+                      {!hewans.some(h => h.hewan_id.toString() === editForm.hewan_id) && editForm.hewan_id && (
+                        (() => {
+                          const hewan = bookings.find(b => b.hewan_id?.toString() === editForm.hewan_id);
+                          return hewan ? (
+                            <SelectItem key={hewan.hewan_id} value={hewan.hewan_id.toString()}>
+                              {hewan.nama_hewan} - {hewan.jenis_hewan} (data lama)
+                            </SelectItem>
+                          ) : null;
+                        })()
+                      )}
                     </SelectContent>
                   </Select>
                   <Input placeholder="Tanggal Booking" type="date" value={editForm.tanggal_booking} onChange={(e) => setEditForm({ ...editForm, tanggal_booking: e.target.value })} />
@@ -344,6 +412,12 @@ const BookingAdminPage = () => {
                           </SelectItem>
                         );
                       })}
+                      {/* Jika waktu_booking yang dipilih tidak ada di allSlots, tetap tampilkan */}
+                      {!allSlots.includes(editForm.waktu_booking) && editForm.waktu_booking && (
+                        <SelectItem key={editForm.waktu_booking} value={editForm.waktu_booking}>
+                          {editForm.waktu_booking} (data lama)
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <Input placeholder="Catatan" value={editForm.catatan} onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })} />
@@ -428,6 +502,17 @@ const BookingAdminPage = () => {
                                           {d.title_dokter ? `${d.title_dokter} ` : ""}{d.nama_dokter}
                                         </SelectItem>
                                       ))}
+                                      {/* Jika dokter yang dipilih tidak ada di filteredDokters, tetap tampilkan */}
+                                      {!filteredDokters.some(d => d.dokter_id.toString() === editForm.dokter_id) && editForm.dokter_id && (
+                                        (() => {
+                                          const dokter = dokters.find(d => d.dokter_id.toString() === editForm.dokter_id);
+                                          return dokter ? (
+                                            <SelectItem key={dokter.dokter_id} value={dokter.dokter_id.toString()}>
+                                              {dokter.title_dokter ? `${dokter.title_dokter} ` : ""}{dokter.nama_dokter} (data lama)
+                                            </SelectItem>
+                                          ) : null;
+                                        })()
+                                      )}
                                     </SelectContent>
                                   </Select>
                                   <Select value={editForm.pawrent_id} onValueChange={(value) => setEditForm({ ...editForm, pawrent_id: value })}>
@@ -452,6 +537,17 @@ const BookingAdminPage = () => {
                                           {h.nama_hewan} - {h.jenis_hewan}
                                         </SelectItem>
                                       ))}
+                                      {/* Jika hewan yang dipilih tidak ada di hewans, tetap tampilkan */}
+                                      {!hewans.some(h => h.hewan_id.toString() === editForm.hewan_id) && editForm.hewan_id && (
+                                        (() => {
+                                          const hewan = bookings.find(b => b.hewan_id?.toString() === editForm.hewan_id);
+                                          return hewan ? (
+                                            <SelectItem key={hewan.hewan_id} value={hewan.hewan_id.toString()}>
+                                              {hewan.nama_hewan} - {hewan.jenis_hewan} (data lama)
+                                            </SelectItem>
+                                          ) : null;
+                                        })()
+                                      )}
                                     </SelectContent>
                                   </Select>
                                   <Input placeholder="Tanggal Booking" type="date" value={editForm.tanggal_booking} onChange={(e) => setEditForm({ ...editForm, tanggal_booking: e.target.value })} />
@@ -476,6 +572,12 @@ const BookingAdminPage = () => {
                                           </SelectItem>
                                         );
                                       })}
+                                      {/* Jika waktu_booking yang dipilih tidak ada di allSlots, tetap tampilkan */}
+                                      {!allSlots.includes(editForm.waktu_booking) && editForm.waktu_booking && (
+                                        <SelectItem key={editForm.waktu_booking} value={editForm.waktu_booking}>
+                                          {editForm.waktu_booking} (data lama)
+                                        </SelectItem>
+                                      )}
                                     </SelectContent>
                                   </Select>
                                   <Input placeholder="Catatan" value={editForm.catatan} onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })} />

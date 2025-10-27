@@ -444,4 +444,6 @@ export const shiftDokterApi = {
   update: (id: number, data: { dokter_id: number; hari_minggu: number; jam_mulai: string; jam_selesai: string; is_active?: boolean }, token: string) =>
     apiCall({ endpoint: `/shift-dokter/${id}`, method: 'PUT', body: data, token }),
   delete: (id: number, token: string) => apiCall({ endpoint: `/shift-dokter/${id}`, method: 'DELETE', token }),
+  getByDokter: (dokterId: number, token: string) =>
+    apiCall({ endpoint: `/shift-dokter/by-dokter/${dokterId}`, token }),
 };

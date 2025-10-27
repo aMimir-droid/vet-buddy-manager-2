@@ -351,4 +351,35 @@ BEGIN
     ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
 END$$
 
+-- TAMBAHKAN: Stored Procedure untuk GetBookingsByPawrent
+DROP PROCEDURE IF EXISTS GetBookingsByPawrent$$
+CREATE PROCEDURE GetBookingsByPawrent(
+    IN p_pawrent_id INT
+)
+BEGIN
+    IF p_pawrent_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Pawrent ID tidak boleh null';
+    END IF;
+
+    SELECT
+        b.booking_id,
+        b.klinik_id,
+        b.dokter_id,
+        b.pawrent_id,
+        b.hewan_id,
+        b.tanggal_booking,
+        b.waktu_booking,
+        b.status,
+        b.catatan,
+        d.nama_dokter,
+        k.nama_klinik,
+        h.nama_hewan
+    FROM booking b
+    LEFT JOIN dokter d ON b.dokter_id = d.dokter_id
+    LEFT JOIN klinik k ON b.klinik_id = k.klinik_id
+    LEFT JOIN hewan h ON b.hewan_id = h.hewan_id
+    WHERE b.pawrent_id = p_pawrent_id
+    ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
+END$$
+
 DELIMITER ;

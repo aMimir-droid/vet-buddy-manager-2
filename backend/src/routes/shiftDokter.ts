@@ -221,8 +221,9 @@ router.get('/by-dokter/:dokterId', authenticate, async (req: AuthRequest, res) =
   try {
     const [rows]: any = await pool.execute('CALL GetShiftDokterByDokter(?)', [dokterId]);
     res.json(rows[0]);
-  } catch (error) {
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  } catch (error: any) {
+    console.error('Error fetching shift by dokter:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error.message });
   }
 });
 

@@ -278,20 +278,15 @@ router.get('/all', authenticate, authorize(1), async (req: AuthRequest, res) => 
 });
 
 // Tambahkan endpoint untuk booking yang belum dipakai kunjungan
+
 router.get('/available-for-kunjungan', authenticate, async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   try {
-    // Query booking yang belum ada di tabel Kunjungan
-    const [rows]: any = await pool.execute(`
-      SELECT * FROM Booking 
-      WHERE NOT EXISTS (
-        SELECT 1 FROM Kunjungan WHERE Kunjungan.booking_id = Booking.booking_id
-      )
-    `);
-    res.json(rows);
+    const [rows]: any = await pool.execute('CALL GetAvailableBookingsForKunjungan()');
+    res.json(rows[0] || []);
   } catch (error: any) {
-    console.error('❌ [GET AVAILABLE FOR KUNJUNGAN] Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server', error: error.message });
+    console.error('❌ [GET AVAILABLE BOOKINGS FOR KUNJUNGAN] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message });
   }
 });
 

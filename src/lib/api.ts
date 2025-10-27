@@ -446,7 +446,10 @@ export const bookingApi = {
   delete: (id: number, token: string) =>
     apiCall({ endpoint: `/booking/${id}`, method: 'DELETE', token }),
 
+  getAvailableForKunjungan: (token: string) =>
+    apiCall({ endpoint: '/booking/available-for-kunjungan', token }),
   // PERBAIKI: Get available slots for a dokter on a date - gunakan apiCall
+
   getAvailable: (dokterId: number, date: string, token: string) =>
     apiCall<{ availableSlots: string[] }>({
       endpoint: `/booking/available?dokterId=${dokterId}&date=${date}`,

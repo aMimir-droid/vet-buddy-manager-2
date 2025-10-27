@@ -103,6 +103,8 @@ const KunjunganPage = () => {
     obatForms: [] as { obat_id: string; qty: string; dosis: string; frekuensi: string }[],
   });
 
+  const [existingLayanans, setExistingLayanans] = useState<any[]>([]);
+  const [existingObats, setExistingObats] = useState<any[]>([]);
   const [mode, setMode] = useState<"manual" | "booking">("manual");
 
   const [showLayananDialog, setShowLayananDialog] = useState(false);
@@ -111,9 +113,10 @@ const KunjunganPage = () => {
 
   // Queries
   const { data: bookings, isLoading: bookingsLoading } = useQuery({
-    queryKey: ["bookings"],
+    queryKey: ["bookings", "available-for-kunjungan"],
     queryFn: async () => {
-      const result = await bookingApi.getAll(token!);
+      const result = await bookingApi.getAvailableForKunjungan(token!);
+      console.log('Fetched bookings:', result);  // DEBUG: Lihat data yang diambil
       return result as any[];
     },
   });
@@ -330,7 +333,13 @@ const KunjunganPage = () => {
     setIsDetailDialogOpen(true);
   };
 
-  const handleOpenDialog = (kunjungan?: any) => {
+  const handleOpenDialog = async (kunjungan?: any) => {
+    // Tambahkan pengecekan loading untuk data dokter
+    if (allDoktersLoading) {
+      toast.error("Data dokter sedang dimuat, silakan coba lagi.");
+      return; // Jangan lanjutkan jika data belum siap
+    }
+
     if (kunjungan) {
       // --- MODE EDIT ---
       setEditingKunjungan(kunjungan);
@@ -340,15 +349,24 @@ const KunjunganPage = () => {
         (d: any) => d.dokter_id === kunjungan.dokter_id
       );
 
+      // Tambahkan fallback: Jika dokter tidak ditemukan, coba ambil klinik_id dari kunjungan (jika ada) atau tampilkan error
+      let klinikId = dokter ? dokter.klinik_id.toString() : "";
+      if (!klinikId && kunjungan.klinik_id) { // Jika kunjungan punya klinik_id langsung (opsional)
+        klinikId = kunjungan.klinik_id.toString();
+      }
+      if (!klinikId) {
+        toast.error("Data klinik tidak ditemukan untuk kunjungan ini. Pastikan data dokter lengkap.");
+        return; // Atau lanjutkan dengan kosong, tapi beri peringatan
+      }
+
       setFormData({
-        klinik_id: dokter ? dokter.klinik_id.toString() : "",
+        klinik_id: klinikId,
         hewan_id: kunjungan.hewan_id?.toString() || "",
         dokter_id: kunjungan.dokter_id?.toString() || "",
         tanggal_kunjungan: kunjungan.tanggal_kunjungan?.split("T")[0] || "",
         waktu_kunjungan: kunjungan.waktu_kunjungan || "",
         catatan: kunjungan.catatan || "",
         metode_pembayaran: kunjungan.metode_pembayaran || "Cash",
-        // --- MODIFIKASI: Kembalikan data kunjungan_sebelumnya ---
         kunjungan_sebelumnya: kunjungan.kunjungan_sebelumnya?.toString() || "",
         booking_id: kunjungan.booking_id?.toString() || "none",
         selectedLayanans: [], // Reset, atau populate dari data jika ada
@@ -357,6 +375,39 @@ const KunjunganPage = () => {
       if (kunjungan.hewan_id) {
         // Panggil versi async
         handleHewanChange(kunjungan.hewan_id.toString());
+      }
+
+      // Tambahkan fetch layanan dan obat untuk kunjungan ini
+      try {
+        const [layananRes, obatRes] = await Promise.all([
+          fetch(
+            `${
+              import.meta.env.VITE_API_URL || "http://localhost:3000/api"
+            }/kunjungan-layanan/kunjungan/${kunjungan.kunjungan_id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          ),
+          fetch(
+            `${
+              import.meta.env.VITE_API_URL || "http://localhost:3000/api"
+            }/kunjungan-obat/kunjungan/${kunjungan.kunjungan_id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          ),
+        ]);
+        if (layananRes.ok) {
+          const layananData = await layananRes.json();
+          setExistingLayanans(layananData);
+        }
+        if (obatRes.ok) {
+          const obatData = await obatRes.json();
+          setExistingObats(obatData);
+        }
+      } catch (error) {
+        console.error("Error fetching existing layanan/obat:", error);
+        toast.error("Gagal mengambil data layanan/obat");
       }
     } else {
       // --- MODE TAMBAH BARU ---
@@ -382,6 +433,8 @@ const KunjunganPage = () => {
       setHewanHistory([]);
       setSelectedPreviousVisit(null);
       setSelectedHewan("");
+      setExistingLayanans([]);
+      setExistingObats([]);
     }
     setIsDialogOpen(true);
   };
@@ -394,6 +447,8 @@ const KunjunganPage = () => {
     setHewanHistory([]);
     setSelectedPreviousVisit(null);
     setSelectedHewan("");
+    setExistingLayanans([]);
+    setExistingObats([]);
   };
 
   const handleModeChange = (newMode: "manual" | "booking") => {
@@ -593,7 +648,18 @@ const KunjunganPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const submitData = {
+    const submitData = editingKunjungan ? {
+      ...editingKunjungan, // Gunakan data asli untuk memastikan konsistensi
+      hewan_id: formData.hewan_id || editingKunjungan.hewan_id,
+      dokter_id: formData.dokter_id || editingKunjungan.dokter_id,
+      tanggal_kunjungan: formData.tanggal_kunjungan || editingKunjungan.tanggal_kunjungan,
+      waktu_kunjungan: formData.waktu_kunjungan || editingKunjungan.waktu_kunjungan,
+      catatan: formData.catatan !== undefined ? formData.catatan : editingKunjungan.catatan,
+      metode_pembayaran: formData.metode_pembayaran || editingKunjungan.metode_pembayaran,
+      kunjungan_sebelumnya: formData.kunjungan_sebelumnya === "none" ? null : (formData.kunjungan_sebelumnya || editingKunjungan.kunjungan_sebelumnya),
+      booking_id: formData.booking_id === "none" ? null : (formData.booking_id || editingKunjungan.booking_id),
+      klinik_id: formData.klinik_id || editingKunjungan.klinik_id, // Tambahkan fallback untuk klinik_id jika kosong
+    } : {
       klinik_id: formData.klinik_id,
       hewan_id: formData.hewan_id,
       dokter_id: formData.dokter_id,
@@ -737,6 +803,39 @@ const KunjunganPage = () => {
     }));
   };
 
+  // Tambahkan fungsi deleteExistingLayanan dan deleteExistingObat
+  const deleteExistingLayanan = async (kunjunganId: number, kodeLayanan: string) => {
+    try {
+      await layananApi.getByKunjungan(kunjunganId, token!); // Gunakan endpoint delete yang sudah ada di kunjungan-layanan.ts
+      // Asumsi API delete adalah: DELETE /kunjungan-layanan/:kunjunganId/:kodeLayanan
+      // Jika belum ada, tambahkan di backend. Untuk sekarang, gunakan fetch langsung.
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/${kunjunganId}/${kodeLayanan}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Gagal menghapus layanan');
+      setExistingLayanans((prev) => prev.filter((l) => l.kode_layanan !== kodeLayanan));
+      toast.success('Layanan berhasil dihapus');
+    } catch (error) {
+      toast.error('Gagal menghapus layanan');
+    }
+  };
+
+  const deleteExistingObat = async (kunjunganId: number, obatId: number) => {
+    try {
+      // Asumsi API delete adalah: DELETE /kunjungan-obat/:kunjunganId/:obatId
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-obat/${kunjunganId}/${obatId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Gagal menghapus obat');
+      setExistingObats((prev) => prev.filter((o) => o.obat_id !== obatId));
+      toast.success('Obat berhasil dihapus');
+    } catch (error) {
+      toast.error('Gagal menghapus obat');
+    }
+  };
+
   // Tambahkan fungsi calculateTotalBiaya untuk tabel
   const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
     const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
@@ -744,9 +843,17 @@ const KunjunganPage = () => {
     return totalLayanan + totalObat;
   };
 
+  const calculatePreviousTotal = () => {
+  const layananTotal = previousLayanan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0);
+  const obatTotal = previousObat.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0);
+  return layananTotal + obatTotal;
+};
+
   // Tambahkan state untuk data layanan dan obat kunjungan
   const [layananKunjungan, setLayananKunjungan] = useState<any[]>([]);
   const [obatKunjungan, setObatKunjungan] = useState<any[]>([]);
+  const [previousLayanan, setPreviousLayanan] = useState<any[]>([]);
+  const [previousObat, setPreviousObat] = useState<any[]>([]);
 
   // useEffect untuk fetch layanan dan obat saat viewingKunjungan berubah
   useEffect(() => {
@@ -798,6 +905,33 @@ const KunjunganPage = () => {
       setObatKunjungan([]);
     }
   }, [viewingKunjungan, token]);
+
+  useEffect(() => {
+    if (viewingPreviousVisit) {
+      const fetchPreviousData = async () => {
+        try {
+          const [layananRes, obatRes] = await Promise.all([
+            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-obat/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          ]);
+          if (layananRes.ok) setPreviousLayanan(await layananRes.json());
+          if (obatRes.ok) setPreviousObat(await obatRes.json());
+        } catch (error) {
+          console.error("Error fetching previous data:", error);
+          setPreviousLayanan([]);
+          setPreviousObat([]);
+        }
+      };
+      fetchPreviousData();
+    } else {
+      setPreviousLayanan([]);
+      setPreviousObat([]);
+    }
+  }, [viewingPreviousVisit, token]);
 
   if (
     isLoading ||
@@ -916,7 +1050,7 @@ const KunjunganPage = () => {
                     </TableCell>
                     <TableCell>{getMetodeBadge(k.metode_pembayaran)}</TableCell>
                     <TableCell className="font-semibold text-right text-green-600">
-                      Rp {calculateTotalBiaya(k.layanan_kunjungan, k.obat_kunjungan).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                      Rp {k.total_biaya?.toLocaleString('id-ID', { maximumFractionDigits: 0 }) || '0'}
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
@@ -933,6 +1067,7 @@ const KunjunganPage = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleOpenDialog(k)}
+                          disabled={allDoktersLoading}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -1017,13 +1152,11 @@ const KunjunganPage = () => {
                               key={booking.booking_id}
                               value={booking.booking_id.toString()}
                             >
-                              {`${booking.nama_pawrent} - ${
-                                booking.title_dokter || ""
-                              } ${booking.nama_dokter} - ${new Date(
-                                booking.tanggal_booking
-                              ).toLocaleDateString("id-ID")} ${
-                                booking.waktu_booking
-                              } - ${booking.nama_hewan}`}
+                              {`${booking.nama_pawrent || 'Pawrent Tidak Diketahui'} - ${
+                                (booking.title_dokter || '') + ' ' + (booking.nama_dokter || 'Dokter Tidak Diketahui')
+                              } - ${new Date(booking.tanggal_booking).toLocaleDateString("id-ID")} ${
+                                booking.waktu_booking || '00:00'
+                              } - ${booking.nama_hewan || 'Hewan Tidak Diketahui'}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1132,7 +1265,8 @@ const KunjunganPage = () => {
                           {hewans?.map((hewan: any) => (
                             <SelectItem
                               key={hewan.hewan_id}
-                              value={hewan.hewan_id.toString()}
+                              value={hewan.hewan_id.toString()
+                              }
                             >
                               {hewan.nama_hewan} ({hewan.nama_pawrent})
                             </SelectItem>
@@ -1328,6 +1462,27 @@ const KunjunganPage = () => {
                         <Plus className="h-4 w-4 mr-1" /> Tambah Layanan
                       </Button>
                     </div>
+                    {editingKunjungan && existingLayanans.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-base font-medium">Layanan yang Sudah Ada</Label>
+                        {existingLayanans.map((layanan) => (
+                          <div key={layanan.layanan_id} className="flex items-center justify-between p-3 border rounded-md bg-blue-50 dark:bg-blue-950/20">
+                            <div>
+                              <p className="font-medium">{layanan.nama_layanan}</p>
+                              <p className="text-sm text-muted-foreground">Qty: {layanan.qty} - Harga: Rp {layanan.harga_saat_itu.toLocaleString('id-ID')}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteExistingLayanan(viewingKunjungan?.kunjungan_id || editingKunjungan.kunjungan_id, layanan.kode_layanan)}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {formData.selectedLayanans.length === 0 ? (
                       <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-md">
                         Belum ada layanan dipilih. Klik "Tambah Layanan" untuk menambah.
@@ -1376,6 +1531,31 @@ const KunjunganPage = () => {
                         <Plus className="h-4 w-4 mr-1" /> Tambah Obat
                       </Button>
                     </div>
+                    {editingKunjungan && existingObats.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-base font-medium">Obat yang Sudah Ada</Label>
+                        {existingObats.map((obat) => (
+                          <Card key={obat.kunjungan_obat_id} className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{obat.nama_obat}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Qty: {obat.qty} - Dosis: {obat.dosis} - Frekuensi: {obat.frekuensi} - Harga: Rp {obat.harga_saat_itu.toLocaleString('id-ID')}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteExistingObat(viewingKunjungan?.kunjungan_id || editingKunjungan.kunjungan_id, obat.obat_id)}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
                     {formData.obatForms.length === 0 ? (
                       <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-md">
                         Belum ada obat ditambahkan. Klik "Tambah Obat" untuk menambah resep.
@@ -1637,13 +1817,14 @@ const KunjunganPage = () => {
           open={isPreviousVisitDialogOpen}
           onOpenChange={setIsPreviousVisitDialogOpen}
         >
-          <DialogContent className="max-w-2xl">
+  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detail Riwayat Kunjungan</DialogTitle>
               {viewingPreviousVisit && (
                 <DialogDescription>
                   Kunjungan pada{" "}
                   {new Date(
+                   
                     viewingPreviousVisit.tanggal_kunjungan
                   ).toLocaleDateString("id-ID")}{" "}
                   (
@@ -1653,53 +1834,127 @@ const KunjunganPage = () => {
                   )
                 </DialogDescription>
               )}
+           
             </DialogHeader>
             {viewingPreviousVisit && (
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Hewan</span>
-                  <span className="col-span-2">
-                    : {viewingPreviousVisit.nama_hewan}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Dokter</span>
-                  <span className="col-span-2">
-                    : {viewingPreviousVisit.title_dokter || ""}{" "}
-                    {viewingPreviousVisit.nama_dokter}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Catatan/Keluhan</span>
-                  <span className="col-span-2">
-                    : {viewingPreviousVisit.catatan || "-"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Layanan</span>
-                  <span className="col-span-2">
-                    :{" "}
-                    {viewingPreviousVisit.layanan_kunjungan?.length > 0
-                      ? viewingPreviousVisit.layanan_kunjungan
-                          .map((l: any) => l.nama_layanan)
-                          .join(", ")
-                      : "-"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Obat</span>
-                  <span className="col-span-2">
-                    :{" "}
-                    {viewingPreviousVisit.obat_kunjungan?.length > 0
-                      ? viewingPreviousVisit.obat_kunjungan
-                          .map(
-                            (o: any) =>
-                              `${o.nama_obat} (${o.qty} ${o.unit}, ${o.dosis} ${o.frekuensi})`
-                          )
-                          .join(", ")
-                      : "-"}
-                  </span>
-                </div>
+              <div className="space-y-6">
+                {/* Info Kunjungan Riwayat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Informasi Kunjungan Riwayat
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold">Tanggal & Waktu</Label>
+                        <p>{new Date(viewingPreviousVisit.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingPreviousVisit.waktu_kunjungan}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Hewan</Label>
+                        <p>{viewingPreviousVisit.nama_hewan}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Dokter</Label>
+                        <p>{viewingPreviousVisit.title_dokter || ""} {viewingPreviousVisit.nama_dokter}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Total Biaya</Label>
+                        <p>Rp {calculatePreviousTotal().toLocaleString("id-ID", { maximumFractionDigits: 0 })}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="font-semibold">Catatan/Keluhan</Label>
+                      <p>{viewingPreviousVisit.catatan || "Tidak ada catatan"}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Layanan Riwayat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-blue-600" />
+                      Layanan ({previousLayanan.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {previousLayanan.length > 0 ? (
+                      <div className="space-y-3">
+                        {previousLayanan.map((l: any) => (
+                          <div key={l.layanan_id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                              <div>
+                                <p className="font-medium text-blue-900 dark:text-blue-100">{l.nama_layanan}</p>
+                                <p className="text-sm text-muted-foreground">Qty: {l.qty}</p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {(l.harga_saat_itu * l.qty).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
+                          <div className="flex justify-between items-center font-semibold text-blue-900 dark:text-blue-100">
+                            <span>Total Layanan:</span>
+                            <span>Rp {previousLayanan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada layanan yang tercatat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Obat Riwayat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Pill className="h-5 w-5 text-green-600" />
+                      Resep Obat ({previousObat.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {previousObat.length > 0 ? (
+                      <div className="space-y-3">
+                        {previousObat.map((o: any) => (
+                          <div key={o.kunjungan_obat_id} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                              <div>
+                                <p className="font-medium text-green-900 dark:text-green-100">{o.nama_obat}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Qty: {o.qty} • Dosis: {o.dosis} • Frekuensi: {o.frekuensi}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {(o.harga_saat_itu * o.qty).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-green-200 dark:border-green-800">
+                          <div className="flex justify-between items-center font-semibold text-green-900 dark:text-green-100">
+                            <span>Total Obat:</span>
+                            <span>Rp {previousObat.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Pill className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada resep obat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             )}
             <DialogFooter>

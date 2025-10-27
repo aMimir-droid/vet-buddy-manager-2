@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { kunjunganApi, hewanApi, dokterApi } from "@/lib/api";
+import { kunjunganApi, hewanApi, dokterApi, bookingApi } from "@/lib/api";
 import { toast } from "sonner";
 import { 
   Calendar, 
@@ -65,6 +65,10 @@ const KunjunganPage = () => {
     kunjungan_sebelumnya: "",
   });
 
+  // Tambahkan state baru
+  const [previousLayanan, setPreviousLayanan] = useState<any[]>([]);
+  const [previousObat, setPreviousObat] = useState<any[]>([]);
+
   // Queries
   const { data: kunjungans, isLoading: isLoadingKunjungan } = useQuery({
     queryKey: ["kunjungans"],
@@ -79,6 +83,15 @@ const KunjunganPage = () => {
   const { data: dokters, isLoading: isLoadingDokter } = useQuery({
     queryKey: ["dokters"],
     queryFn: () => dokterApi.getAll(token!),
+  });
+
+  // GANTI: Gunakan endpoint available untuk bookings di kunjungan
+  const { data: bookings, isLoading: bookingsLoading } = useQuery({
+    queryKey: ["bookings", "available"],  // Tambahkan key unik
+    queryFn: async () => {
+      const result = await bookingApi.getAvailable(token!);  // Asumsi Anda tambahkan method ini di api.ts
+      return result as any[];
+    },
   });
 
   // Get current dokter_id - IMPROVED LOGIC
@@ -681,10 +694,8 @@ const KunjunganPage = () => {
                             </div>
                           </TableCell>
                           <TableCell>{kunjungan.nama_pawrent}</TableCell>
-                          <TableCell>
-                            <span className="font-semibold text-primary">
-                              {formatCurrency(kunjungan.total_biaya)}
-                            </span>
+                          <TableCell className="font-semibold text-right text-green-600">
+                            Rp {k.total_biaya?.toLocaleString('id-ID', { maximumFractionDigits: 0 }) || '0'}
                           </TableCell>
                           <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
                           <TableCell className="text-right">
@@ -1066,6 +1077,26 @@ const KunjunganPage = () => {
                       {viewingPreviousVisit.catatan || 'Tidak ada catatan'}
                     </p>
                   </div>
+                </div>
+
+                {/* Tambahkan detail layanan dan obat */}
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-semibold">Layanan</span>
+                  <span className="col-span-2">
+                    : {previousLayanan.length > 0 ? previousLayanan.map(l => `${l.nama_layanan} (Qty: ${l.qty}, Harga: Rp ${l.harga_saat_itu?.toLocaleString('id-ID')})`).join(", ") : "-"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-semibold">Obat</span>
+                  <span className="col-span-2">
+                    : {previousObat.length > 0 ? previousObat.map(o => `${o.nama_obat} (Qty: ${o.qty}, Dosis: ${o.dosis}, Frekuensi: ${o.frekuensi}, Harga: Rp ${o.harga_saat_itu?.toLocaleString('id-ID')})`).join(", ") : "-"}
+                  </span>
+                </div>
+
+                {/* NEW: Hitung dan tampilkan total biaya layanan dan obat */}
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-semibold">Total Biaya</span>
+                  <span className="col-span-2">: Rp {calculatePreviousTotal().toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                 </div>
               </div>
             )}

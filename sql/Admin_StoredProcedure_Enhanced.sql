@@ -257,4 +257,4 @@ BEGIN
     SELECT rows_affected AS affected_rows;
 END$$
 
-DELIMITER ;
+

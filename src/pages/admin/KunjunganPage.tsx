@@ -44,6 +44,11 @@ import {
   Eye,
   ArrowRight,
   Info,
+  X,
+  DollarSign,
+  PawPrint,
+  Pill,
+  Activity,
 } from "lucide-react";
 // --- MODIFIKASI: Tambahkan 'useMemo' ---
 import { useState, useEffect, useMemo } from "react";
@@ -54,9 +59,10 @@ import {
   hewanApi,
   dokterApi,
   layananApi,
-  obatApi,
+  kunjunganObatApi, // Ganti dari obatApi ke kunjunganObatApi
   bookingApi,
   klinikApi,
+  obatApi, // Tambahkan untuk query daftar obat
 } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -92,22 +98,16 @@ const KunjunganPage = () => {
     // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
     kunjungan_sebelumnya: "",
     booking_id: "none",
+    // Ubah ke array untuk multiple layanan dan obat
+    selectedLayanans: [] as { kode_layanan: string }[],
+    obatForms: [] as { obat_id: string; qty: string; dosis: string; frekuensi: string }[],
   });
 
   const [mode, setMode] = useState<"manual" | "booking">("manual");
 
   const [showLayananDialog, setShowLayananDialog] = useState(false);
   const [showObatDialog, setShowObatDialog] = useState(false);
-  const [newKunjunganId, setNewKunjunganId] = useState<number | null>(null);
-  const [selectedLayanan, setSelectedLayanan] = useState("");
-  const [layananList, setLayananList] = useState<any[]>([]);
-  const [obatForm, setObatForm] = useState({
-    kunjungan_id: null,
-    obat_id: "",
-    qty: "",
-    dosis: "",
-    frekuensi: "",
-  });
+  // Hapus state showCombinedDialog, newKunjunganId, selectedLayanan, layananList, obatForm
 
   // Queries
   const { data: bookings, isLoading: bookingsLoading } = useQuery({
@@ -159,6 +159,24 @@ const KunjunganPage = () => {
     );
   }, [formData.klinik_id, allDoktersData]);
 
+  // Tambahkan query untuk layananList
+  const { data: layananList, isLoading: layananListLoading } = useQuery({
+    queryKey: ["layanan"],
+    queryFn: async () => {
+      const result = await layananApi.getAll(token!);
+      return result as any[];
+    },
+  });
+
+  // Tambahkan query untuk obatList
+  const { data: obatList, isLoading: obatListLoading } = useQuery({
+    queryKey: ["obats"],
+    queryFn: async () => {
+      const result = await obatApi.getAll(token!);
+      return result as any[];
+    },
+  });
+
   // Mutations
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -167,18 +185,45 @@ const KunjunganPage = () => {
       }
       return kunjunganApi.create(data, token!);
     },
-    onSuccess: (res: any) => {
+    onSuccess: async (res: any) => {
       queryClient.invalidateQueries({ queryKey: ["kunjungans"] });
       toast.success(
         editingKunjungan
           ? "Kunjungan berhasil diupdate"
           : "Kunjungan berhasil ditambahkan"
       );
-      handleCloseDialog();
-      if (!editingKunjungan && res?.data?.kunjungan_id) {
-        setNewKunjunganId(res.data.kunjungan_id);
-        setShowLayananDialog(true);
+      const kunjunganId = editingKunjungan ? editingKunjungan.kunjungan_id : res?.data?.kunjungan_id;
+      if (kunjunganId) {
+        try {
+          // Simpan multiple layanan
+          for (const layanan of formData.selectedLayanans) {
+            await layananApi.createKunjunganLayanan(
+              {
+                kunjungan_id: kunjunganId,
+                kode_layanan: layanan.kode_layanan,
+              },
+              token!
+            );
+          }
+          // Simpan multiple obat
+          for (const obat of formData.obatForms) {
+            if (obat.obat_id && obat.qty) {
+              await kunjunganObatApi.create(
+                {
+                  ...obat,
+                  kunjungan_id: kunjunganId,
+                  qty: parseInt(obat.qty),
+                },
+                token!
+              );
+            }
+          }
+          toast.success("Layanan dan obat berhasil disimpan");
+        } catch (error: any) {
+          toast.error("Kunjungan berhasil, tapi gagal simpan layanan/obat");
+        }
       }
+      handleCloseDialog();
     },
     onError: (error: any) => {
       toast.error(error.message || "Gagal menyimpan kunjungan");
@@ -280,6 +325,11 @@ const KunjunganPage = () => {
     }
   };
 
+  const handleViewDetail = (kunjungan: any) => {
+    setViewingKunjungan(kunjungan);
+    setIsDetailDialogOpen(true);
+  };
+
   const handleOpenDialog = (kunjungan?: any) => {
     if (kunjungan) {
       // --- MODE EDIT ---
@@ -301,6 +351,8 @@ const KunjunganPage = () => {
         // --- MODIFIKASI: Kembalikan data kunjungan_sebelumnya ---
         kunjungan_sebelumnya: kunjungan.kunjungan_sebelumnya?.toString() || "",
         booking_id: kunjungan.booking_id?.toString() || "none",
+        selectedLayanans: [], // Reset, atau populate dari data jika ada
+        obatForms: [],
       });
       if (kunjungan.hewan_id) {
         // Panggil versi async
@@ -323,6 +375,8 @@ const KunjunganPage = () => {
         // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "none",
+        selectedLayanans: [],
+        obatForms: [],
       });
       // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
@@ -358,6 +412,8 @@ const KunjunganPage = () => {
         // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "none",
+        selectedLayanans: [],
+        obatForms: [],
       });
       // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
@@ -375,6 +431,8 @@ const KunjunganPage = () => {
         // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "",
+        selectedLayanans: [],
+        obatForms: [],
       });
       // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
@@ -406,6 +464,8 @@ const KunjunganPage = () => {
           // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
           kunjungan_sebelumnya: "",
           booking_id: bookingId,
+          selectedLayanans: [],
+          obatForms: [],
         };
 
         setFormData(newFormData);
@@ -464,6 +524,8 @@ const KunjunganPage = () => {
         // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "none",
+        selectedLayanans: [],
+        obatForms: [],
       });
       // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
@@ -508,24 +570,25 @@ const KunjunganPage = () => {
     } - ${found.nama_hewan}`;
   };
 
-  useEffect(() => {
-    if (showLayananDialog) {
-      layananApi.getAll(token!).then(setLayananList);
-    }
-  }, [showLayananDialog, token]);
+  // useEffect(() => {
+  //   if (showCombinedDialog) {
+  //     layananApi.getAll(token!).then(setLayananList);
+  //   }
+  // }, [showCombinedDialog, token]);
 
-  useEffect(() => {
-    if (!showObatDialog) {
-      setObatForm({
-        kunjungan_id: null,
-        obat_id: "",
-        qty: "",
-        dosis: "",
-        frekuensi: "",
-      });
-      setNewKunjunganId(null);
-    }
-  }, [showObatDialog]);
+  // useEffect(() => {
+  //   if (!showCombinedDialog) {
+  //     setObatForm({
+  //       kunjungan_id: null,
+  //       obat_id: "",
+  //       qty: "",
+  //       dosis: "",
+  //       frekuensi: "",
+  //     });
+  //     setSelectedLayanan("");
+  //     setNewKunjunganId(null);
+  //   }
+  // }, [showCombinedDialog]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -570,6 +633,20 @@ const KunjunganPage = () => {
       return;
     }
 
+    // Validasi layanan wajib minimal 1
+    if (formData.selectedLayanans.length === 0) {
+      toast.error("Minimal 1 layanan wajib dipilih");
+      return;
+    }
+
+    // Validasi obat jika diisi
+    for (const obat of formData.obatForms) {
+      if (obat.obat_id && (!obat.qty || parseInt(obat.qty) <= 0)) {
+        toast.error("Qty obat harus > 0 jika obat dipilih");
+        return;
+      }
+    }
+
     // --- MODIFIKASI: Kembalikan validasi riwayat ---
     if (
       hewanHistory.length > 0 &&
@@ -586,12 +663,150 @@ const KunjunganPage = () => {
     saveMutation.mutate(submitData);
   };
 
+  // Fungsi untuk menghitung total biaya real-time
+  const calculateTotalBiayaRealtime = () => {
+    let total = 0;
+    // Hitung layanan
+    for (const layanan of formData.selectedLayanans) {
+      const layananData = layananList?.find((l: any) => l.kode_layanan === layanan.kode_layanan);
+      if (layananData) {
+        total += parseFloat(layananData.biaya_layanan || 0);
+      }
+    }
+    // Hitung obat
+    for (const obat of formData.obatForms) {
+      if (obat.obat_id && obat.qty) {
+        const obatData = obatList?.find((o: any) => o.obat_id.toString() === obat.obat_id);
+        if (obatData) {
+          total += parseFloat(obatData.harga_obat || 0) * parseInt(obat.qty);
+        }
+      }
+    }
+    return total;
+  };
+
+  // Fungsi untuk menambah layanan
+  const addLayanan = () => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedLayanans: [...prev.selectedLayanans, { kode_layanan: "" }],
+    }));
+  };
+
+  // Fungsi untuk menghapus layanan
+  const removeLayanan = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedLayanans: prev.selectedLayanans.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Fungsi untuk update layanan
+  const updateLayanan = (index: number, kode_layanan: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedLayanans: prev.selectedLayanans.map((l, i) =>
+        i === index ? { kode_layanan } : l
+      ),
+    }));
+  };
+
+  // Fungsi untuk menambah obat
+  const addObat = () => {
+    setFormData((prev) => ({
+      ...prev,
+      obatForms: [...prev.obatForms, { obat_id: "", qty: "", dosis: "", frekuensi: "" }],
+    }));
+  };
+
+  // Fungsi untuk menghapus obat
+  const removeObat = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      obatForms: prev.obatForms.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Fungsi untuk update obat
+  const updateObat = (index: number, field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      obatForms: prev.obatForms.map((o, i) =>
+        i === index ? { ...o, [field]: value } : o
+      ),
+    }));
+  };
+
+  // Tambahkan fungsi calculateTotalBiaya untuk tabel
+  const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
+    const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
+    const totalObat = obat_kunjungan?.reduce((sum, o) => sum + ((o.qty || 0) * (o.harga_saat_itu || 0)), 0) || 0;
+    return totalLayanan + totalObat;
+  };
+
+  // Tambahkan state untuk data layanan dan obat kunjungan
+  const [layananKunjungan, setLayananKunjungan] = useState<any[]>([]);
+  const [obatKunjungan, setObatKunjungan] = useState<any[]>([]);
+
+  // useEffect untuk fetch layanan dan obat saat viewingKunjungan berubah
+  useEffect(() => {
+    if (viewingKunjungan) {
+      const fetchLayananObat = async () => {
+        try {
+          // Fetch layanan untuk kunjungan ini
+          const layananResponse = await fetch(
+            `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/kunjungan/${viewingKunjungan.kunjungan_id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          if (layananResponse.ok) {
+            const layananData = await layananResponse.json();
+            setLayananKunjungan(layananData);
+          } else {
+            console.error("Failed to fetch layanan:", layananResponse.statusText);
+            setLayananKunjungan([]);
+          }
+
+          // Fetch obat untuk kunjungan ini
+          const obatResponse = await fetch(
+            `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-obat/kunjungan/${viewingKunjungan.kunjungan_id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          if (obatResponse.ok) {
+            const obatData = await obatResponse.json();
+            setObatKunjungan(obatData);
+          } else {
+            console.error("Failed to fetch obat:", obatResponse.statusText);
+            setObatKunjungan([]);
+          }
+        } catch (error) {
+          console.error("Error fetching layanan/obat:", error);
+          setLayananKunjungan([]);
+          setObatKunjungan([]);
+        }
+      };
+      fetchLayananObat();
+    } else {
+      setLayananKunjungan([]);
+      setObatKunjungan([]);
+    }
+  }, [viewingKunjungan, token]);
+
   if (
     isLoading ||
     bookingsLoading ||
     hewansLoading ||
     allDoktersLoading ||
-    kliniksLoading
+    kliniksLoading ||
+    layananListLoading ||
+    obatListLoading
   ) {
     return (
       <DashboardLayout title="Kelola Kunjungan">
@@ -608,6 +823,19 @@ const KunjunganPage = () => {
   return (
     <DashboardLayout title="Kelola Kunjungan" showBackButton={true}>
       <div className="space-y-6">
+        {/* Header Card */}
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
+              <Stethoscope className="h-6 w-6" />
+              Kelola Kunjungan Medis
+            </CardTitle>
+            <CardDescription className="text-blue-700 dark:text-blue-300">
+              Pantau dan kelola semua kunjungan pasien hewan di klinik
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -627,6 +855,8 @@ const KunjunganPage = () => {
                   <TableHead>Dokter</TableHead>
                   <TableHead>Catatan</TableHead>
                   <TableHead>Pembayaran</TableHead>
+                  <TableHead className="text-right">Total Biaya</TableHead>
+                  <TableHead className="text-center">Detail</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -685,6 +915,18 @@ const KunjunganPage = () => {
                       </div>
                     </TableCell>
                     <TableCell>{getMetodeBadge(k.metode_pembayaran)}</TableCell>
+                    <TableCell className="font-semibold text-right text-green-600">
+                      Rp {calculateTotalBiaya(k.layanan_kunjungan, k.obat_kunjungan).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewDetail(k)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
                         <Button
@@ -781,7 +1023,7 @@ const KunjunganPage = () => {
                                 booking.tanggal_booking
                               ).toLocaleDateString("id-ID")} ${
                                 booking.waktu_booking
-                              }`}
+                              } - ${booking.nama_hewan}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -899,63 +1141,6 @@ const KunjunganPage = () => {
                       </Select>
                     </div>
 
-                    {/* --- MODIFIKASI: Kembalikan blok Riwayat Kunjungan --- */}
-                    {hewanHistory.length > 0 && (
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label
-                          htmlFor="kunjungan-sebelumnya"
-                          className="text-right"
-                        >
-                          Riwayat Kunjungan
-                        </Label>
-                        <div className="col-span-3 flex items-center gap-2">
-                          <Select
-                            value={formData.kunjungan_sebelumnya || "none"}
-                            onValueChange={handlePreviousVisitChange}
-                          >
-                            <SelectTrigger id="kunjungan-sebelumnya">
-                              <SelectValue placeholder="Pilih riwayat kunjungan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">
-                                Tidak Ada / Kunjungan Baru
-                              </SelectItem>
-                              {hewanHistory.map((visit) => (
-                                <SelectItem
-                                  key={visit.kunjungan_id}
-                                  value={visit.kunjungan_id.toString()}
-                                >
-                                  {`${new Date(
-                                    visit.tanggal_kunjungan
-                                  ).toLocaleDateString("id-ID")} - ${
-                                    visit.title_dokter || ""
-                                  } ${visit.nama_dokter} - ${calculateDaysSince(
-                                    visit.tanggal_kunjungan
-                                  )}`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              !selectedPreviousVisit ||
-                              formData.kunjungan_sebelumnya === "none"
-                            }
-                            onClick={() =>
-                              handleViewPreviousVisit(
-                                selectedPreviousVisit.kunjungan_id
-                              )
-                            }
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="dokter-manual" className="text-right">
                         Dokter
@@ -994,6 +1179,63 @@ const KunjunganPage = () => {
                       </Select>
                     </div>
                   </>
+                )}
+
+                {/* --- MODIFIKASI: Pindahkan blok Riwayat Kunjungan ke sini agar muncul di kedua mode --- */}
+                {hewanHistory.length > 0 && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label
+                      htmlFor="kunjungan-sebelumnya"
+                      className="text-right"
+                    >
+                      Riwayat Kunjungan
+                    </Label>
+                    <div className="col-span-3 flex items-center gap-2">
+                      <Select
+                        value={formData.kunjungan_sebelumnya || "none"}
+                        onValueChange={handlePreviousVisitChange}
+                      >
+                        <SelectTrigger id="kunjungan-sebelumnya">
+                          <SelectValue placeholder="Pilih riwayat kunjungan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            Tidak Ada / Kunjungan Baru
+                          </SelectItem>
+                          {hewanHistory.map((visit) => (
+                            <SelectItem
+                              key={visit.kunjungan_id}
+                              value={visit.kunjungan_id.toString()}
+                            >
+                              {`${new Date(
+                                visit.tanggal_kunjungan
+                              ).toLocaleDateString("id-ID")} - ${
+                                visit.title_dokter || ""
+                              } ${visit.nama_dokter} - ${calculateDaysSince(
+                                visit.tanggal_kunjungan
+                              )}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          !selectedPreviousVisit ||
+                          formData.kunjungan_sebelumnya === "none"
+                        }
+                        onClick={() =>
+                          handleViewPreviousVisit(
+                            selectedPreviousVisit.kunjungan_id
+                          )
+                        }
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 )}
 
                 {/* --- FIELD UMUM (Tanggal, Waktu, Catatan, Pembayaran) --- */}
@@ -1068,6 +1310,156 @@ const KunjunganPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Bagian Layanan dan Obat - Tampil untuk kedua mode */}
+                <div className="border-t pt-4 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Layanan dan Obat</h3>
+                    <div className="text-sm text-muted-foreground">
+                      Total Biaya: <span className="font-bold text-green-600">Rp {calculateTotalBiayaRealtime().toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  </div>
+
+                  {/* Layanan Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Layanan *</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addLayanan}>
+                        <Plus className="h-4 w-4 mr-1" /> Tambah Layanan
+                      </Button>
+                    </div>
+                    {formData.selectedLayanans.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-md">
+                        Belum ada layanan dipilih. Klik "Tambah Layanan" untuk menambah.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {formData.selectedLayanans.map((layanan, index) => {
+                          const layananData = layananList?.find((l: any) => l.kode_layanan === layanan.kode_layanan);
+                          return (
+                            <div key={index} className="flex items-center gap-2 p-3 border rounded-md bg-muted/50">
+                              <Select
+                                value={layanan.kode_layanan}
+                                onValueChange={(value) => updateLayanan(index, value)}
+                              >
+                                <SelectTrigger className="flex-1">
+                                  <SelectValue placeholder="Pilih layanan..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {layananList?.map((l: any) => (
+                                    <SelectItem key={l.kode_layanan} value={l.kode_layanan}>
+                                      {l.nama_layanan} - Rp {parseFloat(l.biaya_layanan || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {layananData && (
+                                <div className="text-sm font-medium text-green-600">
+                                  Rp {parseFloat(layananData.biaya_layanan || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                </div>
+                              )}
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeLayanan(index)}>
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Obat Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Resep Obat (Opsional)</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addObat}>
+                        <Plus className="h-4 w-4 mr-1" /> Tambah Obat
+                      </Button>
+                    </div>
+                    {formData.obatForms.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-md">
+                        Belum ada obat ditambahkan. Klik "Tambah Obat" untuk menambah resep.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {formData.obatForms.map((obat, index) => {
+                          const obatData = obatList?.find((o: any) => o.obat_id.toString() === obat.obat_id);
+                          return (
+                            <Card key={index} className="p-4">
+                              <div className="flex items-start gap-4">
+                                <div className="flex-1 space-y-3">
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label>Obat</Label>
+                                      <Select
+                                        value={obat.obat_id}
+                                        onValueChange={(value) => updateObat(index, 'obat_id', value)}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Pilih obat..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {obatList?.map((o: any) => (
+                                            <SelectItem key={o.obat_id} value={o.obat_id.toString()}>
+                                              {o.nama_obat} - Rp {parseFloat(o.harga_obat || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div>
+                                      <Label>Qty</Label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={obat.qty}
+                                        onChange={(e) => updateObat(index, 'qty', e.target.value)}
+                                        placeholder="1"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label>Dosis</Label>
+                                      <Input
+                                        value={obat.dosis}
+                                        onChange={(e) => updateObat(index, 'dosis', e.target.value)}
+                                        placeholder="500mg"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>Frekuensi</Label>
+                                      <Input
+                                        value={obat.frekuensi}
+                                        onChange={(e) => updateObat(index, 'frekuensi', e.target.value)}
+                                        placeholder="3x sehari"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right space-y-2">
+                                  {obatData && obat.qty && (
+                                    <div className="text-sm">
+                                      <div className="font-medium">Harga per unit:</div>
+                                      <div className="text-green-600">Rp {parseFloat(obatData.harga_obat || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                                      <div className="font-medium mt-1">Total:</div>
+                                      <div className="text-lg font-bold text-green-600">
+                                        Rp {(parseFloat(obatData.harga_obat || 0) * parseInt(obat.qty || '0')).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => removeObat(index)}>
+                                    <X className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -1086,6 +1478,157 @@ const KunjunganPage = () => {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Detail Kunjungan */}
+        <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Detail Kunjungan #{viewingKunjungan?.kunjungan_id}
+              </DialogTitle>
+              <DialogDescription>
+                Informasi lengkap kunjungan medis
+              </DialogDescription>
+            </DialogHeader>
+            {viewingKunjungan && (
+              <div className="space-y-6">
+                {/* Info Kunjungan */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Informasi Kunjungan
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold">Tanggal & Waktu</Label>
+                        <p>
+                          {new Date(viewingKunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingKunjungan.waktu_kunjungan}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Hewan</Label>
+                        <p>{viewingKunjungan.nama_hewan || "Tidak ada data"}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Pemilik</Label>
+                        <p>{viewingKunjungan.nama_pawrent || "Tidak ada data"}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Dokter</Label>
+                        <p>{viewingKunjungan.title_dokter} {viewingKunjungan.nama_dokter}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Metode Pembayaran</Label>
+                        <div>{getMetodeBadge(viewingKunjungan.metode_pembayaran)}</div>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Total Biaya</Label>
+                        <p>Rp {calculateTotalBiaya(layananKunjungan, obatKunjungan).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="font-semibold">Catatan/Keluhan</Label>
+                      <p>{viewingKunjungan.catatan || "Tidak ada catatan"}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Layanan */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-blue-600" />
+                      Layanan ({layananKunjungan.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {layananKunjungan.length > 0 ? (
+                      <div className="space-y-3">
+                        {layananKunjungan.map((l: any) => (
+                          <div key={l.layanan_id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                              <div>
+                                <p className="font-medium text-blue-900 dark:text-blue-100">{l.nama_layanan}</p>
+                                <p className="text-sm text-muted-foreground">Qty: {l.qty}</p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {(l.harga_saat_itu * l.qty).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
+                          <div className="flex justify-between items-center font-semibold text-blue-900 dark:text-blue-100">
+                            <span>Total Layanan:</span>
+                            <span>Rp {layananKunjungan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada layanan yang tercatat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Obat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Pill className="h-5 w-5 text-green-600" />
+                      Resep Obat ({obatKunjungan.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {obatKunjungan.length > 0 ? (
+                      <div className="space-y-3">
+                        {obatKunjungan.map((o: any) => (
+                          <div key={o.kunjungan_obat_id} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                              <div>
+                                <p className="font-medium text-green-900 dark:text-green-100">{o.nama_obat}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Qty: {o.qty} • Dosis: {o.dosis} • Frekuensi: {o.frekuensi}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {(o.harga_saat_itu * o.qty).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-green-200 dark:border-green-800">
+                          <div className="flex justify-between items-center font-semibold text-green-900 dark:text-green-100">
+                            <span>Total Obat:</span>
+                            <span>Rp {obatKunjungan.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Pill className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada resep obat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+                Tutup
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
@@ -1133,13 +1676,7 @@ const KunjunganPage = () => {
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Diagnosa</span>
-                  <span className="col-span-2">
-                    : {viewingPreviousVisit.diagnosa || "-"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="font-semibold">Tindakan</span>
+                  <span className="font-semibold">Layanan</span>
                   <span className="col-span-2">
                     :{" "}
                     {viewingPreviousVisit.layanan_kunjungan?.length > 0
@@ -1171,113 +1708,6 @@ const KunjunganPage = () => {
                 onClick={() => setIsPreviousVisitDialogOpen(false)}
               >
                 Tutup
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog Tambah Layanan (muncul setelah add kunjungan) */}
-        <Dialog open={showLayananDialog} onOpenChange={setShowLayananDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Tambah Layanan</DialogTitle>
-              <DialogDescription>
-                Pilih layanan yang diberikan untuk kunjungan ini.
-              </DialogDescription>
-            </DialogHeader>
-            <Select onValueChange={setSelectedLayanan}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih layanan..." />
-              </SelectTrigger>
-              <SelectContent>
-                {layananList.map((l: any) => (
-                  <SelectItem key={l.layanan_id} value={l.layanan_id}>
-                    {l.nama_layanan}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DialogFooter>
-              <Button
-                onClick={async () => {
-                  if (selectedLayanan && newKunjunganId) {
-                    await layananApi.createKunjunganLayanan(
-                      {
-                        kunjungan_id: newKunjunganId,
-                        layanan_id: selectedLayanan,
-                      },
-                      token!
-                    );
-                    setShowLayananDialog(false);
-                    setShowObatDialog(true); // Lanjut ke dialog obat
-                  } else {
-                    setShowLayananDialog(false);
-                    setShowObatDialog(true); // Lanjut ke dialog obat
-                  }
-                }}
-              >
-                Simpan Layanan / Lewati
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog Tambah Obat (muncul setelah layanan) */}
-        <Dialog open={showObatDialog} onOpenChange={setShowObatDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Tambah Resep Obat</DialogTitle>
-              <DialogDescription>
-                Masukkan resep obat untuk kunjungan ini (opsional).
-              </DialogDescription>
-            </DialogHeader>
-            <Input
-              placeholder="ID Obat (WIP: Ganti jadi search/select)"
-              value={obatForm.obat_id}
-              onChange={(e) =>
-                setObatForm({ ...obatForm, obat_id: e.target.value })
-              }
-            />
-            <Input
-              placeholder="Qty"
-              type="number"
-              value={obatForm.qty}
-              onChange={(e) =>
-                setObatForm({ ...obatForm, qty: e.target.value })
-              }
-            />
-            <Input
-              placeholder="Dosis"
-              value={obatForm.dosis}
-              onChange={(e) =>
-                setObatForm({ ...obatForm, dosis: e.target.value })
-              }
-            />
-            <Input
-              placeholder="Frekuensi"
-              value={obatForm.frekuensi}
-              onChange={(e) =>
-                setObatForm({ ...obatForm, frekuensi: e.target.value })
-              }
-            />
-            <DialogFooter>
-              <Button
-                onClick={async () => {
-                  if (!obatForm.obat_id || !obatForm.qty) {
-                    setShowObatDialog(false);
-                    setNewKunjunganId(null);
-                    return;
-                  }
-                  await obatApi.create(
-                    { ...obatForm, kunjungan_id: newKunjunganId },
-                    token!
-                  );
-                  setShowObatDialog(false);
-                  setNewKunjunganId(null);
-                  queryClient.invalidateQueries({ queryKey: ["kunjungans"] });
-                }}
-              >
-                Simpan Obat / Lewati
               </Button>
             </DialogFooter>
           </DialogContent>

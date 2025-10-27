@@ -1,3 +1,4 @@
+-- Mengatur delimiter kustom ke $$
 DELIMITER $$
 
 -- ========================================================
@@ -206,14 +207,18 @@ BEGIN
 END$$
 
 -- ========================================================
--- ADD LAYANAN TO KUNJUNGAN
+-- ADD LAYANAN TO KUNJUNGAN (FIXED)
 -- ========================================================
 DROP PROCEDURE IF EXISTS AddLayananToKunjungan$$
 CREATE PROCEDURE AddLayananToKunjungan(
     IN p_kunjungan_id INT,
-    IN p_kode_layanan VARCHAR(20)
+    IN p_kode_layanan VARCHAR(20),
+    IN p_qty INT
 )
 BEGIN
+    DECLARE v_biaya DECIMAL(12,2);
+    DECLARE v_qty INT; 
+
     -- Validasi kunjungan dan layanan
     IF NOT EXISTS (SELECT 1 FROM Kunjungan WHERE kunjungan_id = p_kunjungan_id AND deleted_at IS NULL) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Kunjungan tidak ditemukan';
@@ -223,12 +228,94 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Layanan tidak ditemukan';
     END IF;
 
-    -- Tambah layanan ke kunjungan
-    INSERT INTO Layanan (kunjungan_id, kode_layanan)
-    VALUES (p_kunjungan_id, p_kode_layanan);
+    -- Set qty default ke 1 jika p_qty adalah NULL atau <= 0
+    IF p_qty IS NULL OR p_qty <= 0 THEN
+        SET v_qty = 1;
+    ELSE
+        SET v_qty = p_qty;
+    END IF;
 
-    -- Kembalikan data layanan
-    SELECT * FROM Layanan WHERE kunjungan_id = p_kunjungan_id AND kode_layanan = p_kode_layanan;
+    -- Ambil biaya dari master Detail_Layanan
+    SELECT biaya_layanan INTO v_biaya
+    FROM Detail_Layanan
+    WHERE kode_layanan = p_kode_layanan AND deleted_at IS NULL;
+
+    -- Tambah layanan ke kunjungan dengan biaya saat itu (menggunakan v_qty)
+    INSERT INTO Layanan (kunjungan_id, kode_layanan, qty, biaya_saat_itu)
+    VALUES (p_kunjungan_id, p_kode_layanan, v_qty, v_biaya); 
+
+    -- Kembalikan data layanan yang baru ditambahkan
+    SELECT 
+        l.layanan_id,
+        l.kunjungan_id,
+        l.kode_layanan,
+        dl.nama_layanan,
+        l.qty,
+        l.biaya_saat_itu
+    FROM Layanan l
+    INNER JOIN Detail_Layanan dl ON l.kode_layanan = dl.kode_layanan
+    WHERE l.kunjungan_id = p_kunjungan_id 
+      AND l.kode_layanan = p_kode_layanan
+      AND dl.deleted_at IS NULL
+    ORDER BY l.layanan_id DESC 
+    LIMIT 1;
 END$$
 
+-- ========================================================
+-- GET LAYANAN BY KUNJUNGAN (BARU)
+-- (Mengambil detail layanan dari tabel Layanan, termasuk qty dan biaya_saat_itu)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetLayananByKunjungan$$
+CREATE PROCEDURE GetLayananByKunjungan(
+    IN p_kunjungan_id INT
+)
+BEGIN
+    SELECT 
+        l.kunjungan_id,
+        l.kode_layanan,
+        dl.nama_layanan,
+        dl.deskripsi_layanan,
+        l.qty,
+        l.biaya_saat_itu AS harga_saat_itu,
+        dl.biaya_layanan AS harga_saat_ini
+    FROM Layanan l
+    INNER JOIN Detail_Layanan dl ON l.kode_layanan = dl.kode_layanan
+    WHERE l.kunjungan_id = p_kunjungan_id
+      AND dl.deleted_at IS NULL
+    ORDER BY dl.nama_layanan;
+END$$
+
+-- ========================================================
+-- DELETE LAYANAN FROM KUNJUNGAN (BARU)
+-- (Menghapus berdasarkan composite primary key Anda, dengan validasi)
+-- ========================================================
+DROP PROCEDURE IF EXISTS DeleteLayananFromKunjungan$$
+CREATE PROCEDURE DeleteLayananFromKunjungan(
+    IN p_kunjungan_id INT,
+    IN p_kode_layanan VARCHAR(20)
+)
+BEGIN
+    DECLARE rows_deleted INT;
+
+    -- Validasi apakah kunjungan ada dan tidak deleted
+    IF NOT EXISTS (SELECT 1 FROM Kunjungan WHERE kunjungan_id = p_kunjungan_id AND deleted_at IS NULL) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Kunjungan tidak ditemukan';
+    END IF;
+
+    -- Validasi apakah layanan ada di kunjungan tersebut
+    IF NOT EXISTS (SELECT 1 FROM Layanan WHERE kunjungan_id = p_kunjungan_id AND kode_layanan = p_kode_layanan) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Layanan tidak ditemukan di kunjungan ini';
+    END IF;
+
+    -- Hapus layanan dari kunjungan
+    DELETE FROM Layanan
+    WHERE kunjungan_id = p_kunjungan_id 
+      AND kode_layanan = p_kode_layanan;
+    
+    SET rows_deleted = ROW_COUNT();
+    
+    SELECT rows_deleted AS affected_rows, p_kunjungan_id AS kunjungan_id, p_kode_layanan AS kode_layanan;
+END$$
+
+-- Mengembalikan delimiter ke standar ; di akhir skrip
 DELIMITER ;

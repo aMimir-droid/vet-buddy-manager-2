@@ -336,6 +336,14 @@ export const layananApi = {
   create: (data: any, token: string) => 
     apiCall({ endpoint: '/layanan', method: 'POST', body: data, token }),
   
+  // Tambahkan fungsi untuk assign layanan ke kunjungan
+  createKunjunganLayanan: (data: { kunjungan_id: number; kode_layanan: string }, token: string) =>
+    apiCall({ endpoint: '/kunjungan-layanan', method: 'POST', body: data, token }),
+  
+  // TAMBAHKAN: Get layanan by kunjungan
+  getByKunjungan: (kunjunganId: number, token: string) =>
+    apiCall({ endpoint: `/kunjungan-layanan/kunjungan/${kunjunganId}`, token }),
+  
   update: (kode: string, data: any, token: string) => 
     apiCall({ endpoint: `/layanan/${kode}`, method: 'PUT', body: data, token }),
   

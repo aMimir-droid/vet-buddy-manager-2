@@ -581,6 +581,12 @@ useEffect(() => {
       toast.error("Gagal menghapus obat");
     }
   };
+  
+const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
+  const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
+  const totalObat = obat_kunjungan?.reduce((sum, o) => sum + ((o.qty || 0) * (o.harga_saat_itu || 0)), 0) || 0;
+  return totalLayanan + totalObat;
+};
 
   const calculateTotalBiayaRealtime = () => {
     let total = 0;
@@ -667,6 +673,34 @@ useEffect(() => {
       setObatKunjungan([]);
     }
   }, [viewingKunjungan]);
+
+  // Tambahkan useEffect untuk fetch data layanan/obat kunjungan sebelumnya
+useEffect(() => {
+  if (viewingPreviousVisit) {
+    const fetchPreviousData = async () => {
+      try {
+        const [layananRes, obatRes] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-obat/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        if (layananRes.ok) setPreviousLayanan(await layananRes.json());
+        if (obatRes.ok) setPreviousObat(await obatRes.json());
+      } catch (error) {
+        console.error("Error fetching previous data:", error);
+        setPreviousLayanan([]);
+        setPreviousObat([]);
+      }
+    };
+    fetchPreviousData();
+  } else {
+    setPreviousLayanan([]);
+    setPreviousObat([]);
+  }
+}, [viewingPreviousVisit, token]);
 
   // Utility functions
   const formatDate = (dateString: string) => {
@@ -1385,172 +1419,295 @@ useEffect(() => {
 
         {/* Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="h-5 w-5" />
-                Detail Kunjungan
+                Detail Kunjungan #{viewingKunjungan?.kunjungan_id}
               </DialogTitle>
               <DialogDescription>
-                ID Kunjungan: #{viewingKunjungan?.kunjungan_id}
+                Informasi lengkap kunjungan medis
               </DialogDescription>
             </DialogHeader>
-            
             {viewingKunjungan && (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Tanggal</Label>
-                    <p className="font-medium flex items-center gap-2 mt-1">
-                      <Calendar className="h-4 w-4" />
-                      {formatDate(viewingKunjungan.tanggal_kunjungan)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Waktu</Label>
-                    <p className="font-medium flex items-center gap-2 mt-1">
-                      <Clock className="h-4 w-4" />
-                      {viewingKunjungan.waktu_kunjungan}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Hewan</Label>
-                    <p className="font-medium flex items-center gap-2 mt-1">
-                      <PawPrint className="h-4 w-4 text-primary" />
-                      {viewingKunjungan.nama_hewan}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Pemilik</Label>
-                    <p className="font-medium mt-1">{viewingKunjungan.nama_pawrent}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Dokter</Label>
-                    <p className="font-medium flex items-center gap-2 mt-1">
-                      <Stethoscope className="h-4 w-4" />
-                      {viewingKunjungan.nama_dokter}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Metode Pembayaran</Label>
-                    <div className="mt-1">
-                      {getMetodeBadge(viewingKunjungan.metode_pembayaran)}
+                {/* Info Kunjungan */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Informasi Kunjungan
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold">Tanggal & Waktu</Label>
+                        <p>
+                          {new Date(viewingKunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingKunjungan.waktu_kunjungan}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Hewan</Label>
+                        <p>{viewingKunjungan.nama_hewan || "Tidak ada data"}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Pemilik</Label>
+                        <p>{viewingKunjungan.nama_pawrent || "Tidak ada data"}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Dokter</Label>
+                        <p>{viewingKunjungan.title_dokter} {viewingKunjungan.nama_dokter}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Metode Pembayaran</Label>
+                        <div>{getMetodeBadge(viewingKunjungan.metode_pembayaran)}</div>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Total Biaya</Label>
+                        <p>Rp {calculateTotalBiaya(layananKunjungan, obatKunjungan).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</p>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {viewingKunjungan.catatan && (
-                  <div>
-                    <Label className="text-muted-foreground">Catatan / Diagnosa</Label>
-                    <p className="mt-1 p-3 bg-muted rounded-md whitespace-pre-wrap">
-                      {viewingKunjungan.catatan}
-                    </p>
-                  </div>
-                )}
-
-                <div className="bg-primary/10 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
                     <div>
-                      <Label className="text-muted-foreground">Total Biaya</Label>
-                      <p className="text-3xl font-bold text-primary mt-1">
-                        {formatCurrency(viewingKunjungan.total_biaya)}
-                      </p>
+                      <Label className="font-semibold">Catatan/Keluhan</Label>
+                      <p>{viewingKunjungan.catatan || "Tidak ada catatan"}</p>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
+
+                {/* Layanan */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-blue-600" />
+                      Layanan ({layananKunjungan.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {layananKunjungan.length > 0 ? (
+                      <div className="space-y-3">
+                        {layananKunjungan.map((l: any) => (
+                          <div key={l.layanan_id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center gap-3">
+                              <Activity className="h-5 w-5 text-blue-600" />
+                              <div>
+                                <p className="font-medium">{l.nama_layanan}</p>
+                                <p className="text-sm text-muted-foreground">Qty: {l.qty || 1}</p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {((l.harga_saat_itu || 0) * (l.qty || 1)).toLocaleString('id-ID')}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
+                          <div className="flex justify-between items-center font-semibold text-blue-900 dark:text-blue-100">
+                            <span>Total Layanan:</span>
+                            <span>Rp {layananKunjungan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada layanan yang tercatat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Obat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Pill className="h-5 w-5 text-green-600" />
+                      Resep Obat ({obatKunjungan.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {obatKunjungan.length > 0 ? (
+                      <div className="space-y-3">
+                        {obatKunjungan.map((o: any) => (
+                          <div key={o.kunjungan_obat_id} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="flex items-center gap-3">
+                              <Pill className="h-5 w-5 text-green-600" />
+                              <div>
+                                <p className="font-medium">{o.nama_obat}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Qty: {o.qty} | Dosis: {o.dosis} | Frekuensi: {o.frekuensi}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {((o.harga_saat_itu || 0) * (o.qty || 0)).toLocaleString('id-ID')}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-green-200 dark:border-green-800">
+                          <div className="flex justify-between items-center font-semibold text-green-900 dark:text-green-100">
+                            <span>Total Obat:</span>
+                            <span>Rp {obatKunjungan.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Pill className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada resep obat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+                Tutup
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* NEW: Dialog untuk melihat detail kunjungan sebelumnya */}
         <Dialog open={isPreviousVisitDialogOpen} onOpenChange={setIsPreviousVisitDialogOpen}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Detail Kunjungan Sebelumnya
-            </DialogTitle>
-            <DialogDescription>
-              Informasi lengkap kunjungan medis sebelumnya
-            </DialogDescription>
-          </DialogHeader>
-          {viewingPreviousVisit && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Tanggal Kunjungan</Label>
-                  <p className="font-medium">
-                    {formatDate(viewingPreviousVisit.tanggal_kunjungan)}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Waktu</Label>
-                  <p className="font-medium">{viewingPreviousVisit.waktu_kunjungan}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Hewan</Label>
-                  <p className="font-medium">{viewingPreviousVisit.nama_hewan}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Pemilik</Label>
-                  <p className="font-medium">{viewingPreviousVisit.nama_pawrent}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Dokter</Label>
-                  <p className="font-medium">{viewingPreviousVisit.nama_dokter}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Total Biaya</Label>
-                  <p className="font-semibold text-green-600">
-                    {formatCurrency(viewingPreviousVisit.total_biaya)}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Metode Pembayaran</Label>
-                  <div className="mt-1">{getMetodeBadge(viewingPreviousVisit.metode_pembayaran)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Waktu Kunjungan</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {calculateDaysSince(viewingPreviousVisit.tanggal_kunjungan)}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Catatan / Diagnosa</Label>
-                <div className="mt-2 p-4 bg-muted rounded-md">
-                  <p className="text-sm whitespace-pre-wrap">
-                    {viewingPreviousVisit.catatan || 'Tidak ada catatan'}
-                  </p>
-                </div>
-              </div>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detail Riwayat Kunjungan</DialogTitle>
+              {viewingPreviousVisit && (
+                <DialogDescription>
+                  Kunjungan pada{" "}
+                  {new Date(viewingPreviousVisit.tanggal_kunjungan).toLocaleDateString("id-ID")}{" "}
+                  ({calculateDaysSince(viewingPreviousVisit.tanggal_kunjungan)})
+                </DialogDescription>
+              )}
+            </DialogHeader>
+            {viewingPreviousVisit && (
+              <div className="space-y-6">
+                {/* Info Kunjungan Riwayat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Informasi Kunjungan Riwayat
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold">Tanggal & Waktu</Label>
+                        <p>{new Date(viewingPreviousVisit.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingPreviousVisit.waktu_kunjungan}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Hewan</Label>
+                        <p>{viewingPreviousVisit.nama_hewan}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Dokter</Label>
+                        <p>{viewingPreviousVisit.title_dokter || ""} {viewingPreviousVisit.nama_dokter}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">Total Biaya</Label>
+                        <p>Rp {calculatePreviousTotal().toLocaleString("id-ID", { maximumFractionDigits: 0 })}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="font-semibold">Catatan/Keluhan</Label>
+                      <p>{viewingPreviousVisit.catatan || "Tidak ada catatan"}</p>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Tambahkan detail layanan dan obat */}
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold">Layanan</span>
-                <span className="col-span-2">
-                  : {previousLayanan.length > 0 ? previousLayanan.map(l => `${l.nama_layanan} (Qty: ${l.qty}, Harga: Rp ${l.harga_saat_itu?.toLocaleString('id-ID')})`).join(", ") : "-"}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold">Obat</span>
-                <span className="col-span-2">
-                  : {previousObat.length > 0 ? previousObat.map(o => `${o.nama_obat} (Qty: ${o.qty}, Dosis: ${o.dosis}, Frekuensi: ${o.frekuensi}, Harga: Rp ${o.harga_saat_itu?.toLocaleString('id-ID')})`).join(", ") : "-"}
-                </span>
-              </div>
+                {/* Layanan Riwayat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-blue-600" />
+                      Layanan ({previousLayanan.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {previousLayanan.length > 0 ? (
+                      <div className="space-y-3">
+                        {previousLayanan.map((l: any) => (
+                          <div key={l.layanan_id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center gap-3">
+                              <Activity className="h-5 w-5 text-blue-600" />
+                              <div>
+                                <p className="font-medium">{l.nama_layanan}</p>
+                                <p className="text-sm text-muted-foreground">Qty: {l.qty || 1}</p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {((l.harga_saat_itu || 0) * (l.qty || 1)).toLocaleString('id-ID')}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
+                          <div className="flex justify-between items-center font-semibold text-blue-900 dark:text-blue-100">
+                            <span>Total Layanan:</span>
+                            <span>Rp {previousLayanan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada layanan yang tercatat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-              {/* NEW: Hitung dan tampilkan total biaya layanan dan obat */}
-              <div className="grid grid-cols-3 gap-2">
-                <span className="font-semibold">Total Biaya</span>
-                <span className="col-span-2">: Rp {calculatePreviousTotal().toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                {/* Obat Riwayat */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Pill className="h-5 w-5 text-green-600" />
+                      Resep Obat ({previousObat.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {previousObat.length > 0 ? (
+                      <div className="space-y-3">
+                        {previousObat.map((o: any) => (
+                          <div key={o.kunjungan_obat_id} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="flex items-center gap-3">
+                              <Pill className="h-5 w-5 text-green-600" />
+                              <div>
+                                <p className="font-medium">{o.nama_obat}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Qty: {o.qty} | Dosis: {o.dosis} | Frekuensi: {o.frekuensi}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Rp {((o.harga_saat_itu || 0) * (o.qty || 0)).toLocaleString('id-ID')}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-green-200 dark:border-green-800">
+                          <div className="flex justify-between items-center font-semibold text-green-900 dark:text-green-100">
+                            <span>Total Obat:</span>
+                            <span>Rp {previousObat.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Pill className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada resep obat</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setIsPreviousVisitDialogOpen(false)}>
-              Tutup
-            </Button>
-          </DialogFooter>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setIsPreviousVisitDialogOpen(false)}>
+                Tutup
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
       </div>
     </DashboardLayout>

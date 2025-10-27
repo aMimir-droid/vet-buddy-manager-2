@@ -241,6 +241,7 @@ BEGIN
         b.klinik_id,
         k.nama_klinik,
         b.dokter_id,
+        d.title_dokter,  -- TAMBAHKAN: Title dokter
         d.nama_dokter,
         b.pawrent_id,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
@@ -261,7 +262,7 @@ BEGIN
 END$$
 
 -- GET BOOKING BY ID - UPDATED
-DROP PROCEDURE IF EXISTS GetBookingById$$
+DROP PROCEDURE IF EXISTS GetBookingById$$  
 CREATE PROCEDURE GetBookingById(
     IN p_booking_id INT
 )
@@ -275,11 +276,12 @@ BEGIN
         b.klinik_id,
         k.nama_klinik,
         b.dokter_id,
+        d.title_dokter,  -- TAMBAHKAN: Title dokter
         d.nama_dokter,
         b.pawrent_id,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
-        b.hewan_id,  -- GANTI
-        h.nama_hewan,  -- TAMBAHKAN
+        b.hewan_id,
+        h.nama_hewan,
         b.tanggal_booking,
         b.waktu_booking,
         b.status,
@@ -288,12 +290,39 @@ BEGIN
     LEFT JOIN Klinik k ON b.klinik_id = k.klinik_id
     LEFT JOIN Dokter d ON b.dokter_id = d.dokter_id
     LEFT JOIN Pawrent p ON b.pawrent_id = p.pawrent_id
-    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id  -- TAMBAHKAN
+    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id
     WHERE b.booking_id = p_booking_id;
 END$$
 
+-- GET ALL BOOKINGS - UPDATED
+DROP PROCEDURE IF EXISTS GetAllBookings$$  
+CREATE PROCEDURE GetAllBookings()
+BEGIN
+    SELECT
+        b.booking_id,
+        b.klinik_id,
+        k.nama_klinik,
+        b.dokter_id,
+        d.title_dokter,  -- TAMBAHKAN: Title dokter
+        d.nama_dokter,
+        b.pawrent_id,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
+        b.hewan_id,
+        h.nama_hewan,
+        b.tanggal_booking,
+        b.waktu_booking,
+        b.status,
+        b.catatan
+    FROM Booking b
+    LEFT JOIN Klinik k ON b.klinik_id = k.klinik_id
+    LEFT JOIN Dokter d ON b.dokter_id = d.dokter_id
+    LEFT JOIN Pawrent p ON b.pawrent_id = p.pawrent_id
+    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id
+    ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
+END$$
+
 -- GET BOOKINGS BY DOKTER - UPDATED
-DROP PROCEDURE IF EXISTS GetBookingsByDokter$$
+DROP PROCEDURE IF EXISTS GetBookingsByDokter$$  
 CREATE PROCEDURE GetBookingsByDokter(
     IN p_dokter_id INT
 )
@@ -307,11 +336,12 @@ BEGIN
         b.klinik_id,
         k.nama_klinik,
         b.dokter_id,
+        d.title_dokter,  -- TAMBAHKAN: Title dokter
         d.nama_dokter,
         b.pawrent_id,
         CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
-        b.hewan_id,  -- GANTI
-        h.nama_hewan,  -- TAMBAHKAN
+        b.hewan_id,
+        h.nama_hewan,
         b.tanggal_booking,
         b.waktu_booking,
         b.status,
@@ -320,39 +350,13 @@ BEGIN
     LEFT JOIN Klinik k ON b.klinik_id = k.klinik_id
     LEFT JOIN Dokter d ON b.dokter_id = d.dokter_id
     LEFT JOIN Pawrent p ON b.pawrent_id = p.pawrent_id
-    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id  -- TAMBAHKAN
+    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id
     WHERE b.dokter_id = p_dokter_id
     ORDER BY b.tanggal_booking, b.waktu_booking;
 END$$
 
--- GET ALL BOOKINGS - UPDATED
-DROP PROCEDURE IF EXISTS GetAllBookings$$
-CREATE PROCEDURE GetAllBookings()
-BEGIN
-    SELECT
-        b.booking_id,
-        b.klinik_id,
-        k.nama_klinik,
-        b.dokter_id,
-        d.nama_dokter,
-        b.pawrent_id,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
-        b.hewan_id,  -- GANTI
-        h.nama_hewan,  -- TAMBAHKAN
-        b.tanggal_booking,
-        b.waktu_booking,
-        b.status,
-        b.catatan
-    FROM Booking b
-    LEFT JOIN Klinik k ON b.klinik_id = k.klinik_id
-    LEFT JOIN Dokter d ON b.dokter_id = d.dokter_id
-    LEFT JOIN Pawrent p ON b.pawrent_id = p.pawrent_id
-    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id  -- TAMBAHKAN
-    ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
-END$$
-
 -- TAMBAHKAN: Stored Procedure untuk GetBookingsByPawrent
-DROP PROCEDURE IF EXISTS GetBookingsByPawrent$$
+DROP PROCEDURE IF EXISTS GetBookingsByPawrent$$  
 CREATE PROCEDURE GetBookingsByPawrent(
     IN p_pawrent_id INT
 )
@@ -371,6 +375,7 @@ BEGIN
         b.waktu_booking,
         b.status,
         b.catatan,
+        d.title_dokter,  -- TAMBAHKAN: Title dokter
         d.nama_dokter,
         k.nama_klinik,
         h.nama_hewan

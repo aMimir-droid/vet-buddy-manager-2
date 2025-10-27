@@ -242,7 +242,7 @@ CREATE TABLE Booking (
 -- Tabel Kunjungan (depends on: Hewan, Dokter)
 CREATE TABLE Kunjungan (
     kunjungan_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key, identitas unik kunjungan',
-    klinik_id INT NOT NULL COMMENT 'FK Klinik TEMPAT kunjungan', -- TAMBAHKAN INI
+    klinik_id INT NOT NULL COMMENT 'FK Klinik TEMPAT kunjungan',
     hewan_id INT NULL COMMENT 'Foreign Key ke tabel Hewan',
     dokter_id INT NULL COMMENT 'Foreign Key ke tabel Dokter',
     tanggal_kunjungan DATE NOT NULL COMMENT 'Tanggal kunjungan',
@@ -253,7 +253,7 @@ CREATE TABLE Kunjungan (
     booking_id INT NULL COMMENT 'FK ke Booking jika kunjungan berasal dari booking',
     deleted_at DATETIME NULL COMMENT 'Soft delete kunjungan (rekam medis tetap ada)',
     
-    CONSTRAINT fk_kunjungan_klinik FOREIGN KEY (klinik_id) -- TAMBAHKAN INI
+    CONSTRAINT fk_kunjungan_klinik FOREIGN KEY (klinik_id)
         REFERENCES Klinik(klinik_id) ON DELETE RESTRICT,
         
     CONSTRAINT fk_kunjungan_hewan FOREIGN KEY (hewan_id) 
@@ -268,7 +268,6 @@ CREATE TABLE Kunjungan (
     -- Modifikasi UQ: Kunjungan unik per hewan, dokter, waktu, DAN klinik
     CONSTRAINT uq_kunjungan_natural UNIQUE (klinik_id, hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan)
 );
-
 -- ========================================================
 -- 7. TABEL JUNCTION/RELASI (depends on: Kunjungan, Detail_Layanan, Obat)
 -- ========================================================

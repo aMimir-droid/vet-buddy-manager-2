@@ -29,7 +29,6 @@ import NotFound from "./pages/NotFound";
 // GENERAL PAGES
 // ========================================================
 import Dashboard from "./pages/Dashboard";
-import BookingPage from "@/pages/BookingPage";
 
 // ========================================================
 // ADMIN PAGES

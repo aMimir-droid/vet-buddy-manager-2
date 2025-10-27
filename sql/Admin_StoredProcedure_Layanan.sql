@@ -205,4 +205,30 @@ BEGIN
     SELECT rows_affected AS affected_rows;
 END$$
 
+-- ========================================================
+-- ADD LAYANAN TO KUNJUNGAN
+-- ========================================================
+DROP PROCEDURE IF EXISTS AddLayananToKunjungan$$
+CREATE PROCEDURE AddLayananToKunjungan(
+    IN p_kunjungan_id INT,
+    IN p_kode_layanan VARCHAR(20)
+)
+BEGIN
+    -- Validasi kunjungan dan layanan
+    IF NOT EXISTS (SELECT 1 FROM Kunjungan WHERE kunjungan_id = p_kunjungan_id AND deleted_at IS NULL) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Kunjungan tidak ditemukan';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM Detail_Layanan WHERE kode_layanan = p_kode_layanan AND deleted_at IS NULL) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Layanan tidak ditemukan';
+    END IF;
+
+    -- Tambah layanan ke kunjungan
+    INSERT INTO Layanan (kunjungan_id, kode_layanan)
+    VALUES (p_kunjungan_id, p_kode_layanan);
+
+    -- Kembalikan data layanan
+    SELECT * FROM Layanan WHERE kunjungan_id = p_kunjungan_id AND kode_layanan = p_kode_layanan;
+END$$
+
 DELIMITER ;

@@ -249,10 +249,28 @@ export const kunjunganApi = {
   getById: (id: number, token: string) => 
     apiCall({ endpoint: `/kunjungan/${id}`, token }),
   
-  create: (data: any, token: string) => 
+  create: (data: {
+    hewan_id: string;
+    dokter_id: string;
+    tanggal_kunjungan: string;
+    waktu_kunjungan: string;
+    catatan?: string;
+    metode_pembayaran: string;
+    kunjungan_sebelumnya?: number | null;
+    booking_id?: number | null; // Tambahkan
+  }, token: string) => 
     apiCall({ endpoint: '/kunjungan', method: 'POST', body: data, token }),
   
-  update: (id: number, data: any, token: string) => 
+  update: (id: number, data: {
+    hewan_id: string;
+    dokter_id: string;
+    tanggal_kunjungan: string;
+    waktu_kunjungan: string;
+    catatan?: string;
+    metode_pembayaran: string;
+    kunjungan_sebelumnya?: number | null;
+    booking_id?: number | null; // Tambahkan
+  }, token: string) => 
     apiCall({ endpoint: `/kunjungan/${id}`, method: 'PUT', body: data, token }),
   
   delete: (id: number, token: string) => 

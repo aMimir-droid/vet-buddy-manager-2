@@ -87,35 +87,39 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 
 // ========================================================
 // CREATE - Menggunakan pool sesuai role user
-// (removed total_biaya param)
 // ========================================================
 router.post('/', authenticate, async (req: AuthRequest, res) => {
   console.log('📋 [CREATE KUNJUNGAN] Request received');
+  console.log('📋 [CREATE KUNJUNGAN] Request body:', req.body);
   const pool = req.dbPool;
   
   try {
     const { 
+      klinik_id, // TAMBAHKAN
       hewan_id, 
       dokter_id, 
       tanggal_kunjungan, 
       waktu_kunjungan, 
       catatan, 
       metode_pembayaran,
-      kunjungan_sebelumnya 
+      kunjungan_sebelumnya,
+      booking_id
     } = req.body;
 
-    console.log(`🔄 [CREATE KUNJUNGAN] Creating kunjungan for hewan_id: ${hewan_id}`);
+    console.log(`🔄 [CREATE KUNJUNGAN] Creating kunjungan for hewan_id: ${hewan_id}, booking_id: ${booking_id}`);
     
     const [result]: any = await pool.execute(
-      'CALL CreateKunjungan(?, ?, ?, ?, ?, ?, ?)',
+      'CALL CreateKunjungan(?, ?, ?, ?, ?, ?, ?, ?, ?)', // TAMBAHKAN parameter klinik_id
       [
+        klinik_id, // TAMBAHKAN
         hewan_id,
         dokter_id,
         tanggal_kunjungan,
         waktu_kunjungan,
         catatan || null,
         metode_pembayaran,
-        kunjungan_sebelumnya || null
+        kunjungan_sebelumnya || null,
+        booking_id || null
       ]
     );
 
@@ -137,7 +141,6 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 
 // ========================================================
 // UPDATE - Menggunakan pool sesuai role user
-// (removed total_biaya param)
 // ========================================================
 router.put('/:id', authenticate, async (req: AuthRequest, res) => {
   console.log('📋 [UPDATE KUNJUNGAN] Request received');
@@ -146,28 +149,35 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
   
   try {
     const { 
+      // TAMBAHKAN klinik_id di sini
+      klinik_id, 
       hewan_id,
       dokter_id,
       tanggal_kunjungan, 
       waktu_kunjungan, 
       catatan, 
       metode_pembayaran,
-      kunjungan_sebelumnya 
+      kunjungan_sebelumnya,
+      booking_id 
     } = req.body;
 
     console.log(`🔄 [UPDATE KUNJUNGAN] Updating kunjungan ID: ${id}`);
     
     const [result]: any = await pool.execute(
-      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?, ?)',
+      // UBAH menjadi 10 placeholder
+      'CALL UpdateKunjungan(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
       [
         id,
+        // TAMBAHKAN klinik_id di sini
+        klinik_id, 
         hewan_id,
         dokter_id,
         tanggal_kunjungan,
         waktu_kunjungan,
         catatan || null,
         metode_pembayaran,
-        kunjungan_sebelumnya || null
+        kunjungan_sebelumnya || null,
+        booking_id || null
       ]
     );
 

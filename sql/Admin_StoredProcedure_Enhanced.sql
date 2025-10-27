@@ -6,13 +6,15 @@ DELIMITER $$
 
 DROP PROCEDURE IF EXISTS CreateKunjungan$$
 CREATE PROCEDURE CreateKunjungan (
+    IN p_klinik_id INT, -- TAMBAHKAN
     IN p_hewan_id INT,
     IN p_dokter_id INT,
     IN p_tanggal_kunjungan DATE,
     IN p_waktu_kunjungan TIME,
     IN p_catatan TEXT,
     IN p_metode_pembayaran VARCHAR(20),
-    IN p_kunjungan_sebelumnya INT
+    IN p_kunjungan_sebelumnya INT,
+    IN p_booking_id INT
 )
 BEGIN
     DECLARE new_id INT;
@@ -20,17 +22,19 @@ BEGIN
     -- Cegah duplikat natural key yang masih aktif
     IF EXISTS(
         SELECT 1 FROM Kunjungan
-        WHERE hewan_id = p_hewan_id
+        WHERE klinik_id = p_klinik_id -- TAMBAHKAN
+          AND hewan_id = p_hewan_id
           AND dokter_id = p_dokter_id
           AND tanggal_kunjungan = p_tanggal_kunjungan
           AND waktu_kunjungan = p_waktu_kunjungan
           AND deleted_at IS NULL
     ) THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Kunjungan untuk kombinasi hewan/dokter/tanggal/waktu sudah ada';
+        SET MESSAGE_TEXT = 'Kunjungan untuk kombinasi klinik/hewan/dokter/tanggal/waktu sudah ada';
     END IF;
 
     INSERT INTO Kunjungan (
+        klinik_id, -- TAMBAHKAN
         hewan_id,
         dokter_id,
         tanggal_kunjungan,
@@ -38,9 +42,11 @@ BEGIN
         catatan,
         metode_pembayaran,
         kunjungan_sebelumnya,
+        booking_id,
         deleted_at
     )
     VALUES (
+        p_klinik_id, -- TAMBAHKAN
         p_hewan_id,
         p_dokter_id,
         p_tanggal_kunjungan,
@@ -48,43 +54,29 @@ BEGIN
         p_catatan,
         p_metode_pembayaran,
         p_kunjungan_sebelumnya,
+        p_booking_id,
         NULL
     );
 
     SET new_id = LAST_INSERT_ID();
 
-    SELECT 
-        k.kunjungan_id,
-        k.hewan_id,
-        k.dokter_id,
-        k.tanggal_kunjungan,
-        k.waktu_kunjungan,
-        k.catatan,
-        k.metode_pembayaran,
-        k.kunjungan_sebelumnya,
-        k.deleted_at,
-        (k.deleted_at IS NOT NULL) AS is_deleted,
-        h.nama_hewan,
-        CONCAT(d.title_dokter, ' ', d.nama_dokter) AS nama_dokter,
-        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent
-    FROM Kunjungan k
-    LEFT JOIN Hewan h ON k.hewan_id = h.hewan_id
-    LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
-    LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
-    WHERE k.kunjungan_id = new_id;
+    -- Kembalikan data kunjungan
+    SELECT * FROM Kunjungan WHERE kunjungan_id = new_id;
 END$$
 
 
 DROP PROCEDURE IF EXISTS UpdateKunjungan$$
 CREATE PROCEDURE UpdateKunjungan (
     IN p_kunjungan_id INT,
+    IN p_klinik_id INT,                -- ditambahkan
     IN p_hewan_id INT,
     IN p_dokter_id INT,
     IN p_tanggal_kunjungan DATE,
     IN p_waktu_kunjungan TIME,
     IN p_catatan TEXT,
     IN p_metode_pembayaran VARCHAR(20),
-    IN p_kunjungan_sebelumnya INT
+    IN p_kunjungan_sebelumnya INT,
+    IN p_booking_id INT                -- ditambahkan (boleh NULL)
 )
 BEGIN
     DECLARE exists_active INT DEFAULT 0;
@@ -103,7 +95,8 @@ BEGIN
     -- Cek konflik natural key (untuk update) terhadap baris aktif lain
     IF EXISTS(
         SELECT 1 FROM Kunjungan
-        WHERE hewan_id = p_hewan_id
+        WHERE klinik_id = p_klinik_id
+          AND hewan_id = p_hewan_id
           AND dokter_id = p_dokter_id
           AND tanggal_kunjungan = p_tanggal_kunjungan
           AND waktu_kunjungan = p_waktu_kunjungan
@@ -111,23 +104,26 @@ BEGIN
           AND kunjungan_id <> p_kunjungan_id
     ) THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Konflik: kombinasi hewan/dokter/tanggal/waktu sudah dipakai oleh kunjungan lain';
+        SET MESSAGE_TEXT = 'Konflik: kombinasi klinik/hewan/dokter/tanggal/waktu sudah dipakai oleh kunjungan lain';
     END IF;
 
     UPDATE Kunjungan
     SET 
+        klinik_id = p_klinik_id,
         hewan_id = p_hewan_id,
         dokter_id = p_dokter_id,
         tanggal_kunjungan = p_tanggal_kunjungan,
         waktu_kunjungan = p_waktu_kunjungan,
         catatan = p_catatan,
         metode_pembayaran = p_metode_pembayaran,
-        kunjungan_sebelumnya = p_kunjungan_sebelumnya
+        kunjungan_sebelumnya = p_kunjungan_sebelumnya,
+        booking_id = p_booking_id
     WHERE kunjungan_id = p_kunjungan_id
       AND deleted_at IS NULL;
 
     SELECT 
         k.kunjungan_id,
+        k.klinik_id,
         k.hewan_id,
         k.dokter_id,
         k.tanggal_kunjungan,
@@ -135,6 +131,7 @@ BEGIN
         k.catatan,
         k.metode_pembayaran,
         k.kunjungan_sebelumnya,
+        k.booking_id,
         k.deleted_at,
         (k.deleted_at IS NOT NULL) AS is_deleted,
         h.nama_hewan,

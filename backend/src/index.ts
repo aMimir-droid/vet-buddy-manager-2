@@ -22,6 +22,9 @@ import kunjunganLayananRoutes from './routes/kunjungan-layanan';
 
 dotenv.config();
 
+// Set timezone to Jakarta
+process.env.TZ = 'Asia/Jakarta';
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

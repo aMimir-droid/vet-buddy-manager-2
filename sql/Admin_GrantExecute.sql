@@ -9,6 +9,10 @@ USE vet_buddy;
 -- GRANT EXECUTE untuk VET_USER
 -- ========================================================
 
+-- Layanan Procedures
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananByKunjungan TO 'vet_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetLayananByKunjungan
+
 -- Kunjungan Procedures
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKunjungan TO 'vet_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetKunjunganById TO 'vet_user'@'localhost';
@@ -42,6 +46,7 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteKunjunganObat TO 'vet_user'@'localhos
 
 -- Layanan Procedures
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananByKunjungan TO 'vet_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetLayananByKunjungan
 
 -- Pawrent Procedures (Read Only)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllPawrents TO 'vet_user'@'localhost';
@@ -72,6 +77,10 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllJenisHewan TO 'vet_user'@'localhost';
 -- ========================================================
 -- GRANT EXECUTE untuk PAWRENT_USER
 -- ========================================================
+
+-- Layanan Procedures (Read Only)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananByKunjungan TO 'pawrent_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetLayananByKunjungan
 
 -- Hewan Procedures (Read Only untuk pawrent sendiri)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllHewans TO 'pawrent_user'@'localhost';
@@ -106,6 +115,7 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetKlinikById TO 'pawrent_user'@'localhost'
 
 -- Layanan Procedures (Read Only)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllLayanan TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetLayananByKunjungan TO 'pawrent_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetLayananByKunjungan
 
 -- Obat Procedures (Read Only untuk melihat detail)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'pawrent_user'@'localhost';

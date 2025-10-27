@@ -365,18 +365,17 @@ CREATE PROCEDURE UpdateBooking (
 BEGIN
     DECLARE exists_active INT DEFAULT 0;
 
-    -- Pastikan record ada dan belum di-soft-delete
+    -- Pastikan record ada (removed deleted_at check since column doesn't exist)
     SELECT COUNT(*) INTO exists_active
     FROM Booking
-    WHERE booking_id = p_booking_id
-      AND deleted_at IS NULL;
+    WHERE booking_id = p_booking_id;
 
     IF exists_active = 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Booking tidak ditemukan atau sudah dihapus';
+        SET MESSAGE_TEXT = 'Booking tidak ditemukan';
     END IF;
 
-    -- Cek konflik booking (untuk update) terhadap baris aktif lain
+    -- Cek konflik booking (untuk update) terhadap baris lain (removed deleted_at filter)
     IF EXISTS(
         SELECT 1 FROM Booking
         WHERE klinik_id = p_klinik_id
@@ -385,7 +384,6 @@ BEGIN
           AND hewan_id = p_hewan_id
           AND tanggal_booking = p_tanggal_booking
           AND waktu_booking = p_waktu_booking
-          AND deleted_at IS NULL
           AND booking_id <> p_booking_id
     ) THEN
         SIGNAL SQLSTATE '45000'
@@ -402,8 +400,7 @@ BEGIN
         waktu_booking = p_waktu_booking,
         status = p_status,
         catatan = p_catatan
-    WHERE booking_id = p_booking_id
-      AND deleted_at IS NULL;
+    WHERE booking_id = p_booking_id;
 
     -- Kembalikan data booking yang sudah diupdate
     SELECT * FROM Booking WHERE booking_id = p_booking_id;
@@ -485,20 +482,18 @@ BEGIN
     DECLARE exists_active INT DEFAULT 0;
     DECLARE rows_affected INT DEFAULT 0;
 
+    -- Pastikan record ada (removed deleted_at check)
     SELECT COUNT(*) INTO exists_active
     FROM Booking
-    WHERE booking_id = p_booking_id
-      AND deleted_at IS NULL;
+    WHERE booking_id = p_booking_id;
 
     IF exists_active = 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Booking tidak ditemukan atau sudah dihapus';
+        SET MESSAGE_TEXT = 'Booking tidak ditemukan';
     END IF;
 
-    UPDATE Booking
-    SET deleted_at = CURRENT_TIMESTAMP
-    WHERE booking_id = p_booking_id
-      AND deleted_at IS NULL;
+    -- Hard delete the record (since no soft-delete column)
+    DELETE FROM Booking WHERE booking_id = p_booking_id;
 
     SET rows_affected = ROW_COUNT();
 

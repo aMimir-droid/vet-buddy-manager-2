@@ -150,12 +150,12 @@ const AdminKlinikKunjunganPage = () => {
   });
 
   // --- PERBEDAAN: Filter dokter berdasarkan user.klinik_id, bukan formData.klinik_id ---
-  const filteredDokters = useMemo(() => {
-    if (!user?.klinik_id || !allDoktersData) return [];
-    return allDoktersData.filter(
-      (dokter: any) => dokter.klinik_id.toString() === user.klinik_id?.toString()
-    );
-  }, [user?.klinik_id, allDoktersData]);
+const filteredDokters = useMemo(() => {
+  if (!user?.klinik_id || !allDoktersData) return [];
+  return allDoktersData.filter(
+    (dokter: any) => dokter.klinik_id?.toString() === user.klinik_id?.toString()
+  );
+}, [user?.klinik_id, allDoktersData]);
 
   // Tambahkan query untuk layananList
   const { data: layananList, isLoading: layananListLoading } = useQuery({

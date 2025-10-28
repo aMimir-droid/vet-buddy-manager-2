@@ -55,35 +55,7 @@ router.get('/hewan/:hewanId/history', authenticate, async (req: AuthRequest, res
 // ========================================================
 // GET BY ID - Menggunakan Stored Procedure
 // ========================================================
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
-  console.log('📋 [GET KUNJUNGAN BY ID] Request received');
-  const pool = req.dbPool;
-  const { id } = req.params;
-  
-  try {
-    console.log(`🔄 [GET KUNJUNGAN BY ID] Getting kunjungan ID: ${id}`);
-    const [rows]: any = await pool.execute('CALL GetKunjunganById(?)', [id]);
-    
-    if (!rows[0] || rows[0].length === 0) {
-      console.log(`❌ [GET KUNJUNGAN BY ID] Not found - ID: ${id}`);
-      return res.status(404).json({ message: 'Kunjungan tidak ditemukan' });
-    }
-    
-    console.log(`✅ [GET KUNJUNGAN BY ID] Success - ID: ${id}`);
-    res.json(rows[0][0]);
-  } catch (error: any) {
-    console.error('❌ [GET KUNJUNGAN BY ID] Error:', error);
-    
-    // Handle permission errors
-    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
-      return res.status(403).json({ 
-        message: 'Akses ditolak: Anda tidak memiliki hak akses ke resource ini' 
-      });
-    }
-    
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
+
 
 // ========================================================
 // CREATE - Menggunakan pool sesuai role user
@@ -249,6 +221,61 @@ router.get('/date-range/:startDate/:endDate', authenticate, async (req: AuthRequ
     res.json(rows[0]);
   } catch (error: any) {
     console.error('❌ [GET KUNJUNGAN BY DATE RANGE] Error:', error);
+    
+    // Handle permission errors
+    if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {
+      return res.status(403).json({ 
+        message: 'Akses ditolak: Anda tidak memiliki hak akses ke resource ini' 
+      });
+    }
+    
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ========================================================
+// GET ALL KUNJUNGAN FOR ADMIN KLINIK (filtered by klinik_id)
+// ========================================================
+router.get('/admin-klinik', authenticate, async (req: AuthRequest, res) => {
+  console.log('📋 [GET ALL KUNJUNGAN ADMIN KLINIK] Request received');
+  const pool = req.dbPool;
+  const klinikId = req.user.klinik_id;
+  
+  if (!klinikId) {
+    console.log('❌ [GET ALL KUNJUNGAN ADMIN KLINIK] Klinik ID not found in token');
+    return res.status(403).json({ message: 'Akses ditolak: Klinik tidak ditemukan' });
+  }
+  
+  try {
+    console.log(`🔄 [GET ALL KUNJUNGAN ADMIN KLINIK] Using DB pool for role_id: ${req.user.role_id}, klinik_id: ${klinikId}`);
+    const [rows]: any = await pool.execute('CALL GetKunjunganByKlinik(?)', [klinikId]);
+    console.log(`✅ [GET ALL KUNJUNGAN ADMIN KLINIK] Success - ${rows[0]?.length || 0} records found`);
+    res.json(rows[0] || []);
+  } catch (error: any) {
+    console.error('❌ [GET ALL KUNJUNGAN ADMIN KLINIK] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+
+router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+  console.log('📋 [GET KUNJUNGAN BY ID] Request received');
+  const pool = req.dbPool;
+  const { id } = req.params;
+  
+  try {
+    console.log(`🔄 [GET KUNJUNGAN BY ID] Getting kunjungan ID: ${id}`);
+    const [rows]: any = await pool.execute('CALL GetKunjunganById(?)', [id]);
+    
+    if (!rows[0] || rows[0].length === 0) {
+      console.log(`❌ [GET KUNJUNGAN BY ID] Not found - ID: ${id}`);
+      return res.status(404).json({ message: 'Kunjungan tidak ditemukan' });
+    }
+    
+    console.log(`✅ [GET KUNJUNGAN BY ID] Success - ID: ${id}`);
+    res.json(rows[0][0]);
+  } catch (error: any) {
+    console.error('❌ [GET KUNJUNGAN BY ID] Error:', error);
     
     // Handle permission errors
     if (error.code === 'ER_TABLEACCESS_DENIED_ERROR') {

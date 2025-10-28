@@ -260,4 +260,34 @@ BEGIN
     ORDER BY d.nama_dokter;
 END$$
 
+-- ========================================================
+-- GET KLINIK BY ADMIN KLINIK
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetKlinikByAdminKlinik$$
+CREATE PROCEDURE GetKlinikByAdminKlinik(IN p_user_id INT)
+BEGIN
+    -- Query klinik_id dari Admin_Klinik berdasarkan user_id
+    DECLARE v_klinik_id INT;
+    SELECT klinik_id INTO v_klinik_id 
+    FROM Admin_Klinik 
+    WHERE user_id = p_user_id AND deleted_at IS NULL;
+    
+    -- Jika tidak ada klinik_id, return kosong
+    IF v_klinik_id IS NULL THEN
+        SELECT 'Admin Klinik tidak terkait dengan klinik mana pun' AS error;
+    ELSE
+        -- Filter klinik berdasarkan klinik_id
+        SELECT 
+            klinik_id,
+            nama_klinik,
+            alamat_klinik,
+            telepon_klinik,
+            email_klinik,
+            deleted_at,
+            (deleted_at IS NOT NULL) AS is_deleted
+        FROM Klinik 
+        WHERE klinik_id = v_klinik_id;
+    END IF;
+END$$
+
 DELIMITER ;

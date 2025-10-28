@@ -11,6 +11,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isVet: boolean;
   isPawrent: boolean;
+  isAdminKlinik: boolean; // Tetap ada untuk role 4
   loading: boolean;
 }
 
@@ -28,8 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem('auth_user');
       
       if (storedToken && storedUser) {
+        const parsedUser = JSON.parse(storedUser);
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(parsedUser);
       }
     } catch (error) {
       console.error('Error loading auth state:', error);
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = user?.role_id === 1;
   const isVet = user?.role_id === 2;
   const isPawrent = user?.role_id === 3;
+  const isAdminKlinik = user?.role_id === 4; // Tetap ada untuk role 4
 
   return (
     <AuthContext.Provider 
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isVet,
         isPawrent,
+        isAdminKlinik, // Tetap ada
         loading,
       }}
     >

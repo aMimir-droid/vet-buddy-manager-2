@@ -48,14 +48,14 @@ router.get('/my', authenticate, authorize(3), async (req: AuthRequest, res) => {
 });
 
 // CREATE booking - use stored procedure CreateBooking
-// Allowed: pawrent (3) and admin (1)
-router.post('/', authenticate, authorize(1, 3), async (req: AuthRequest, res) => {
+// Allowed: pawrent (3), admin (1), and admin_klinik (4)
+router.post('/', authenticate, authorize(1, 3, 4), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   const {
     klinik_id,
     dokter_id,
     pawrent_id,
-    hewan_id,  // GANTI: Dari nama_pengunjung ke hewan_id
+    hewan_id,
     tanggal_booking,
     waktu_booking,
     status,
@@ -65,6 +65,13 @@ router.post('/', authenticate, authorize(1, 3), async (req: AuthRequest, res) =>
   try {
     if (!klinik_id || !dokter_id || !tanggal_booking || !waktu_booking) {
       return res.status(400).json({ message: 'klinik_id, dokter_id, tanggal_booking dan waktu_booking wajib diisi' });
+    }
+
+    // TAMBAHKAN: Check untuk admin_klinik_user (role 4) - pastikan klinik_id sesuai
+    if (req.user.role_id === 4) {
+      if (klinik_id !== req.user.klinik_id) {
+        return res.status(403).json({ message: 'Akses ditolak: Anda hanya bisa membuat booking untuk klinik Anda sendiri' });
+      }
     }
 
     // Ambil pawrent_id dan hewan_id dari user yang login (untuk pawrent)
@@ -102,31 +109,11 @@ router.post('/', authenticate, authorize(1, 3), async (req: AuthRequest, res) =>
 });
 
 // UPDATE booking - uses stored procedure UpdateBooking
-router.put('/:id(\\d+)', authenticate, authorize(1, 2, 3), async (req: AuthRequest, res) => {
+router.put('/:id(\\d+)', authenticate, authorize(1, 2, 3, 4), async (req: AuthRequest, res) => {  // TAMBAHKAN: authorize(4) untuk admin_klinik
   const pool = req.dbPool;
   const bookingId = req.params.id;
   const { klinik_id, dokter_id, pawrent_id, hewan_id, tanggal_booking, waktu_booking, status, catatan } = req.body;
   const user = req.user;
-
-  // Ownership check (dokter & pawrent)
-  if (user.role_id === 2) {
-    const [rows]: any = await pool.execute(
-      "SELECT dokter_id FROM booking WHERE booking_id = ?",
-      [bookingId]
-    );
-    if (!rows[0] || rows[0].dokter_id !== user.dokter_id) {
-      return res.status(403).json({ message: "Akses ditolak" });
-    }
-  }
-  if (user.role_id === 3) {
-    const [rows]: any = await pool.execute(
-      "SELECT pawrent_id, status FROM booking WHERE booking_id = ?",
-      [bookingId]
-    );
-    if (!rows[0] || rows[0].pawrent_id !== user.pawrent_id || rows[0].status !== "pending") {
-      return res.status(403).json({ message: "Akses ditolak" });
-    }
-  }
 
   // Ambil data booking lama jika field kosong
   const [oldRows]: any = await pool.execute(
@@ -134,6 +121,25 @@ router.put('/:id(\\d+)', authenticate, authorize(1, 2, 3), async (req: AuthReque
     [bookingId]
   );
   const old = oldRows[0];
+
+  // Ownership check (dokter & pawrent)
+  if (user.role_id === 2) {
+    if (!old || old.dokter_id !== user.dokter_id) {
+      return res.status(403).json({ message: "Akses ditolak" });
+    }
+  }
+  if (user.role_id === 3) {
+    if (!old || old.pawrent_id !== user.pawrent_id || old.status !== "pending") {
+      return res.status(403).json({ message: "Akses ditolak" });
+    }
+  }
+
+  // TAMBAHKAN: Ownership check untuk admin_klinik (role 4)
+  if (user.role_id === 4) {
+    if (old.klinik_id !== user.klinik_id) {
+      return res.status(403).json({ message: 'Akses ditolak: Booking tidak di klinik Anda' });
+    }
+  }
 
   try {
     await pool.execute(
@@ -287,6 +293,28 @@ router.get('/available-for-kunjungan', authenticate, async (req: AuthRequest, re
   } catch (error: any) {
     console.error('❌ [GET AVAILABLE BOOKINGS FOR KUNJUNGAN] Error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server', error: error?.message });
+  }
+});
+
+// GET ALL BOOKINGS FOR ADMIN KLINIK (filtered by klinik_id)
+router.get('/admin-klinik', authenticate, async (req: AuthRequest, res) => {
+  console.log('📋 [GET ALL BOOKINGS ADMIN KLINIK] Request received');
+  const pool = req.dbPool;
+  const klinikId = req.user.klinik_id;
+  
+  if (!klinikId) {
+    console.log('❌ [GET ALL BOOKINGS ADMIN KLINIK] Klinik ID not found in token');
+    return res.status(403).json({ message: 'Akses ditolak: Klinik tidak ditemukan' });
+  }
+  
+  try {
+    console.log(`🔄 [GET ALL BOOKINGS ADMIN KLINIK] Using DB pool for role_id: ${req.user.role_id}, klinik_id: ${klinikId}`);
+    const [rows]: any = await pool.execute('CALL GetBookingsByKlinik(?)', [klinikId]);
+    console.log(`✅ [GET ALL BOOKINGS ADMIN KLINIK] Success - ${rows[0]?.length || 0} records found`);
+    res.json(rows[0] || []);
+  } catch (error: any) {
+    console.error('❌ [GET ALL BOOKINGS ADMIN KLINIK] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 

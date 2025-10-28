@@ -11,12 +11,13 @@ TRUNCATE TABLE Dokter_Review;
 TRUNCATE TABLE Klinik_Review;
 TRUNCATE TABLE Kunjungan;
 TRUNCATE TABLE Hewan;
-TRUNCATE TABLE Jenis_Hewan;
+TRUNCATE TABLE Admin_Klinik;
 TRUNCATE TABLE User_Login;
 TRUNCATE TABLE Pawrent;
 TRUNCATE TABLE Dokter;
 TRUNCATE TABLE Obat;
 TRUNCATE TABLE Detail_Layanan;
+TRUNCATE TABLE Jenis_Hewan;
 TRUNCATE TABLE Spesialisasi;
 TRUNCATE TABLE Klinik;
 TRUNCATE TABLE Role;
@@ -32,7 +33,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 INSERT INTO Role (role_id, role_name, description) VALUES
 (1, 'admin', 'Administrator dengan akses penuh ke seluruh sistem'),
 (2, 'vet', 'Dokter hewan yang dapat menangani kunjungan dan rekam medis'),
-(3, 'pawrent', 'Pemilik hewan yang dapat melihat data hewan dan riwayat kunjungan');
+(3, 'pawrent', 'Pemilik hewan yang dapat melihat data hewan dan riwayat kunjungan'),
+(4, 'admin_klinik', 'Admin Klinik yang hanya bisa mengelola data terkait klinik tertentu');
 
 -- Klinik (explicit ids)
 INSERT INTO Klinik (klinik_id, nama_klinik, alamat_klinik, telepon_klinik) VALUES
@@ -69,6 +71,19 @@ INSERT INTO Pawrent (pawrent_id, nama_depan_pawrent, nama_belakang_pawrent, alam
 (5, 'Roni', 'Hartono', 'Jl. Pemuda No. 17', 'Surabaya', '60111', 5, '085134567894'),
 (6, 'Dian', 'Pratiwi', 'Jl. Kenangan No. 9', 'Surabaya', '60112', 5, '086134567895');
 
+-- User_Login (explicit ids) - Tambahkan user admin_klinik
+INSERT INTO User_Login (user_id, username, email, password_hash, role_id, is_active, dokter_id, pawrent_id, created_at, updated_at) VALUES
+(1, 'admin', 'admin@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 1, TRUE, NULL, NULL, NOW(), NOW()),
+(2, 'ahmad', 'ahmad@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLOd', 2, TRUE, 1, NULL, NOW(), NOW()),
+(3, 'siti', 'siti@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 2, TRUE, 2, NULL, NOW(), NOW()),
+(4, 'andi', 'andi@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 3, TRUE, NULL, 1, NOW(), NOW()),
+(5, 'pawrent1', 'sari@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 3, TRUE, NULL, 2, NOW(), NOW()),
+(6, 'admin_klinik1', 'admin_klinik1@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 4, TRUE, NULL, NULL, NOW(), NOW());
+
+-- Admin_Klinik - Tambahkan data untuk user admin_klinik
+INSERT INTO Admin_Klinik (user_id, klinik_id) VALUES
+(6, 1);  -- User 6 (admin_klinik1) mengelola Klinik 1
+
 -- Hewan (explicit ids)
 INSERT INTO Hewan (hewan_id, nama_hewan, tanggal_lahir, jenis_kelamin, status_hidup, jenis_hewan_id, pawrent_id) VALUES
 (1, 'Mimi', '2022-05-15', 'Betina', 'Hidup', 1, 1),
@@ -81,14 +96,6 @@ INSERT INTO Hewan (hewan_id, nama_hewan, tanggal_lahir, jenis_kelamin, status_hi
 (8, 'Coco', '2023-07-14', 'Betina', 'Hidup', 4, 5),
 (9, 'Buddy', '2022-02-28', 'Jantan', 'Hidup', 2, 5),
 (10, 'Princess', '2023-04-05', 'Betina', 'Hidup', 1, 6);
-
--- User_Login (explicit ids)
-INSERT INTO User_Login (user_id, username, email, password_hash, role_id, is_active, dokter_id, pawrent_id, created_at, updated_at) VALUES
-(1, 'admin', 'admin@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 1, TRUE, NULL, NULL, NOW(), NOW()),
-(2, 'ahmad', 'ahmad@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLOd', 2, TRUE, 1, NULL, NOW(), NOW()),
-(3, 'siti', 'siti@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 2, TRUE, 2, NULL, NOW(), NOW()),
-(4, 'andi', 'andi@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 3, TRUE, NULL, 1, NOW(), NOW()),
-(5, 'pawrent1', 'sari@vetbuddy.com', '$2b$10$GB6PgZyfOr3uUPraPuDvb.rdisu9QajFDP738RBCjV6cJJ9xV.QLO', 3, TRUE, NULL, 2, NOW(), NOW());
 
 -- Detail_Layanan
 INSERT INTO Detail_Layanan (kode_layanan, nama_layanan, deskripsi_layanan, biaya_layanan) VALUES
@@ -118,16 +125,16 @@ INSERT INTO Obat (obat_id, nama_obat, kegunaan, harga_obat) VALUES
 (13, 'Tramadol', 'Analgesik untuk nyeri sedang hingga berat', 70000.00),
 (14, 'Ketoconazole', 'Antijamur untuk infeksi jamur', 85000.00);
 
--- Kunjungan (explicit ids) - removed total_biaya column to match schema
-INSERT INTO Kunjungan (kunjungan_id, hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan, catatan, metode_pembayaran, kunjungan_sebelumnya) VALUES
-(1, 1, 1, '2025-03-15', '09:00:00', 'Kucing demam dan lemas', 'Cash', NULL),
-(2, 4, 3, '2025-03-25', '11:15:00', 'Anjing mengalami diare', 'Cash', NULL),
-(3, 1, 2, '2025-04-05', '15:30:00', 'Rujukan dari kunjungan sebelumnya - kucing masih lemas', 'Transfer', 1),
-(4, 4, 4, '2025-04-15', '16:00:00', 'Rujukan follow-up anjing diare - kondisi memburuk', 'E-Wallet', 2),
-(5, 2, 1, '2025-04-20', '10:30:00', 'Vaksinasi rutin anjing', 'Transfer', NULL),
-(6, 3, 2, '2025-05-10', '14:00:00', 'Pemeriksaan rutin kucing', 'E-Wallet', NULL),
-(7, 5, 3, '2025-07-18', '08:45:00', 'Kelinci tidak mau makan', 'Transfer', NULL),
-(8, 6, 4, '2025-08-20', '13:20:00', 'Sterilisasi kucing betina', 'Cash', NULL);
+-- Kunjungan (explicit ids) - Tambahkan klinik_id
+INSERT INTO Kunjungan (kunjungan_id, klinik_id, hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan, catatan, metode_pembayaran, kunjungan_sebelumnya) VALUES
+(1, 1, 1, 1, '2025-03-15', '09:00:00', 'Kucing demam dan lemas', 'Cash', NULL),
+(2, 2, 4, 3, '2025-03-25', '11:15:00', 'Anjing mengalami diare', 'Cash', NULL),
+(3, 1, 1, 2, '2025-04-05', '15:30:00', 'Rujukan dari kunjungan sebelumnya - kucing masih lemas', 'Transfer', 1),
+(4, 2, 4, 4, '2025-04-15', '16:00:00', 'Rujukan follow-up anjing diare - kondisi memburuk', 'E-Wallet', 2),
+(5, 1, 2, 1, '2025-04-20', '10:30:00', 'Vaksinasi rutin anjing', 'Transfer', NULL),
+(6, 1, 3, 2, '2025-05-10', '14:00:00', 'Pemeriksaan rutin kucing', 'E-Wallet', NULL),
+(7, 2, 5, 3, '2025-07-18', '08:45:00', 'Kelinci tidak mau makan', 'Transfer', NULL),
+(8, 3, 6, 4, '2025-08-20', '13:20:00', 'Sterilisasi kucing betina', 'Cash', NULL);
 
 -- Layanan (junction) - include qty and biaya_saat_itu captured from Detail_Layanan at time of transaction
 INSERT INTO Layanan (kunjungan_id, kode_layanan, qty, biaya_saat_itu) VALUES
@@ -227,7 +234,7 @@ INSERT INTO Shift_Dokter (dokter_id, hari_minggu, jam_mulai, jam_selesai, is_act
 (5, 7, '12:00:00', '17:00:00', TRUE),
 (2, 7, '17:00:00', '22:00:00', TRUE);
 
--- Booking - UPDATED: Ganti nama_pengunjung dengan hewan_id, tambahkan klinik_id
+-- Booking - UPDATED: Tambahkan klinik_id
 INSERT INTO Booking (klinik_id, dokter_id, pawrent_id, hewan_id, tanggal_booking, waktu_booking, status, catatan) VALUES
 (1, 1, 1, 1, '2025-09-01', '09:30:00', 'booked', 'Kontrol demam untuk Mimi'),  -- Klinik 1, Dokter 1, Pawrent 1, Hewan 1 (Mimi)
 (1, 2, 2, 3, '2025-09-02', '11:00:00', 'booked', 'Vaksinasi rutin untuk Fluffy'),  -- Klinik 1, Dokter 2, Pawrent 2, Hewan 3 (Fluffy)
@@ -254,7 +261,8 @@ ALTER TABLE Spesialisasi AUTO_INCREMENT = 10;
 ALTER TABLE Jenis_Hewan AUTO_INCREMENT = 10;
 ALTER TABLE Dokter AUTO_INCREMENT = 10;
 ALTER TABLE Pawrent AUTO_INCREMENT = 10;
-ALTER TABLE Hewan AUTO_INCREMENT = 20;
 ALTER TABLE User_Login AUTO_INCREMENT = 10;
+ALTER TABLE Admin_Klinik AUTO_INCREMENT = 10;
+ALTER TABLE Hewan AUTO_INCREMENT = 20;
 ALTER TABLE Obat AUTO_INCREMENT = 20;
 ALTER TABLE Kunjungan AUTO_INCREMENT = 20;

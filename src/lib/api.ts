@@ -324,6 +324,9 @@ export const klinikApi = {
 
   getDoktersByKlinik: (klinikId: number, token: string) =>
     apiCall({ endpoint: `/klinik/${klinikId}/dokters`, token }),
+
+  getByAdminKlinik: (token: string) => 
+    apiCall({ endpoint: '/klinik/admin-klinik', token }),
 };
 
 // ========================================================
@@ -364,17 +367,19 @@ export const kunjunganObatApi = {
   create: (data: any, token: string) =>
     apiCall({ endpoint: '/kunjungan-obat', method: 'POST', body: data, token }),
 
-  update: (kunjunganId: number, obatId: number, data: any, token: string) =>
+  // PERBAIKI: Update menggunakan kunjunganObatId (satu parameter)
+  update: (kunjunganObatId: number, data: any, token: string) =>
     apiCall({ 
-      endpoint: `/kunjungan-obat/${kunjunganId}/${obatId}`, 
+      endpoint: `/kunjungan-obat/${kunjunganObatId}`, 
       method: 'PUT', 
       body: data, 
       token 
     }),
 
-  delete: (kunjunganId: number, obatId: number, token: string) =>
+  // PERBAIKI: Delete menggunakan kunjunganObatId (satu parameter)
+  delete: (kunjunganObatId: number, token: string) =>
     apiCall({ 
-      endpoint: `/kunjungan-obat/${kunjunganId}/${obatId}`, 
+      endpoint: `/kunjungan-obat/${kunjunganObatId}`, 
       method: 'DELETE', 
       token 
     }),

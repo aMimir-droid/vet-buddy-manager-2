@@ -145,3 +145,11 @@ export interface KunjunganByDateRange {
   Nama_Pemilik: string;
   Nama_Dokter: string;
 }
+
+export interface AdminKlinik {
+  admin_klinik_id: number;
+  user_id: number;
+  klinik_id: number;
+  created_at: string;
+  updated_at: string;
+}

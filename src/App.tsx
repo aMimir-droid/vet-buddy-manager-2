@@ -48,6 +48,16 @@ import JenisHewanPage from "./pages/admin/JenisHewanPage";
 import AdminPencarianPage from "./pages/admin/AdminPencarianPage";
 import AdminBooking from "@/pages/admin/Booking";
 import ShiftDokterAdmin from "./pages/admin/ShiftDokterAdmin";
+import AdminKlinikDashboard from "@/pages/admin-klinik/AdminKlinikDashboard";
+import AdminKlinikKlinikPage from "@/pages/admin-klinik/AdminKlinikKlinikPage";
+import AdminKlinikKunjunganPage from "@/pages/admin-klinik/AdminKlinikKunjunganPage";
+import AdminKlinikBookingPage from "@/pages/admin-klinik/AdminKlinikBookingPage";
+import AdminKlinikObatPage from "@/pages/admin-klinik/AdminKlinikKunjunganObatPage";
+import AdminKlinikHewanPage from "@/pages/admin-klinik/AdminKlinikHewanPage";
+import AdminKlinikDokterPage from "@/pages/admin-klinik/AdminKlinikDokterPage";
+import AdminKlinikStokObatPage from "@/pages/admin-klinik/AdminKlinikStokObatPage";
+import AdminKlinikLayananPage from "@/pages/admin-klinik/AdminKlinikLayananPage";
+import AdminKlinikAuditLogPage from "@/pages/admin-klinik/AdminKlinikAuditLogPage";
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -190,6 +200,25 @@ const App = () => (
                     <Route path="booking" element={<PawrentBooking />} />
                     <Route path="shift" element={<PawrentShiftPage />} /> {/* Tambahkan route */}
                     <Route path="*" element={<Navigate to="/pawrent/dashboard" replace />} />
+                  </Routes>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* ========================================================
+                ADMIN KLINIK ROUTES (Role ID: 4)
+                ======================================================== */}
+            <Route 
+              path="/admin-klinik/*" 
+              element={
+                <ProtectedRoute allowedRoles={[4]}>
+                  <Routes>
+                    <Route path="dashboard" element={<AdminKlinikDashboard />} />
+                    <Route path="info" element={<AdminKlinikKlinikPage />} />
+                    <Route path="kunjungan" element={<AdminKlinikKunjunganPage />} />
+                    <Route path="booking" element={<AdminKlinikBookingPage />} />
+                    <Route path="kunjungan-obat" element={<AdminKlinikObatPage />} />
+                    <Route path="*" element={<Navigate to="/admin-klinik/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>
               } 

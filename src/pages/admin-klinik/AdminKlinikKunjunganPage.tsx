@@ -1,3 +1,6 @@
+import React, { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import {
   Card,
@@ -50,10 +53,6 @@ import {
   Pill,
   Activity,
 } from "lucide-react";
-// --- MODIFIKASI: Tambahkan 'useMemo' ---
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   kunjunganApi,
   hewanApi,
@@ -72,8 +71,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const KunjunganPage = () => {
-  const { token } = useAuth();
+const AdminKlinikKunjunganPage = () => {
+  const { token, user } = useAuth(); // Tambahkan user untuk filter klinik_id
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -88,7 +87,7 @@ const KunjunganPage = () => {
   const [selectedPreviousVisit, setSelectedPreviousVisit] = useState<any>(null);
 
   const [formData, setFormData] = useState({
-    klinik_id: "",
+    klinik_id: user?.klinik_id || "", // Set otomatis berdasarkan user.klinik_id
     hewan_id: "",
     dokter_id: "",
     tanggal_kunjungan: "",
@@ -121,12 +120,17 @@ const KunjunganPage = () => {
     },
   });
 
+  // --- PERBEDAAN: Query kunjungan difilter berdasarkan klinik_id user ---
   const { data: kunjungans, isLoading } = useQuery({
-    queryKey: ["kunjungans"],
+    queryKey: ["kunjungans-admin-klinik", user?.klinik_id],
     queryFn: async () => {
-      const result = await kunjunganApi.getAll(token!);
-      return result as any[];
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan/admin-klinik`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Gagal mengambil data kunjungan");
+      return res.json();
     },
+    enabled: !!user?.klinik_id,
   });
 
   const { data: hewans, isLoading: hewansLoading } = useQuery({
@@ -145,22 +149,13 @@ const KunjunganPage = () => {
     },
   });
 
-  const { data: kliniksData, isLoading: kliniksLoading } = useQuery({
-    queryKey: ["kliniks"],
-    queryFn: async () => {
-      const result = await klinikApi.getAll(token!);
-      return result as any[];
-    },
-  });
-
+  // --- PERBEDAAN: Filter dokter berdasarkan user.klinik_id, bukan formData.klinik_id ---
   const filteredDokters = useMemo(() => {
-    if (!formData.klinik_id || !allDoktersData) {
-      return [];
-    }
+    if (!user?.klinik_id || !allDoktersData) return [];
     return allDoktersData.filter(
-      (dokter: any) => dokter.klinik_id.toString() === formData.klinik_id
+      (dokter: any) => dokter.klinik_id.toString() === user.klinik_id?.toString()
     );
-  }, [formData.klinik_id, allDoktersData]);
+  }, [user?.klinik_id, allDoktersData]);
 
   // Tambahkan query untuk layananList
   const { data: layananList, isLoading: layananListLoading } = useQuery({
@@ -183,13 +178,14 @@ const KunjunganPage = () => {
   // Mutations
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
+      data.klinik_id = user?.klinik_id; // Override untuk memastikan sesuai user
       if (editingKunjungan) {
         return kunjunganApi.update(editingKunjungan.kunjungan_id, data, token!);
       }
       return kunjunganApi.create(data, token!);
     },
     onSuccess: async (res: any) => {
-      queryClient.invalidateQueries({ queryKey: ["kunjungans"] });
+      queryClient.invalidateQueries({ queryKey: ["kunjungans-admin-klinik"] });
       toast.success(
         editingKunjungan
           ? "Kunjungan berhasil diupdate"
@@ -237,7 +233,7 @@ const KunjunganPage = () => {
     mutationFn: (kunjunganId: number) =>
       kunjunganApi.delete(kunjunganId, token!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["kunjungans"] });
+      queryClient.invalidateQueries({ queryKey: ["kunjungans-admin-klinik"] });
       toast.success("Kunjungan berhasil dihapus");
     },
     onError: (error: any) => {
@@ -279,9 +275,7 @@ const KunjunganPage = () => {
 
     try {
       const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:3000/api"
-        }/kunjungan/hewan/${hewanId}/history`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan/hewan/${hewanId}/history`, // Perbaiki endpoint agar konsisten
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -360,7 +354,7 @@ const KunjunganPage = () => {
       }
 
       setFormData({
-        klinik_id: klinikId,
+        klinik_id: user?.klinik_id || "", // Override dengan user.klinik_id
         hewan_id: kunjungan.hewan_id?.toString() || "",
         dokter_id: kunjungan.dokter_id?.toString() || "",
         tanggal_kunjungan: kunjungan.tanggal_kunjungan?.split("T")[0] || "",
@@ -381,17 +375,13 @@ const KunjunganPage = () => {
       try {
         const [layananRes, obatRes] = await Promise.all([
           fetch(
-            `${
-              import.meta.env.VITE_API_URL || "http://localhost:3000/api"
-            }/kunjungan-layanan/kunjungan/${kunjungan.kunjungan_id}`,
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${kunjungan.kunjungan_id}`, // Perbaiki endpoint
             {
               headers: { Authorization: `Bearer ${token}` },
             }
           ),
           fetch(
-            `${
-              import.meta.env.VITE_API_URL || "http://localhost:3000/api"
-            }/kunjungan-obat/kunjungan/${kunjungan.kunjungan_id}`,
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${kunjungan.kunjungan_id}`, // Perbaiki endpoint
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -416,7 +406,7 @@ const KunjunganPage = () => {
       const today = new Date().toISOString().split("T")[0];
       const now = new Date().toTimeString().slice(0, 5);
       setFormData({
-        klinik_id: "",
+        klinik_id: user?.klinik_id || "", // Set otomatis
         hewan_id: "",
         dokter_id: "",
         tanggal_kunjungan: today,
@@ -457,7 +447,7 @@ const KunjunganPage = () => {
       const today = new Date().toISOString().split("T")[0];
       const now = new Date().toTimeString().slice(0, 5);
       setFormData({
-        klinik_id: "",
+        klinik_id: user?.klinik_id || "", // Tetap set
         hewan_id: "",
         dokter_id: "",
         tanggal_kunjungan: today,
@@ -476,7 +466,7 @@ const KunjunganPage = () => {
       setSelectedHewan("");
     } else {
       setFormData({
-        klinik_id: "",
+        klinik_id: user?.klinik_id || "", // Tetap set
         hewan_id: "",
         dokter_id: "",
         tanggal_kunjungan: "",
@@ -506,7 +496,7 @@ const KunjunganPage = () => {
         tanggal_kunjungan: "",
         waktu_kunjungan: "",
         catatan: "",
-        klinik_id: "",
+        klinik_id: user?.klinik_id || "", // Tetap set
         dokter_id: "", // Tambahkan reset dokter_id
       }));
       setSelectedHewan("");
@@ -541,7 +531,7 @@ const KunjunganPage = () => {
         tanggal_kunjungan: formattedTanggal,
         waktu_kunjungan: formattedWaktu,
         catatan: bookingData.catatan || "",
-        klinik_id: bookingData.klinik_id?.toString() || "",
+        klinik_id: user?.klinik_id || "", // Override dengan user.klinik_id
         dokter_id: bookingData.dokter_id?.toString() || "", // Tambahkan ini untuk mengisi dokter_id dari booking
       }));
 
@@ -568,8 +558,6 @@ const KunjunganPage = () => {
     return badges[metode] || <Badge>{metode}</Badge>;
   };
 
-  
-
   // Perbaiki calculateDaysSince untuk menambahkan 1 hari pada perhitungan
   const calculateDaysSince = (date: string) => {
     const visitDate = new Date(date);
@@ -594,11 +582,7 @@ const KunjunganPage = () => {
       (b: any) => b.booking_id?.toString() === bookingId?.toString()
     );
     if (!found) return bookingId?.toString() || "-";
-    return `${found.nama_pawrent} - ${found.title_dokter} ${
-      found.nama_dokter
-    } - ${new Date(found.tanggal_booking).toLocaleDateString("id-ID")} ${
-      found.waktu_booking
-    } - ${found.nama_hewan}`;
+    return `${found.nama_pawrent} - ${found.title_dokter} ${found.nama_dokter} - ${new Date(found.tanggal_booking).toLocaleDateString("id-ID")} ${found.waktu_booking} - ${found.nama_hewan}`;
   };
 
   // useEffect(() => {
@@ -634,9 +618,9 @@ const KunjunganPage = () => {
       metode_pembayaran: formData.metode_pembayaran || editingKunjungan.metode_pembayaran,
       kunjungan_sebelumnya: formData.kunjungan_sebelumnya === "none" ? null : (formData.kunjungan_sebelumnya || editingKunjungan.kunjungan_sebelumnya),
       booking_id: formData.booking_id === "none" ? null : (formData.booking_id || editingKunjungan.booking_id),
-      klinik_id: formData.klinik_id || editingKunjungan.klinik_id, // Tambahkan fallback untuk klinik_id jika kosong
+      klinik_id: user?.klinik_id || editingKunjungan.klinik_id, // Override dengan user.klinik_id
     } : {
-      klinik_id: formData.klinik_id,
+      klinik_id: user?.klinik_id, // Set otomatis
       hewan_id: formData.hewan_id,
       dokter_id: formData.dokter_id,
       tanggal_kunjungan: formData.tanggal_kunjungan,
@@ -786,7 +770,7 @@ const KunjunganPage = () => {
       await layananApi.getByKunjungan(kunjunganId, token!); // Gunakan endpoint delete yang sudah ada di kunjungan-layanan.ts
       // Asumsi API delete adalah: DELETE /kunjungan-layanan/:kunjunganId/:kodeLayanan
       // Jika belum ada, tambahkan di backend. Untuk sekarang, gunakan fetch langsung.
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/${kunjunganId}/${kodeLayanan}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/${kunjunganId}/${kodeLayanan}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -810,8 +794,6 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
   }
 };
 
-
-  
   // Tambahkan fungsi calculateTotalBiaya untuk tabel
   const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
     const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
@@ -843,7 +825,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
         try {
           // Fetch layanan untuk kunjungan ini
           const layananResponse = await fetch(
-            `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/kunjungan/${viewingKunjungan.kunjungan_id}`,
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${viewingKunjungan.kunjungan_id}`, // Perbaiki endpoint
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -860,7 +842,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
 
           // Fetch obat untuk kunjungan ini
           const obatResponse = await fetch(
-            `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-obat/kunjungan/${viewingKunjungan.kunjungan_id}`,
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${viewingKunjungan.kunjungan_id}`, // Perbaiki endpoint
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -892,10 +874,10 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
       const fetchPreviousData = async () => {
         try {
           const [layananRes, obatRes] = await Promise.all([
-            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-layanan/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${viewingPreviousVisit.kunjungan_id}`, { // Perbaiki endpoint
               headers: { Authorization: `Bearer ${token}` },
             }),
-            fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/kunjungan-obat/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${viewingPreviousVisit.kunjungan_id}`, { // Perbaiki endpoint
               headers: { Authorization: `Bearer ${token}` },
             }),
           ]);
@@ -919,7 +901,6 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
     bookingsLoading ||
     hewansLoading ||
     allDoktersLoading ||
-    kliniksLoading ||
     layananListLoading ||
     obatListLoading
   ) {
@@ -1166,12 +1147,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                       </Label>
                       <Input
                         id="klinik-booking"
-                        value={
-                          kliniksData?.find(
-                            (k: any) =>
-                              k.klinik_id.toString() === formData.klinik_id
-                          )?.nama_klinik || ""
-                        }
+                        value="Klinik Anda" // Tampilkan sebagai disabled
                         disabled
                         className="col-span-3"
                       />
@@ -1220,30 +1196,12 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                       <Label htmlFor="klinik-manual" className="text-right">
                         Klinik
                       </Label>
-                      <Select
-                        value={formData.klinik_id || ""}
-                        onValueChange={(value) => {
-                          setFormData({
-                            ...formData,
-                            klinik_id: value,
-                            dokter_id: "",
-                          });
-                        }}
-                      >
-                        <SelectTrigger id="klinik-manual" className="col-span-3">
-                          <SelectValue placeholder="Pilih Klinik" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {kliniksData?.map((klinik: any) => (
-                            <SelectItem
-                              key={klinik.klinik_id}
-                              value={klinik.klinik_id.toString()}
-                            >
-                              {klinik.nama_klinik}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        id="klinik-manual"
+                        value="Klinik Anda" // Tampilkan sebagai disabled
+                        disabled
+                        className="col-span-3"
+                      />
                     </div>
 
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -1261,8 +1219,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                           {hewans?.map((hewan: any) => (
                             <SelectItem
                               key={hewan.hewan_id}
-                              value={hewan.hewan_id.toString()
-                              }
+                              value={hewan.hewan_id.toString()}
                             >
                               {hewan.nama_hewan} ({hewan.nama_pawrent})
                             </SelectItem>
@@ -1280,7 +1237,6 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                         onValueChange={(value) =>
                           setFormData({ ...formData, dokter_id: value })
                         }
-                        disabled={!formData.klinik_id}
                       >
                         <SelectTrigger
                           id="dokter-manual"
@@ -1289,22 +1245,16 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                           <SelectValue placeholder="Pilih Dokter" />
                         </SelectTrigger>
                         <SelectContent>
-                          {!formData.klinik_id ? (
-                            <SelectItem value="-" disabled>
-                              Pilih klinik terlebih dahulu
+                          {filteredDokters.map((dokter: any) => (
+                            <SelectItem
+                              key={dokter.dokter_id}
+                              value={dokter.dokter_id.toString()}
+                            >
+                              {`${dokter.title_dokter || ""} ${
+                                dokter.nama_dokter
+                              }`}
                             </SelectItem>
-                          ) : (
-                            filteredDokters.map((dokter: any) => (
-                              <SelectItem
-                                key={dokter.dokter_id}
-                                value={dokter.dokter_id.toString()}
-                              >
-                                {`${dokter.title_dokter || ""} ${
-                                  dokter.nama_dokter
-                                }`}
-                              </SelectItem>
-                            ))
-                          )}
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1531,27 +1481,28 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                     {editingKunjungan && existingObats.length > 0 && (
                       <div className="space-y-2">
                         <Label className="text-base font-medium">Obat yang Sudah Ada</Label>
-                        {existingObats.map((obat) => (
-                          <Card key={obat.kunjungan_obat_id} className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">{obat.nama_obat}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Qty: {obat.qty} - Dosis: {obat.dosis} - Frekuensi: {obat.frekuensi} - Harga: Rp {obat.harga_saat_itu.toLocaleString('id-ID')}
-                                </p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                // PERBAIKI: Gunakan obat.kunjungan_obat_id
-                                onClick={() => deleteExistingObat(obat.kunjungan_obat_id)}
-                              >
-                                <X className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </Card>
-                        ))}
+                            {existingObats.map((obat) => (
+                            <Card key={obat.kunjungan_obat_id} className="p-4">
+                                <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-medium">{obat.nama_obat}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                    Qty: {obat.qty} - Dosis: {obat.dosis} - Frekuensi: {obat.frekuensi} - Harga: Rp {obat.harga_saat_itu.toLocaleString('id-ID')}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    // PERBAIKI: Gunakan obat.kunjungan_obat_id
+                                    onClick={() => deleteExistingObat(obat.kunjungan_obat_id)}
+                                >
+                                    <X className="h-4 w-4 text-destructive" />
+                                </Button>
+                                </div>
+                            </Card>
+                            ))}
+
                       </div>
                     )}
                     {formData.obatForms.length === 0 ? (
@@ -1813,8 +1764,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <Pill className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Tidak ada resep obat</p>
-                      </div>
+                        <
                     )}
                   </CardContent>
                 </Card>
@@ -2015,4 +1965,4 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
   );
 };
 
-export default KunjunganPage;
+export default AdminKlinikKunjunganPage;

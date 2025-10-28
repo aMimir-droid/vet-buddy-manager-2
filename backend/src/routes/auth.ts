@@ -94,7 +94,7 @@ router.post('/check-email', async (req, res) => {
 });
 
 // ========================================================
-// LOGIN ROUTE
+// LOGIN ROUTE (Diperbarui untuk menyertakan klinik_id untuk role 4)
 // ========================================================
 router.post('/login', async (req, res) => {
   try {
@@ -106,10 +106,17 @@ router.post('/login', async (req, res) => {
 
     console.log(`🔐 [LOGIN] Attempt for user: ${username}`);
 
+    // Query user dengan join untuk admin klinik (untuk role 4)
+    // PERBAIKAN: Hapus referensi ke ak.deleted_at karena kolom tidak ada
     const [users] = await adminPool.execute(
-      `SELECT u.*, r.role_name 
+      `SELECT u.*, r.role_name, 
+              CASE 
+                WHEN u.role_id = 4 THEN ak.klinik_id 
+                ELSE NULL 
+              END AS klinik_id
        FROM User_Login u 
        JOIN Role r ON u.role_id = r.role_id 
+       LEFT JOIN Admin_Klinik ak ON u.user_id = ak.user_id
        WHERE u.username = ?`,
       [username]
     ) as [RowDataPacket[], any];
@@ -139,7 +146,8 @@ router.post('/login', async (req, res) => {
         username: user.username,
         role_id: user.role_id,
         dokter_id: user.dokter_id,
-        pawrent_id: user.pawrent_id
+        pawrent_id: user.pawrent_id,
+        klinik_id: user.klinik_id || null  // TAMBAHKAN: Pastikan klinik_id disertakan
       },
       process.env.JWT_SECRET || 'secret_key',
       { expiresIn: '24h' }
@@ -158,6 +166,7 @@ router.post('/login', async (req, res) => {
         role_name: user.role_name,
         dokter_id: user.dokter_id,
         pawrent_id: user.pawrent_id,
+        klinik_id: user.klinik_id || null,  // Sertakan klinik_id
         is_active: user.is_active
       }
     });
@@ -328,278 +337,10 @@ router.post('/register', async (req, res) => {
       { 
         user_id: result.user_id, 
         username: result.username,
-        role_id: result.role_id,
-        dokter_id: result.dokter_id || null,
-        pawrent_id: result.pawrent_id || null
-      },
-      process.env.JWT_SECRET || 'secret_key',
-      { expiresIn: '24h' }
-    );
-
-    console.log(`✅ [REGISTER] Success for user: ${username} (user_id: ${result.user_id})`);
-
-    res.status(201).json({
-      message: 'Registrasi berhasil',
-      token,
-      user: {
-        user_id: result.user_id,
-        username: result.username,
-        email: result.email,
         role_id: result.role_id,
         dokter_id: result.dokter_id || null,
         pawrent_id: result.pawrent_id || null,
-        full_name: result.full_name,
-        is_active: result.is_active
-      }
-    });
-
-  } catch (error: any) {
-    console.error('❌ [REGISTER] Error:', error);
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// ========================================================
-// LOGIN ROUTE
-// ========================================================
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ message: 'Username dan password wajib diisi' });
-    }
-
-    console.log(`🔐 [LOGIN] Attempt for user: ${username}`);
-
-    const [users] = await adminPool.execute(
-      `SELECT u.*, r.role_name 
-       FROM User_Login u 
-       JOIN Role r ON u.role_id = r.role_id 
-       WHERE u.username = ?`,
-      [username]
-    ) as [RowDataPacket[], any];
-
-    if (users.length === 0) {
-      console.log(`❌ [LOGIN] User not found: ${username}`);
-      return res.status(401).json({ message: 'Username atau password salah' });
-    }
-
-    const user = users[0];
-
-    if (!user.is_active) {
-      console.log(`❌ [LOGIN] Inactive user: ${username}`);
-      return res.status(401).json({ message: 'Akun tidak aktif. Hubungi administrator.' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      console.log(`❌ [LOGIN] Invalid password for user: ${username}`);
-      return res.status(401).json({ message: 'Username atau password salah' });
-    }
-
-    const token = jwt.sign(
-      { 
-        user_id: user.user_id, 
-        username: user.username,
-        role_id: user.role_id,
-        dokter_id: user.dokter_id,
-        pawrent_id: user.pawrent_id
-      },
-      process.env.JWT_SECRET || 'secret_key',
-      { expiresIn: '24h' }
-    );
-
-    console.log(`✅ [LOGIN] Success for user: ${username} (role_id: ${user.role_id})`);
-
-    res.json({
-      message: 'Login berhasil',
-      token,
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
-        role_id: user.role_id,
-        role_name: user.role_name,
-        dokter_id: user.dokter_id,
-        pawrent_id: user.pawrent_id,
-        is_active: user.is_active
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ [LOGIN] Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// ========================================================
-// REGISTER ROUTE - Using Stored Procedures
-// ========================================================
-router.post('/register', async (req, res) => {
-  try {
-    const { 
-      username, 
-      email, 
-      password, 
-      role_id,
-      pawrent_data,
-      dokter_data
-    } = req.body;
-
-    console.log(`🔐 [REGISTER] Attempt for user: ${username}, role: ${role_id}`);
-
-    // Validate input
-    if (!username || !email || !password || !role_id) {
-      return res.status(400).json({ 
-        message: 'Username, email, password, dan role wajib diisi' 
-      });
-    }
-
-    // Only allow Pawrent (3) or Dokter (2) to register
-    if (![2, 3].includes(role_id)) {
-      return res.status(400).json({ 
-        message: 'Hanya role Dokter atau Pawrent yang dapat mendaftar' 
-      });
-    }
-
-    // Validate role-specific data
-    if (role_id === 3 && !pawrent_data) {
-      return res.status(400).json({ message: 'Data Pawrent wajib diisi' });
-    }
-    if (role_id === 2 && !dokter_data) {
-      return res.status(400).json({ message: 'Data Dokter wajib diisi' });
-    }
-
-    // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
-
-    let result: any = null;
-
-    // ========================================================
-    // REGISTER PAWRENT - Using Stored Procedure
-    // ========================================================
-    if (role_id === 3) {
-      const {
-        nama_depan_pawrent,
-        nama_belakang_pawrent,
-        alamat_pawrent,
-        kota_pawrent,
-        kode_pos_pawrent,
-        nomor_hp,
-        dokter_id
-      } = pawrent_data;
-
-      // Validate required fields
-      if (!nama_depan_pawrent || !nama_belakang_pawrent || !nomor_hp || !dokter_id) {
-        return res.status(400).json({ 
-          message: 'Nama depan, nama belakang, nomor HP, dan dokter wajib diisi' 
-        });
-      }
-
-      try {
-        const [rows] = await adminPool.execute(
-          'CALL RegisterPawrent(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            username,
-            email,
-            password_hash,
-            nama_depan_pawrent,
-            nama_belakang_pawrent,
-            alamat_pawrent || null,
-            kota_pawrent || null,
-            kode_pos_pawrent || null,
-            nomor_hp,
-            dokter_id
-          ]
-        ) as [RowDataPacket[][], any];
-
-        result = rows[0][0];
-        console.log(`✅ [REGISTER] Pawrent created:`, result);
-
-      } catch (error: any) {
-        console.error('❌ [REGISTER PAWRENT] Error:', error);
-        
-        // Handle specific error messages from stored procedure
-        if (error.sqlMessage) {
-          return res.status(400).json({ message: error.sqlMessage });
-        }
-        throw error;
-      }
-    }
-
-    // ========================================================
-    // REGISTER DOKTER - Using Stored Procedure
-    // ========================================================
-    if (role_id === 2) {
-      const {
-        title_dokter,
-        nama_dokter,
-        telepon_dokter,
-        tanggal_mulai_kerja,
-        spesialisasi_id,
-        klinik_id
-      } = dokter_data;
-
-      // Validate required fields
-      if (!title_dokter || !nama_dokter) {
-        return res.status(400).json({ 
-          message: 'Title dokter dan nama dokter wajib diisi' 
-        });
-      }
-
-      try {
-        const [rows] = await adminPool.execute(
-          'CALL RegisterDokter(?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            username,
-            email,
-            password_hash,
-            title_dokter,
-            nama_dokter,
-            telepon_dokter || null,
-            tanggal_mulai_kerja || null,
-            spesialisasi_id || null,
-            klinik_id || null
-          ]
-        ) as [RowDataPacket[][], any];
-
-        result = rows[0][0];
-        console.log(`✅ [REGISTER] Dokter created:`, result);
-
-      } catch (error: any) {
-        console.error('❌ [REGISTER DOKTER] Error:', error);
-        
-        // Handle specific error messages from stored procedure
-        if (error.sqlMessage) {
-          return res.status(400).json({ message: error.sqlMessage });
-        }
-        throw error;
-      }
-    }
-
-    // ========================================================
-    // CHECK IF RESULT EXISTS
-    // ========================================================
-    if (!result) {
-      console.error('❌ [REGISTER] No result returned from stored procedure');
-      return res.status(500).json({ 
-        message: 'Registrasi gagal. Silakan coba lagi.' 
-      });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        user_id: result.user_id, 
-        username: result.username,
-        role_id: result.role_id,
-        dokter_id: result.dokter_id || null,
-        pawrent_id: result.pawrent_id || null
+        klinik_id: result.klinik_id || null  // TAMBAHKAN: Sertakan klinik_id di JWT
       },
       process.env.JWT_SECRET || 'secret_key',
       { expiresIn: '24h' }

@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 
 const Dashboard = () => {
-  const { user, isAdmin, isVet, isPawrent } = useAuth();
+  const { user, isAdmin, isVet, isPawrent, isAdminKlinik } = useAuth();
 
   // Redirect based on role
   if (isAdmin) {
@@ -11,6 +11,8 @@ const Dashboard = () => {
     return <Navigate to="/vet/dashboard" replace />;
   } else if (isPawrent) {
     return <Navigate to="/pawrent/dashboard" replace />;
+  } else if (isAdminKlinik) {
+    return <Navigate to="/admin-klinik/dashboard" replace />;
   }
 
   return <Navigate to="/login" replace />;

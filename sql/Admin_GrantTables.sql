@@ -37,12 +37,8 @@ GRANT SELECT ON vet_buddy.Pawrent TO 'vet_user'@'localhost';
 -- Dokter - Read Only
 GRANT SELECT ON vet_buddy.Dokter TO 'vet_user'@'localhost';
 
-
-
 -- Dokter - Read Only, tapi tambahkan UPDATE untuk toggle is_active
-
 GRANT SELECT, UPDATE ON vet_buddy.Dokter TO 'vet_user'@'localhost';
-
 
 -- Klinik - Read Only
 GRANT SELECT ON vet_buddy.Klinik TO 'vet_user'@'localhost';
@@ -122,6 +118,62 @@ GRANT SELECT ON vet_buddy.Shift_Dokter TO 'pawrent_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE ON vet_buddy.Booking TO 'pawrent_user'@'localhost';
 
 -- ========================================================
+-- GRANT untuk ADMIN_KLINIK_USER (Akses Terbatas ke Klinik Tertentu)
+-- ========================================================
+
+-- Admin_Klinik - Read/Write untuk data sendiri
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Admin_Klinik TO 'admin_klinik_user'@'localhost';
+
+-- Kunjungan - Read/Write hanya untuk klinik sendiri (filter di procedure)
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Kunjungan TO 'admin_klinik_user'@'localhost';
+
+-- Hewan - Read/Write hanya untuk klinik terkait (via Kunjungan)
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Hewan TO 'admin_klinik_user'@'localhost';
+
+-- Obat - Read/Write hanya untuk klinik terkait (via Stok_Obat)
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Obat TO 'admin_klinik_user'@'localhost';
+
+-- Kunjungan_Obat - Read/Write hanya untuk klinik terkait
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Kunjungan_Obat TO 'admin_klinik_user'@'localhost';
+
+-- Layanan - Read/Write hanya untuk klinik terkait
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Layanan TO 'admin_klinik_user'@'localhost';
+
+-- Stok_Obat - Full access untuk klinik sendiri
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Stok_Obat TO 'admin_klinik_user'@'localhost';
+
+-- Mutasi_Obat - Full access untuk klinik sendiri
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Mutasi_Obat TO 'admin_klinik_user'@'localhost';
+
+-- Pawrent - Read only (global, filter di app layer jika perlu)
+GRANT SELECT ON vet_buddy.Pawrent TO 'admin_klinik_user'@'localhost';
+
+-- Dokter - Read only untuk dokter di klinik sendiri
+GRANT SELECT ON vet_buddy.Dokter TO 'admin_klinik_user'@'localhost';
+
+-- Klinik - Read only untuk klinik sendiri
+GRANT SELECT ON vet_buddy.Klinik TO 'admin_klinik_user'@'localhost';
+
+-- Spesialisasi - Read only (global)
+GRANT SELECT ON vet_buddy.Spesialisasi TO 'admin_klinik_user'@'localhost';
+
+-- Jenis_Hewan - Read only (global)
+GRANT SELECT ON vet_buddy.Jenis_Hewan TO 'admin_klinik_user'@'localhost';
+
+-- Role - Read only
+GRANT SELECT ON vet_buddy.Role TO 'admin_klinik_user'@'localhost';
+
+-- Dokter_Review & Klinik_Review: SELECT (lihat review)
+GRANT SELECT ON vet_buddy.Dokter_Review TO 'admin_klinik_user'@'localhost';
+GRANT SELECT ON vet_buddy.Klinik_Review TO 'admin_klinik_user'@'localhost';
+
+-- Shift_Dokter: SELECT (lihat shift dokter di klinik sendiri)
+GRANT SELECT ON vet_buddy.Shift_Dokter TO 'admin_klinik_user'@'localhost';
+
+-- Booking: SELECT, INSERT, UPDATE (lihat, buat, edit booking di klinik sendiri)
+GRANT SELECT, INSERT, UPDATE ON vet_buddy.Booking TO 'admin_klinik_user'@'localhost';
+
+-- ========================================================
 -- GRANT TABLE PERMISSIONS untuk STOK OBAT dan MUTASI OBAT
 -- ========================================================
 
@@ -146,7 +198,6 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'pawrent_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKlinik TO 'pawrent_user'@'localhost';
 
-
 GRANT SELECT ON vet_buddy.Stok_Obat TO 'pawrent_user'@'localhost';  -- Pawrent hanya bisa lihat stok (public view)
 -- Tidak ada grant untuk Mutasi_Obat agar pawrent tidak bisa melihat riwayat mutasi internal
 -- Grant EXECUTE untuk procedures yang digunakan oleh vet (read-only untuk obat, stok, klinik)
@@ -156,6 +207,12 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKlinik TO 'vet_user'@'localhost';
 
 -- Jika ada procedure lain yang digunakan oleh vet, tambahkan di sini
 -- GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'vet_user'@'localhost'; -- Jika diperlukan
+
+-- ========================================================
+-- GRANT untuk ADMIN_KLINIK_USER (Akses Terbatas untuk Stok dan Mutasi)
+-- ========================================================
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Stok_Obat TO 'admin_klinik_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Mutasi_Obat TO 'admin_klinik_user'@'localhost';
 
 -- ========================================================
 -- FLUSH PRIVILEGES
@@ -168,6 +225,7 @@ FLUSH PRIVILEGES;
 SHOW GRANTS FOR 'admin_user'@'localhost';
 SHOW GRANTS FOR 'vet_user'@'localhost';
 SHOW GRANTS FOR 'pawrent_user'@'localhost';
+SHOW GRANTS FOR 'admin_klinik_user'@'localhost';  -- Tambahkan verifikasi untuk admin_klinik
 
 -- Check specific table privileges
 SELECT 
@@ -182,7 +240,8 @@ WHERE
     AND GRANTEE IN (
         "'admin_user'@'localhost'",
         "'vet_user'@'localhost'",
-        "'pawrent_user'@'localhost'"
+        "'pawrent_user'@'localhost'",
+        "'admin_klinik_user'@'localhost'"  -- Tambahkan admin_klinik
     )
 ORDER BY 
     GRANTEE, TABLE_NAME, PRIVILEGE_TYPE;

@@ -387,4 +387,38 @@ BEGIN
     ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
 END$$
 
+-- GET BOOKINGS BY KLINIK - BARU
+DROP PROCEDURE IF EXISTS GetBookingsByKlinik$$
+CREATE PROCEDURE GetBookingsByKlinik(
+    IN p_klinik_id INT
+)
+BEGIN
+    IF p_klinik_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Parameter klinik_id wajib diisi';
+    END IF;
+
+    SELECT
+        b.booking_id,
+        b.klinik_id,
+        k.nama_klinik,
+        b.dokter_id,
+        d.title_dokter,
+        d.nama_dokter,
+        b.pawrent_id,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
+        b.hewan_id,
+        h.nama_hewan,
+        b.tanggal_booking,
+        b.waktu_booking,
+        b.status,
+        b.catatan
+    FROM Booking b
+    LEFT JOIN Klinik k ON b.klinik_id = k.klinik_id
+    LEFT JOIN Dokter d ON b.dokter_id = d.dokter_id
+    LEFT JOIN Pawrent p ON b.pawrent_id = p.pawrent_id
+    LEFT JOIN Hewan h ON b.hewan_id = h.hewan_id
+    WHERE b.klinik_id = p_klinik_id
+    ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
+END$$
+
 DELIMITER ;

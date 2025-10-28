@@ -1,6 +1,6 @@
 -- Complete Database Schema for Vet Buddy Manager
 -- Urutan yang benar sesuai dependency foreign keys
-
+SET FOREIGN_KEY_CHECKS = 0;
 -- Drop tables in reverse order of dependencies
 DROP TABLE IF EXISTS Kunjungan_Obat;
 DROP TABLE IF EXISTS Layanan;
@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS Dokter_Review;
 DROP TABLE IF EXISTS Klinik_Review;
 DROP TABLE IF EXISTS Kunjungan;
 DROP TABLE IF EXISTS Hewan;
+DROP TABLE IF EXISTS Admin_Klinik;  -- Tambahkan drop untuk Admin_Klinik
 DROP TABLE IF EXISTS User_Login;
 DROP TABLE IF EXISTS Pawrent;
 DROP TABLE IF EXISTS Dokter;
@@ -30,7 +31,7 @@ DROP TABLE IF EXISTS AuditLog;
 -- Tabel Role untuk autentikasi
 CREATE TABLE Role (
     role_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key, identitas unik role',
-    role_name VARCHAR(50) NOT NULL UNIQUE COMMENT 'Nama role: Admin, Vet, Pawrent',
+    role_name VARCHAR(50) NOT NULL UNIQUE COMMENT 'Nama role: Admin, Vet, Pawrent, Admin_Klinik',
     description VARCHAR(255) COMMENT 'Deskripsi role'
 );
 
@@ -152,6 +153,24 @@ CREATE TABLE User_Login (
         REFERENCES Pawrent(pawrent_id) ON DELETE SET NULL
 );
 
+-- ========================================================
+-- 5. TABEL ADMIN_KLINIK (depends on: User_Login, Klinik)
+-- ========================================================
+
+-- Tabel Admin_Klinik untuk admin klinik
+CREATE TABLE Admin_Klinik (
+    admin_klinik_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key, identitas unik admin klinik',
+    user_id INT NOT NULL COMMENT 'Foreign Key ke tabel User_Login',
+    klinik_id INT NOT NULL COMMENT 'Foreign Key ke tabel Klinik',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Waktu pembuatan',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Waktu update terakhir',
+    CONSTRAINT fk_admin_klinik_user FOREIGN KEY (user_id) 
+        REFERENCES User_Login(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_admin_klinik_klinik FOREIGN KEY (klinik_id) 
+        REFERENCES Klinik(klinik_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_admin_klinik (user_id, klinik_id) COMMENT 'Satu user hanya admin di satu klinik'
+);
+
 -- Tambahkan tabel Mutasi_Obat setelah User_Login (butuh referensi ke user_id)
 CREATE TABLE Mutasi_Obat (
     mutasi_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key mutasi',
@@ -173,7 +192,7 @@ CREATE TABLE Mutasi_Obat (
 );
 
 -- ========================================================
--- 5. TABEL DENGAN FOREIGN KEY LEVEL 3
+-- 6. TABEL DENGAN FOREIGN KEY LEVEL 3
 -- ========================================================
 
 -- Tabel Hewan (depends on: Jenis_Hewan, Pawrent)
@@ -236,7 +255,7 @@ CREATE TABLE Booking (
 );
 
 -- ========================================================
--- 6. TABEL DENGAN FOREIGN KEY LEVEL 4
+-- 7. TABEL DENGAN FOREIGN KEY LEVEL 4
 -- ========================================================
 
 -- Tabel Kunjungan (depends on: Hewan, Dokter)
@@ -269,7 +288,7 @@ CREATE TABLE Kunjungan (
     CONSTRAINT uq_kunjungan_natural UNIQUE (klinik_id, hewan_id, dokter_id, tanggal_kunjungan, waktu_kunjungan)
 );
 -- ========================================================
--- 7. TABEL JUNCTION/RELASI (depends on: Kunjungan, Detail_Layanan, Obat)
+-- 8. TABEL JUNCTION/RELASI (depends on: Kunjungan, Detail_Layanan, Obat)
 -- ========================================================
 
 -- Tabel Stok_Obat (stok per obat per klinik)
@@ -351,7 +370,7 @@ CREATE TABLE Klinik_Review (
 
 
 -- ========================================================
--- 8. CREATE INDEXES untuk performa
+-- 9. CREATE INDEXES untuk performa
 -- ========================================================
 
 CREATE INDEX idx_user_login_username ON User_Login(username);

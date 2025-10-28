@@ -532,4 +532,47 @@ BEGIN
     ORDER BY b.tanggal_booking DESC, b.waktu_booking DESC;
 END$$
 
+-- ========================================================
+-- GET KUNJUNGAN BY KLINIK (untuk admin klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetKunjunganByKlinik$$
+CREATE PROCEDURE GetKunjunganByKlinik(IN p_klinik_id INT)
+BEGIN
+    -- Jika tidak ada data, return array kosong (bukan message)
+    SELECT 
+        k.kunjungan_id,
+        k.klinik_id,
+        k.hewan_id,
+        k.dokter_id,
+        k.tanggal_kunjungan,
+        k.waktu_kunjungan,
+        k.catatan,
+        k.metode_pembayaran,
+        k.kunjungan_sebelumnya,
+        k.booking_id,
+        h.nama_hewan,
+        p.nama_depan_pawrent,
+        p.nama_belakang_pawrent,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) AS nama_pawrent,
+        d.nama_dokter,
+        d.title_dokter,
+        kl.nama_klinik,
+        -- PERBAIKAN: Gunakan query seperti di GetAllKunjungan (tabel Layanan dan Detail_Layanan)
+        (SELECT COALESCE(SUM(l.biaya_saat_itu * l.qty), 0) 
+         FROM Layanan l 
+         INNER JOIN Detail_Layanan dl ON l.kode_layanan = dl.kode_layanan 
+         WHERE l.kunjungan_id = k.kunjungan_id AND dl.deleted_at IS NULL) + 
+        (SELECT COALESCE(SUM(ko.qty * ko.harga_saat_itu), 0) 
+         FROM Kunjungan_Obat ko 
+         WHERE ko.kunjungan_id = k.kunjungan_id) AS total_biaya
+    FROM Kunjungan k
+    LEFT JOIN Hewan h ON k.hewan_id = h.hewan_id
+    LEFT JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
+    LEFT JOIN Dokter d ON k.dokter_id = d.dokter_id
+    LEFT JOIN Klinik kl ON k.klinik_id = kl.klinik_id
+    WHERE k.klinik_id = p_klinik_id AND k.deleted_at IS NULL
+    ORDER BY k.tanggal_kunjungan DESC, k.waktu_kunjungan DESC;
+END$$
+DELIMITER ;
+
 

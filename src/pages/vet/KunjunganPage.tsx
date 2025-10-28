@@ -585,11 +585,13 @@ useEffect(() => {
     }
   };
 
-  const deleteExistingObat = async (kunjunganId: number, obatId: number) => {
+  // PERBAIKI: Ubah parameter menjadi kunjungan_obat_id (satu parameter)
+  const deleteExistingObat = async (kunjungan_obat_id: number) => {
     try {
-      await kunjunganObatApi.delete(kunjunganId, obatId, token!);
+      // PERBAIKI: Panggil API dengan kunjungan_obat_id saja
+      await kunjunganObatApi.delete(kunjungan_obat_id, token!);
       toast.success("Obat berhasil dihapus");
-      fetchExistingLayananObat(kunjunganId);
+      fetchExistingLayananObat(viewingKunjungan?.kunjungan_id || editingKunjungan.kunjungan_id);
     } catch (error) {
       toast.error("Gagal menghapus obat");
     }
@@ -1343,7 +1345,8 @@ useEffect(() => {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => deleteExistingObat(viewingKunjungan?.kunjungan_id || editingKunjungan.kunjungan_id, obat.obat_id)}
+                              // PERBAIKI: Gunakan obat.kunjungan_obat_id
+                              onClick={() => deleteExistingObat(obat.kunjungan_obat_id)}
                             >
                               <X className="h-4 w-4 text-destructive" />
                             </Button>
@@ -1621,7 +1624,7 @@ useEffect(() => {
                         <Label className="font-semibold">Tanggal & Waktu</Label>
                         <p>{new Date(viewingPreviousVisit.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingPreviousVisit.waktu_kunjungan}</p>
                       </div>
-                      <div>
+                                           <div>
                         <Label className="font-semibold">Hewan</Label>
                         <p>{viewingPreviousVisit.nama_hewan}</p>
                       </div>

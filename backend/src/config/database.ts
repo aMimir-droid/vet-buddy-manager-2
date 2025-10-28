@@ -19,19 +19,25 @@ const createPool = (user: string, password: string) => {
 // Admin pool
 export const adminPool = createPool(
   process.env.DB_ADMIN_USER || 'admin_user',
-  process.env.DB_ADMIN_PASSWORD || ''
+  process.env.DB_ADMIN_PASSWORD || 'admin_user123'
 );
 
 // Vet pool
 export const vetPool = createPool(
   process.env.DB_VET_USER || 'vet_user',
-  process.env.DB_VET_PASSWORD || ''
+  process.env.DB_VET_PASSWORD || 'vet_user123'
 );
 
 // Pawrent pool
 export const pawrentPool = createPool(
   process.env.DB_PAWRENT_USER || 'pawrent_user',
-  process.env.DB_PAWRENT_PASSWORD || ''
+  process.env.DB_PAWRENT_PASSWORD || 'pawrent_user123'
+);
+
+// Admin Klinik pool
+export const adminKlinikPool = createPool(
+  process.env.DB_ADMIN_KLINIK_USER || 'admin_klinik_user',
+  process.env.DB_ADMIN_KLINIK_PASSWORD || 'admin_klinik_user123'
 );
 
 // Helper function to get pool based on role
@@ -43,6 +49,8 @@ export const getPoolByRole = (roleId: number) => {
       return vetPool;
     case 3: // Pawrent
       return pawrentPool;
+    case 4: // Admin Klinik
+      return adminKlinikPool;
     default:
       throw new Error('Invalid role ID');
   }

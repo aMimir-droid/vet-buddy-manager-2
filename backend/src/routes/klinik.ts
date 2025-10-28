@@ -256,4 +256,18 @@ router.get('/vet/list', authenticate, authorize(2), async (req: AuthRequest, res
   }
 });
 
+// ========================================================
+// GET KLINIK BY ADMIN KLINIK
+// ========================================================
+router.get('/admin-klinik', authenticate, authorize(4), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  try {
+    const [rows] = await pool.execute('CALL GetKlinikByAdminKlinik(?)', [req.user.user_id]);
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error fetching klinik for admin klinik:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
 export default router;

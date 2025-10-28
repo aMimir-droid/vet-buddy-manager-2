@@ -573,6 +573,49 @@ BEGIN
     WHERE k.klinik_id = p_klinik_id AND k.deleted_at IS NULL
     ORDER BY k.tanggal_kunjungan DESC, k.waktu_kunjungan DESC;
 END$$
+
+-- ========================================================
+-- GET ALL DOKTER (untuk admin dan admin klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetAllDokter$$
+
+CREATE PROCEDURE GetAllDokter()
+BEGIN
+    SELECT 
+        dokter_id,
+        nama_dokter,
+        title_dokter,
+        klinik_id,
+        is_active,
+        telepon_dokter,
+        nama_spesialisasi,
+        tanggal_mulai_kerja,
+        nama_lengkap
+    FROM Dokter
+    ORDER BY nama_dokter;
+END$$
+
+-- ========================================================
+-- GET DOKTER BY KLINIK (untuk admin klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetDokterByKlinik$$
+CREATE PROCEDURE GetDokterByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        dokter_id,
+        nama_dokter,
+        title_dokter,
+        klinik_id,
+        is_active,
+        telepon_dokter,
+        nama_spesialisasi,
+        tanggal_mulai_kerja,
+        nama_lengkap
+    FROM Dokter
+    WHERE klinik_id = p_klinik_id
+    ORDER BY nama_dokter;
+END$$
+
 DELIMITER ;
 
 

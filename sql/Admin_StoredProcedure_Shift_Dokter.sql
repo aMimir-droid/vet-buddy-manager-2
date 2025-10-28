@@ -230,4 +230,49 @@ BEGIN
     ORDER BY s.hari_minggu, s.jam_mulai, d.nama_dokter;
 END$$
 
+-- GET SHIFT BY KLINIK (untuk Admin Klinik)
+DROP PROCEDURE IF EXISTS GetShiftDokterByKlinik$$
+CREATE PROCEDURE GetShiftDokterByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        s.shift_id,
+        s.dokter_id,
+        s.hari_minggu,
+        s.jam_mulai,
+        s.jam_selesai,
+        s.is_active,
+        d.nama_dokter,
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
+    FROM Shift_Dokter s
+    LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
+    WHERE s.is_active = TRUE
+      AND k.klinik_id = p_klinik_id
+    ORDER BY s.dokter_id, s.hari_minggu, s.jam_mulai;
+END$$
+
+-- GET ALL SHIFT BY KLINIK (aktif dan tidak aktif, untuk Admin Klinik)
+DROP PROCEDURE IF EXISTS GetAllShiftDokterByKlinik$$
+CREATE PROCEDURE GetAllShiftDokterByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        s.shift_id,
+        s.dokter_id,
+        s.hari_minggu,
+        s.jam_mulai,
+        s.jam_selesai,
+        s.is_active,
+        d.nama_dokter,
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
+    FROM Shift_Dokter s
+    LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
+    WHERE k.klinik_id = p_klinik_id
+    ORDER BY s.dokter_id, s.hari_minggu, s.jam_mulai;
+END$$
+
 DELIMITER ;

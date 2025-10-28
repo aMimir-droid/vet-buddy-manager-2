@@ -9,7 +9,8 @@ import {
   Activity, 
   Building2, 
   Shield,
-  Syringe
+  Syringe,
+  Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -70,6 +71,13 @@ const AdminKlinikDashboard = () => {
       icon: Building2,
       path: "/admin-klinik/info",
       color: "bg-yellow-500"
+    },
+    {
+      title: "Shift Dokter Klinik",
+      description: "Kelola shift dokter di klinik ini",
+      icon: Clock,
+      path: "/admin-klinik/shift-dokter",
+      color: "bg-purple-500"
     }
   ];
 

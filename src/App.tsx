@@ -56,6 +56,7 @@ import AdminKlinikObatPage from "@/pages/admin-klinik/AdminKlinikObatPage"; // T
 import AdminKlinikDokterPage from "./pages/admin-klinik/AdminKlinikDokterPage";
 import AdminKlinikLayananPage from "./pages/admin-klinik/AdminKlinikLayananPage"; // Tambahkan import ini
 import AdminKlinikHewanPage from "./pages/admin-klinik/AdminKlinikHewanPage"; // Tambahkan import untuk AdminKlinikHewanPage
+import AdminKlinikShiftDokterPage from "./pages/admin-klinik/AdminKlinikShiftDokterPage"; // Tambahkan import untuk AdminKlinikShiftDokterPage
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -219,6 +220,7 @@ const App = () => (
                     <Route path="dokter" element={<AdminKlinikDokterPage />} />
                     <Route path="layanan" element={<AdminKlinikLayananPage />} /> {/* Tambahkan route ini */}
                     <Route path="hewan" element={<AdminKlinikHewanPage />} /> {/* Tambahkan route untuk hewan */}
+                    <Route path="shift-dokter" element={<AdminKlinikShiftDokterPage />} /> {/* Tambahkan route untuk shift dokter */}
                     <Route path="*" element={<Navigate to="/admin-klinik/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

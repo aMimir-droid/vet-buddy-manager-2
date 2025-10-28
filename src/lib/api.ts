@@ -182,7 +182,7 @@ export const dokterApi = {
     apiCall({ endpoint: `/dokter/${id}/toggle-active`, method: 'PATCH', token }),
   
   getByKlinik: (klinikId: number, token: string) => 
-    apiCall({ endpoint: `/klinik/${klinikId}/dokters`, token }),
+    apiCall({ endpoint: `/dokter/by-klinik/${klinikId}`, token }),
 };
 
 // ========================================================
@@ -486,6 +486,16 @@ export const shiftDokterApi = {
   delete: (id: number, token: string) => apiCall({ endpoint: `/shift-dokter/${id}`, method: 'DELETE', token }),
   getByDokter: (dokterId: number, token: string) =>
     apiCall({ endpoint: `/shift-dokter/by-dokter/${dokterId}`, token }),
+  // Tambahkan di shiftDokterApi
+  
+  getByKlinik: (klinikId: number, token: string) =>
+    apiCall({ endpoint: `/shift-dokter/by-klinik/${klinikId}`, token }),
+  createByKlinik: (klinikId: number, data: any, token: string) =>
+    apiCall({ endpoint: `/shift-dokter/by-klinik/${klinikId}`, method: 'POST', body: data, token }),
+  updateByKlinik: (klinikId: number, shiftId: number, data: any, token: string) =>
+    apiCall({ endpoint: `/shift-dokter/by-klinik/${klinikId}/${shiftId}`, method: 'PUT', body: data, token }),
+  deleteByKlinik: (klinikId: number, shiftId: number, token: string) =>
+    apiCall({ endpoint: `/shift-dokter/by-klinik/${klinikId}/${shiftId}`, method: 'DELETE', token }),
 };
 
 // ========================================================

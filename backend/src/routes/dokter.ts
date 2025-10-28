@@ -274,4 +274,32 @@ router.patch('/:id/toggle-active', authenticate, authorize(1, 2), async (req: Au
   }
 });
 
+// ========================================================
+// GET DOKTERS BY KLINIK (untuk Admin Klinik)
+// ========================================================
+router.get('/by-klinik/:klinikId', authenticate, authorize(4), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { klinikId } = req.params;
+  const user = req.user;
+  
+  console.log(`📋 [GET DOKTERS BY KLINIK] Request received for Klinik ID: ${klinikId} by User ID: ${user?.user_id}`);
+  
+  // Pastikan user.klinik_id sama dengan klinikId yang diminta
+  if (!user?.klinik_id || user.klinik_id.toString() !== klinikId) {
+    return res.status(403).json({ message: 'Akses ditolak: Anda hanya bisa melihat dokter di klinik Anda' });
+  }
+  
+  try {
+    const [rows]: any = await pool.execute('CALL GetDoktersByKlinik(?)', [klinikId]);
+    console.log(`✅ [GET DOKTERS BY KLINIK] Success - ${rows[0]?.length || 0} dokters found for Klinik ID: ${klinikId}`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error(`❌ [GET DOKTERS BY KLINIK] Error for Klinik ID: ${klinikId}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 export default router;

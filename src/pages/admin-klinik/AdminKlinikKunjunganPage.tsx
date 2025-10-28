@@ -142,20 +142,16 @@ const AdminKlinikKunjunganPage = () => {
   });
 
   const { data: allDoktersData, isLoading: allDoktersLoading } = useQuery({
-    queryKey: ["dokters"],
+    queryKey: ["dokters", user?.klinik_id],
     queryFn: async () => {
-      const result = await dokterApi.getAll(token!);
-      return result as any[];
+      const result = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/dokter/by-klinik/${user?.klinik_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!result.ok) throw new Error("Gagal mengambil data dokter");
+      return result.json();
     },
+    enabled: !!token && !!user?.klinik_id,
   });
-
-  // --- PERBEDAAN: Filter dokter berdasarkan user.klinik_id, bukan formData.klinik_id ---
-const filteredDokters = useMemo(() => {
-  if (!user?.klinik_id || !allDoktersData) return [];
-  return allDoktersData.filter(
-    (dokter: any) => dokter.klinik_id?.toString() === user.klinik_id?.toString()
-  );
-}, [user?.klinik_id, allDoktersData]);
 
   // Tambahkan query untuk layananList
   const { data: layananList, isLoading: layananListLoading } = useQuery({
@@ -310,6 +306,8 @@ const filteredDokters = useMemo(() => {
       setIsPreviousVisitDialogOpen(true);
     }
   };
+
+   const filteredDokters = allDoktersData || [];
 
   const handleViewPreviousVisitFromTable = (kunjunganId: number | null) => {
     if (!kunjunganId) return;

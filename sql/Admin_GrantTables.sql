@@ -62,8 +62,7 @@ GRANT SELECT, UPDATE ON vet_buddy.Stok_Obat TO 'vet_user'@'localhost';
 GRANT SELECT ON vet_buddy.Dokter_Review TO 'vet_user'@'localhost';
 GRANT SELECT ON vet_buddy.Klinik_Review TO 'vet_user'@'localhost';
 
--- Shift_Dokter: SELECT, INSERT, UPDATE (lihat, buat, ubah shift sendiri)
-GRANT SELECT, INSERT, UPDATE ON vet_buddy.Shift_Dokter TO 'vet_user'@'localhost';
+-- Shift_Dokter: SELECT, INSERT, UPDATE ON vet_buddy.Shift_Dokter TO 'vet_user'@'localhost';
 
 -- Booking: SELECT, UPDATE (lihat, approve/edit status booking)
 GRANT SELECT, UPDATE ON vet_buddy.Booking TO 'vet_user'@'localhost';
@@ -167,8 +166,8 @@ GRANT SELECT ON vet_buddy.Role TO 'admin_klinik_user'@'localhost';
 GRANT SELECT ON vet_buddy.Dokter_Review TO 'admin_klinik_user'@'localhost';
 GRANT SELECT ON vet_buddy.Klinik_Review TO 'admin_klinik_user'@'localhost';
 
--- Shift_Dokter: SELECT (lihat shift dokter di klinik sendiri)
-GRANT SELECT ON vet_buddy.Shift_Dokter TO 'admin_klinik_user'@'localhost';
+-- Shift_Dokter: SELECT, INSERT, UPDATE, DELETE (kelola shift dokter di klinik sendiri)
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Shift_Dokter TO 'admin_klinik_user'@'localhost';
 
 -- Booking: SELECT, INSERT, UPDATE (lihat, buat, edit booking di klinik sendiri)
 GRANT SELECT, INSERT, UPDATE ON vet_buddy.Booking TO 'admin_klinik_user'@'localhost';

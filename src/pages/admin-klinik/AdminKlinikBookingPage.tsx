@@ -115,11 +115,16 @@ const AdminKlinikBookingPage = () => {
   });
 
   const { data: allDoktersData, isLoading: allDoktersLoading } = useQuery({
-    queryKey: ["dokters"],
+    queryKey: ["dokters", user?.klinik_id], // Tambahkan klinik_id ke key
     queryFn: async () => {
-      const result = await dokterApi.getAll(token!);
-      return result as any[];
+      // Gunakan endpoint baru untuk filter di server
+      const result = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/dokter/by-klinik/${user?.klinik_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!result.ok) throw new Error("Gagal mengambil data dokter");
+      return result.json();
     },
+    enabled: !!token && !!user?.klinik_id, // Pastikan keduanya ada
   });
 
   const { data: pawrents = [] } = useQuery({
@@ -127,13 +132,12 @@ const AdminKlinikBookingPage = () => {
     queryFn: () => pawrentApi.getAll(token!),
   });
 
-  // --- PERBEDAAN: Filter dokter berdasarkan user.klinik_id, bukan formData.klinik_id ---
-const filteredDokters = useMemo(() => {
-  if (!user?.klinik_id || !allDoktersData) return [];
-  return allDoktersData.filter(
-    (dokter: any) => dokter.klinik_id?.toString() === user.klinik_id?.toString()
-  );
-}, [user?.klinik_id, allDoktersData]);
+  // Hapus filter useEffect, karena data sudah difilter di server
+  // const [filteredDokters, setFilteredDokters] = useState<any[]>([]);
+  // useEffect(() => { ... }); // Hapus ini
+
+  // Langsung gunakan allDoktersData sebagai filteredDokters
+  const filteredDokters = allDoktersData || [];
 
   // --- MODIFIKASI: useEffect untuk fetch available slots ---
   useEffect(() => {

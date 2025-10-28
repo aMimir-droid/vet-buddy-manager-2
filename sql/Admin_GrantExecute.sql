@@ -195,6 +195,19 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'admin_klinik_user'@'loc
 GRANT EXECUTE ON PROCEDURE vet_buddy.AddMutasiObat TO 'admin_klinik_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllMutasiObat TO 'admin_klinik_user'@'localhost';
 
+
+-- Shift_Dokter Procedures (dengan filter klinik)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokter TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterByDokter TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetShiftDokterByDokter
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterByKlinik TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetShiftDokterByKlinik (baru)
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateShiftDokter TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk CreateShiftDokter
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateShiftDokter TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk UpdateShiftDokter
+GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk DeleteShiftDokter
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByDokter TO 'admin_klinik_user'@'localhost';
+
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokterByKlinik TO 'admin_klinik_user'@'localhost';
+
 -- Pawrent Procedures (read-only, global)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllPawrents TO 'admin_klinik_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetPawrentById TO 'admin_klinik_user'@'localhost';

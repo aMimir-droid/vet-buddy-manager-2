@@ -659,9 +659,8 @@ const AdminKlinikKunjunganPage = () => {
       return;
     }
 
-    // Validasi layanan wajib minimal 1 (total existing + selected)
-    const totalLayanans = existingLayanans.length + formData.selectedLayanans.length;
-    if (totalLayanans === 0) {
+    // Validasi layanan wajib minimal 1
+    if (formData.selectedLayanans.length === 0) {
       toast.error("Minimal 1 layanan wajib dipilih");
       return;
     }
@@ -1481,27 +1480,27 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                     {editingKunjungan && existingObats.length > 0 && (
                       <div className="space-y-2">
                         <Label className="text-base font-medium">Obat yang Sudah Ada</Label>
-                            {existingObats.map((obat) => (
-                            <Card key={obat.kunjungan_obat_id} className="p-4">
-                                <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="font-medium">{obat.nama_obat}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                    Qty: {obat.qty} - Dosis: {obat.dosis} - Frekuensi: {obat.frekuensi} - Harga: Rp {obat.harga_saat_itu.toLocaleString('id-ID')}
-                                    </p>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    // PERBAIKI: Gunakan obat.kunjungan_obat_id
-                                    onClick={() => deleteExistingObat(obat.kunjungan_obat_id)}
-                                >
-                                    <X className="h-4 w-4 text-destructive" />
-                                </Button>
-                                </div>
-                            </Card>
-                            ))}
+                        {existingObats.map((obat) => (
+                        <Card key={obat.kunjungan_obat_id} className="p-4">
+                            <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-medium">{obat.nama_obat}</p>
+                                <p className="text-sm text-muted-foreground">
+                                Qty: {obat.qty} - Dosis: {obat.dosis} - Frekuensi: {obat.frekuensi} - Harga: Rp {obat.harga_saat_itu.toLocaleString('id-ID')}
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                // PERBAIKI: Gunakan obat.kunjungan_obat_id
+                                onClick={() => deleteExistingObat(obat.kunjungan_obat_id)}
+                            >
+                                <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                            </div>
+                        </Card>
+                        ))}
 
                       </div>
                     )}
@@ -1764,7 +1763,8 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <Pill className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <
+                        <p>Tidak ada resep obat</p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

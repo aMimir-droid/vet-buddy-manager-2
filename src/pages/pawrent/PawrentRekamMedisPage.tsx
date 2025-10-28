@@ -8,10 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { kunjunganApi, hewanApi, kunjunganObatApi } from "@/lib/api";
-import { FileText, Search, X, Eye, Calendar, Pill, Syringe, PawPrint, AlertCircle } from "lucide-react";
+import { FileText, Search, X, Eye, Calendar, Pill, PawPrint, AlertCircle } from "lucide-react";
 
 const PawrentRekamMedisPage = () => {
   const { token, user } = useAuth();
@@ -21,7 +21,9 @@ const PawrentRekamMedisPage = () => {
   const [selectedKunjungan, setSelectedKunjungan] = useState<any>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [obatDetails, setObatDetails] = useState<any[]>([]);
-  const [isLoadingObat, setIsLoadingObat] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [kunjunganDenganObat, setKunjunganDenganObat] = useState(0);
+  const [totalJenisObat, setTotalJenisObat] = useState(0);
 
   // Get all kunjungans
   const { data: kunjungans, isLoading: isLoadingKunjungan } = useQuery({
@@ -42,9 +44,25 @@ const PawrentRekamMedisPage = () => {
   // Filter kunjungans by pawrent's hewans
   const myKunjungans = kunjungans?.filter((k: any) => myHewanIds.includes(k.hewan_id)) || [];
 
+  // Add totalKunjungan definition
+  const totalKunjungan = myKunjungans.length;
+
+  const getMonthFromDate = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Add uniqueMonths for filter
+  const uniqueMonths = Array.from(new Set(
+    myKunjungans
+      .map((k: any) => getMonthFromDate(k.tanggal_kunjungan))
+      .filter(Boolean)
+  )).sort().reverse();
+
   const handleViewDetail = async (kunjungan: any) => {
     setSelectedKunjungan(kunjungan);
-    setIsLoadingObat(true);
+    setIsLoadingDetails(true);
     setIsDetailDialogOpen(true);
 
     try {
@@ -54,7 +72,7 @@ const PawrentRekamMedisPage = () => {
       console.error('Error fetching obat details:', error);
       setObatDetails([]);
     } finally {
-      setIsLoadingObat(false);
+      setIsLoadingDetails(false);
     }
   };
 
@@ -83,12 +101,6 @@ const PawrentRekamMedisPage = () => {
     }).format(numAmount);
   };
 
-  const getMonthFromDate = (dateString: string) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-  };
-
   // Filter logic
   const filteredKunjungans = myKunjungans.filter((k: any) => {
     const matchSearch = 
@@ -109,19 +121,38 @@ const PawrentRekamMedisPage = () => {
     return dateB.getTime() - dateA.getTime();
   });
 
-  // Calculate statistics
-  const totalKunjungan = myKunjungans.length;
-  const kunjunganDenganObat = myKunjungans.length; // Akan diupdate setelah load obat
-  const totalJenisObat = new Set(
-    myKunjungans.map((k: any) => k.kunjungan_id)
-  ).size;
-
-  // Get unique months for filter
-  const uniqueMonths = Array.from(new Set(
-    myKunjungans
-      .map((k: any) => getMonthFromDate(k.tanggal_kunjungan))
-      .filter(Boolean)
-  )).sort().reverse();
+  // Add useEffect to calculate statistics based on obat data
+  useEffect(() => {
+    if (myKunjungans.length > 0 && token) {
+      const fetchObatStatistics = async () => {
+        try {
+          // Fetch obat for all kunjungans
+          const promises = myKunjungans.map(k => 
+            kunjunganObatApi.getByKunjungan(k.kunjungan_id, token!)
+          );
+          const results = await Promise.all(promises);
+          
+          // Count kunjungans with obat
+          const kunjungansWithObat = results.filter(obats => obats && obats.length > 0).length;
+          setKunjunganDenganObat(kunjungansWithObat);
+          
+          // Count unique obat types
+          const allObats = results.flat();
+          const uniqueObatIds = new Set(allObats.map(o => o.obat_id));
+          setTotalJenisObat(uniqueObatIds.size);
+        } catch (error) {
+          console.error('Error fetching obat statistics:', error);
+          setKunjunganDenganObat(0);
+          setTotalJenisObat(0);
+        }
+      };
+      
+      fetchObatStatistics();
+    } else {
+      setKunjunganDenganObat(0);
+      setTotalJenisObat(0);
+    }
+  }, [myKunjungans, token]);
 
   if (isLoadingKunjungan) {
     return (
@@ -147,7 +178,7 @@ const PawrentRekamMedisPage = () => {
               Rekam Medis & Resep Obat
             </CardTitle>
             <CardDescription>
-              Detail obat dan resep dari setiap kunjungan medis hewan kesayangan Anda
+              Detail resep obat dari setiap kunjungan medis hewan kesayangan Anda
             </CardDescription>
           </CardHeader>
         </Card>
@@ -169,28 +200,26 @@ const PawrentRekamMedisPage = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Kunjungan</CardTitle>
-              <Calendar className="h-4 w-4 text-secondary" />
+              <CardTitle className="text-sm font-medium">Kunjungan dengan Obat</CardTitle>
+              <Pill className="h-4 w-4 text-secondary" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-secondary">{kunjunganDenganObat}</div>
               <p className="text-xs text-muted-foreground">
-                Total kunjungan
+                Kunjungan dengan resep obat
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Jenis Hewan</CardTitle>
-              <PawPrint className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Jenis Obat</CardTitle>
+              <Pill className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-accent">
-                {new Set(myHewans.map((h: any) => h.jenis_hewan_id)).size}
-              </div>
+              <div className="text-2xl font-bold text-accent">{totalJenisObat}</div>
               <p className="text-xs text-muted-foreground">
-                Jenis berbeda
+                Jenis obat berbeda
               </p>
             </CardContent>
           </Card>
@@ -205,7 +234,7 @@ const PawrentRekamMedisPage = () => {
                   <FileText className="h-5 w-5" />
                   Daftar Rekam Medis ({sortedKunjungans.length})
                 </CardTitle>
-                <CardDescription>Klik untuk melihat detail obat dan resep</CardDescription>
+                <CardDescription>Klik untuk melihat detail resep obat</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -374,10 +403,10 @@ const PawrentRekamMedisPage = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Pill className="h-5 w-5" />
-                Resep Obat - Kunjungan #{selectedKunjungan?.kunjungan_id}
+                Resep Obat Kunjungan #{selectedKunjungan?.kunjungan_id}
               </DialogTitle>
               <DialogDescription>
-                Detail obat dan dosis yang diberikan untuk {selectedKunjungan?.nama_hewan}
+                Detail resep obat untuk {selectedKunjungan?.nama_hewan}
               </DialogDescription>
             </DialogHeader>
             
@@ -432,20 +461,20 @@ const PawrentRekamMedisPage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <Label className="text-lg font-semibold flex items-center gap-2">
-                      <Syringe className="h-5 w-5 text-primary" />
-                      Resep Obat
+                      <Pill className="h-5 w-5 text-primary" />
+                      Resep Obat ({obatDetails.length})
                     </Label>
-                    {!isLoadingObat && obatDetails.length > 0 && (
+                    {obatDetails.length > 0 && (
                       <Badge variant="secondary">
-                        {obatDetails.length} jenis obat
+                        Total: {formatCurrency(obatDetails.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0))}
                       </Badge>
                     )}
                   </div>
 
-                  {isLoadingObat ? (
-                    <div className="text-center py-8">
+                  {isLoadingDetails ? (
+                    <div className="text-center py-4">
                       <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                      <p className="mt-2 text-sm text-muted-foreground">Memuat data obat...</p>
+                      <p className="mt-2 text-sm text-muted-foreground">Memuat resep obat...</p>
                     </div>
                   ) : obatDetails.length > 0 ? (
                     <div className="space-y-4">
@@ -471,9 +500,10 @@ const PawrentRekamMedisPage = () => {
                                 <p className="font-medium mt-1">{obat.frekuensi || "-"}</p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">Harga Satuan</Label>
+                                <Label className="text-xs text-muted-foreground">Qty & Harga</Label>
+                                <p className="font-medium mt-1">Qty: {obat.qty}</p>
                                 <p className="font-semibold text-green-600 mt-1">
-                                  {formatCurrency(obat.harga_obat || 0)}
+                                  {formatCurrency(obat.harga_saat_itu || 0)} x {obat.qty} = {formatCurrency((obat.harga_saat_itu || 0) * (obat.qty || 0))}
                                 </p>
                               </div>
                             </div>
@@ -487,13 +517,13 @@ const PawrentRekamMedisPage = () => {
                         </Card>
                       ))}
 
-                      {/* Total Summary */}
+                      {/* Total Summary Obat */}
                       <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-md border border-green-200 dark:border-green-800">
                         <div className="flex items-center justify-between">
                           <span className="font-medium">Total Biaya Obat</span>
                           <span className="text-xl font-bold text-green-600">
                             {formatCurrency(
-                              obatDetails.reduce((sum, obat) => sum + (parseFloat(obat.harga_obat) || 0), 0)
+                              obatDetails.reduce((sum, obat) => sum + ((obat.harga_saat_itu || 0) * (obat.qty || 0)), 0)
                             )}
                           </span>
                         </div>

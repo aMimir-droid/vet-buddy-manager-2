@@ -291,8 +291,12 @@ const BookingAdminPage = () => {
 
   const allSlots = dokterShift ? generateSlotsByShift() : [];
 
-  // Filter dokter berdasarkan klinik_id yang dipilih
-  const filteredDokters = editForm.klinik_id ? dokters.filter(d => d.klinik_id === Number(editForm.klinik_id)) : [];
+// Filter dokter berdasarkan klinik_id yang dipilih dan hanya yang aktif (gunakan loose equality == untuk handle tipe data berbeda dari API)
+  const filteredDokters = editForm.klinik_id ? dokters.filter(d => {
+    const matchKlinik = d.klinik_id == editForm.klinik_id;  // Loose equality untuk handle string/number
+    const matchActive = d.is_active == 1 || d.is_active == true;  // Loose equality untuk handle number/boolean
+    return matchKlinik && matchActive;
+  }) : [];
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
@@ -338,8 +342,13 @@ const BookingAdminPage = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {filteredDokters.map((d: any) => (
-                        <SelectItem key={d.dokter_id} value={d.dokter_id.toString()}>
-                          {d.title_dokter ? `${d.title_dokter} ` : ""}{d.nama_dokter}
+                        <SelectItem
+                          key={d.dokter_id}
+                          value={d.dokter_id.toString()}
+                          disabled={d.is_active === 0 || d.is_active === false}
+                          className={d.is_active === 0 || d.is_active === false ? "opacity-50 cursor-not-allowed" : ""}
+                        >
+                          {d.title_dokter ? `${d.title_dokter} ` : ""}{d.nama_dokter}{(d.is_active === 0 || d.is_active === false) ? ' (tidak aktif)' : ''}
                         </SelectItem>
                       ))}
                       {/* Jika dokter yang dipilih tidak ada di filteredDokters, tetap tampilkan */}
@@ -498,8 +507,13 @@ const BookingAdminPage = () => {
                                     </SelectTrigger>
                                     <SelectContent>
                                       {filteredDokters.map((d: any) => (
-                                        <SelectItem key={d.dokter_id} value={d.dokter_id.toString()}>
-                                          {d.title_dokter ? `${d.title_dokter} ` : ""}{d.nama_dokter}
+                                        <SelectItem
+                                          key={d.dokter_id}
+                                          value={d.dokter_id.toString()}
+                                          disabled={d.is_active === 0 || d.is_active === false}
+                                          className={d.is_active === 0 || d.is_active === false ? "opacity-50 cursor-not-allowed" : ""}
+                                        >
+                                          {d.title_dokter ? `${d.title_dokter} ` : ""}{d.nama_dokter}{(d.is_active === 0 || d.is_active === false) ? ' (tidak aktif)' : ''}
                                         </SelectItem>
                                       ))}
                                       {/* Jika dokter yang dipilih tidak ada di filteredDokters, tetap tampilkan */}
@@ -541,9 +555,9 @@ const BookingAdminPage = () => {
                                       {!hewans.some(h => h.hewan_id.toString() === editForm.hewan_id) && editForm.hewan_id && (
                                         (() => {
                                           const hewan = bookings.find(b => b.hewan_id?.toString() === editForm.hewan_id);
-                                          return hewan ? (
-                                            <SelectItem key={hewan.hewan_id} value={hewan.hewan_id.toString()}>
-                                              {hewan.nama_hewan} - {hewan.jenis_hewan} (data lama)
+                                          return hean ? (
+                                            <SelectItem key={hean.hewan_id} value={hean.hewan_id.toString()}>
+                                              {hean.nama_hewan} - {hean.jenis_hewan} (data lama)
                                             </SelectItem>
                                           ) : null;
                                         })()

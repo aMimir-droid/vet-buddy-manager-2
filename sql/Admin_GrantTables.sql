@@ -37,6 +37,13 @@ GRANT SELECT ON vet_buddy.Pawrent TO 'vet_user'@'localhost';
 -- Dokter - Read Only
 GRANT SELECT ON vet_buddy.Dokter TO 'vet_user'@'localhost';
 
+
+
+-- Dokter - Read Only, tapi tambahkan UPDATE untuk toggle is_active
+
+GRANT SELECT, UPDATE ON vet_buddy.Dokter TO 'vet_user'@'localhost';
+
+
 -- Klinik - Read Only
 GRANT SELECT ON vet_buddy.Klinik TO 'vet_user'@'localhost';
 

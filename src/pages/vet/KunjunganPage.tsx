@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { kunjunganApi, hewanApi, dokterApi, layananApi, kunjunganObatApi, obatApi, bookingApi } from "@/lib/api";
+import { kunjunganApi, hewanApi, dokterApi, layananApi, kunjunganObatApi, obatApi, bookingApi, klinikApi } from "@/lib/api";
 import { toast } from "sonner";
 import { 
   Calendar, 
@@ -63,12 +63,13 @@ const KunjunganPage = () => {
   const [formData, setFormData] = useState({
     hewan_id: "",
     dokter_id: "",
-    tanggal_kunjungan: "", // Kosong, fetch dari database
-    waktu_kunjungan: "",   // Kosong, fetch dari database
+    tanggal_kunjungan: "",
+    waktu_kunjungan: "",
     catatan: "",
     metode_pembayaran: "Cash",
     kunjungan_sebelumnya: "",
     booking_id: "",
+    klinik_id: "", // Add this
     selectedLayanans: [] as { kode_layanan: string }[],
     obatForms: [] as { obat_id: string; qty: string; dosis: string; frekuensi: string }[],
   });
@@ -95,6 +96,12 @@ const KunjunganPage = () => {
   const { data: dokters, isLoading: isLoadingDokter } = useQuery({
     queryKey: ["dokters"],
     queryFn: () => dokterApi.getAll(token!),
+  });
+
+  // Add query for kliniks to display clinic name
+  const { data: kliniksData } = useQuery({
+    queryKey: ["kliniks"],
+    queryFn: () => klinikApi.getAll(token!),
   });
 
   // Tambahkan queries untuk layanan dan obat seperti di admin
@@ -190,7 +197,11 @@ const KunjunganPage = () => {
       setCurrentDokterId(dokterId);
       setCurrentDokterName(dokterName);
       setCurrentKlinikId(klinikId);
-      setFormData(prev => ({ ...prev, dokter_id: dokterId.toString() }));
+      setFormData(prev => ({ 
+        ...prev, 
+        dokter_id: dokterId.toString(),
+        klinik_id: klinikId?.toString() || "", // Add this
+      }));
     }
 
     setIsIdentifyingDokter(false);
@@ -277,6 +288,7 @@ const KunjunganPage = () => {
         metode_pembayaran: kunjungan.metode_pembayaran || "Cash",
         kunjungan_sebelumnya: kunjungan.kunjungan_sebelumnya?.toString() || "",
         booking_id: kunjungan.booking_id?.toString() || "",
+        klinik_id: kunjungan.klinik_id?.toString() || currentKlinikId?.toString() || "", // Add this
         selectedLayanans: [],
         obatForms: [],
       });
@@ -294,6 +306,7 @@ const KunjunganPage = () => {
         metode_pembayaran: "Cash",
         kunjungan_sebelumnya: "",
         booking_id: "",
+        klinik_id: currentKlinikId?.toString() || "", // Add this
         selectedLayanans: [],
         obatForms: [],
       });
@@ -321,6 +334,7 @@ const KunjunganPage = () => {
         ...prev,
         tanggal_kunjungan: "", // Kosong, user isi
         waktu_kunjungan: "",   // Kosong, user isi
+        klinik_id: currentKlinikId?.toString() || "", // Add this
         // Reset lainnya
       }));
     } else {
@@ -328,86 +342,80 @@ const KunjunganPage = () => {
         ...prev,
         tanggal_kunjungan: "",
         waktu_kunjungan: "",
+        klinik_id: "", // Reset for booking mode
         // Reset lainnya
       }));
     }
   };
 
  const handleBookingChange = async (bookingId: string) => {
-  if (!bookingId || bookingId === "none") {
-    // Reset form
-    setFormData(prev => ({
-      ...prev,
-      booking_id: "",
-      hewan_id: "",
-      tanggal_kunjungan: "",
-      waktu_kunjungan: "",
-      catatan: "",
-    }));
-    setSelectedHewan("");
-    setHewanHistory([]);
-    setSelectedPreviousVisit(null);
-    return;
-  }
+    if (!bookingId || bookingId === "none") {
+      // Reset form
+      setFormData(prev => ({
+        ...prev,
+        booking_id: "",
+        hewan_id: "",
+        tanggal_kunjungan: "",
+        waktu_kunjungan: "",
+        catatan: "",
+        klinik_id: "", // Add this
+      }));
+      setSelectedHewan("");
+      setHewanHistory([]);
+      setSelectedPreviousVisit(null);
+      return;
+    }
 
-  try {
-    const bookingData = await bookingApi.getById(bookingId, token!);
-    console.log("Fetched booking data:", bookingData);
+    try {
+      const bookingData = await bookingApi.getById(bookingId, token!);
+      console.log("Fetched booking data:", bookingData);
 
-    // ✅ FORMAT TANGGAL: Handle berbagai kemungkinan format
-    let formattedTanggal = "";
-    if (bookingData.tanggal_booking) {
-      const date = new Date(bookingData.tanggal_booking);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        formattedTanggal = `${year}-${month}-${day}`;
-      } else {
-        // Fallback: coba extract dari string
-        const dateMatch = bookingData.tanggal_booking.match(/(\d{4}-\d{2}-\d{2})/);
-        formattedTanggal = dateMatch ? dateMatch[1] : "";
+      // ✅ FORMAT TANGGAL: Gunakan langsung tanpa konversi timezone
+      let formattedTanggal = bookingData.tanggal_booking;
+      // Jika ada "T", ambil bagian sebelumnya, tapi seharusnya sudah string date
+      if (formattedTanggal.includes("T")) {
+        formattedTanggal = formattedTanggal.split("T")[0];
       }
+
+      // ✅ FORMAT WAKTU: Pastikan format HH:MM
+      let formattedWaktu = "";
+      if (bookingData.waktu_booking) {
+        // Remove seconds and timezone if present
+        formattedWaktu = bookingData.waktu_booking.split(':').slice(0, 2).join(':');
+      }
+
+      console.log("Final formatted - Date:", formattedTanggal, "Time:", formattedWaktu);
+
+      // ✅ SET STATE DENGAN NILAI YANG SUDAH DIPASTIKAN
+      setFormData(prev => ({
+        ...prev,
+        booking_id: bookingId,
+        hewan_id: bookingData.hewan_id?.toString() || "",
+        tanggal_kunjungan: formattedTanggal,
+        waktu_kunjungan: formattedWaktu,
+        catatan: bookingData.catatan || "",
+        klinik_id: bookingData.klinik_id?.toString() || "", // Add this
+      }));
+
+      setSelectedHewan(bookingData.hewan_id?.toString() || "");
+
+      // ✅ TUNGGU handleHewanChange SELESAI
+      if (bookingData.hewan_id) {
+        await handleHewanChange(bookingData.hewan_id.toString());
+      }
+
+      toast.success("Data booking berhasil diisi");
+    } catch (error) {
+      console.error("Error fetching booking:", error);
+      toast.error("Gagal mengambil data booking");
     }
-
-    // ✅ FORMAT WAKTU: Handle berbagai kemungkinan format
-    let formattedWaktu = "";
-    if (bookingData.waktu_booking) {
-      // Remove seconds and timezone if present
-      formattedWaktu = bookingData.waktu_booking.split(':').slice(0, 2).join(':');
-    }
-
-    console.log("Final formatted - Date:", formattedTanggal, "Time:", formattedWaktu);
-
-    // ✅ SET STATE DENGAN NILAI YANG SUDAH DIPASTIKAN
-    setFormData(prev => ({
-      ...prev,
-      booking_id: bookingId,
-      hewan_id: bookingData.hewan_id?.toString() || "",
-      tanggal_kunjungan: formattedTanggal,
-      waktu_kunjungan: formattedWaktu,
-      catatan: bookingData.catatan || "",
-    }));
-
-    setSelectedHewan(bookingData.hewan_id?.toString() || "");
-
-    // ✅ TUNGGU handleHewanChange SELESAI
-    if (bookingData.hewan_id) {
-      await handleHewanChange(bookingData.hewan_id.toString());
-    }
-
-    toast.success("Data booking berhasil diisi");
-  } catch (error) {
-    console.error("Error fetching booking:", error);
-    toast.error("Gagal mengambil data booking");
-  }
-};
+  };
 
 useEffect(() => {
   console.log("🔄 [FORM_DATA_UPDATED]", formData);
 }, [formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+ const handleSubmit = (e: React.FormEvent) => {
   e.preventDefault();
   console.log("🚀 [SUBMIT] Starting submit process");
 
@@ -417,6 +425,13 @@ useEffect(() => {
   
   console.log("📋 [SUBMIT] Current tanggal:", currentTanggal);
   console.log("📋 [SUBMIT] Current waktu:", currentWaktu);
+
+  // NEW: Validate that klinik_id is available
+  if (!formData.klinik_id) {
+    console.error("❌ [SUBMIT] Validation failed: Klinik ID is missing");
+    toast.error("Data klinik tidak ditemukan untuk dokter ini. Pastikan profil dokter lengkap.");
+    return;
+  }
 
   // Validasi 4: Tanggal dan waktu wajib diisi
   console.log("📋 [SUBMIT] Checking tanggal dan waktu validation");
@@ -430,7 +445,7 @@ useEffect(() => {
     // Membuat submitData
       console.log("📝 [SUBMIT] Building submitData");
   const submitData = {
-    klinik_id: currentKlinikId,
+    klinik_id: parseInt(formData.klinik_id), // Change from currentKlinikId
     hewan_id: parseInt(formData.hewan_id),
     dokter_id: currentDokterId,
     tanggal_kunjungan: currentTanggal, // Gunakan currentTanggal
@@ -658,7 +673,6 @@ const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) =>
 
   // Tambahkan query untuk detail kunjungan jika belum ada (opsional, untuk memastikan fetch lengkap)
   const { data: kunjunganDetail, isLoading: detailLoading } = useQuery({
-    queryKey: ["kunjungan-detail", viewingKunjungan?.kunjungan_id],
     queryFn: () => kunjunganApi.getById(viewingKunjungan.kunjungan_id, token!),
     enabled: !!viewingKunjungan,
   });
@@ -1059,6 +1073,18 @@ useEffect(() => {
                   </Select>
                 </div>
               )}
+
+              {/* Add this after the mode selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Klinik</Label>
+                  <Input
+                    value={kliniksData?.find((k: any) => k.klinik_id.toString() === formData.klinik_id)?.nama_klinik || "Tidak ditemukan"}
+                    disabled
+                    placeholder="Klinik akan diisi otomatis berdasarkan dokter"
+                  />
+                </div>
+              </div>
 
               {mode === "booking" && !editingKunjungan && (
                 <div>

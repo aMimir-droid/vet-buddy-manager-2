@@ -277,9 +277,13 @@ const BookingPawrentPage = () => {
 
   const allSlots = dokterShift ? generateSlotsByShift() : [];
 
-  // Filter dokter berdasarkan klinik_id yang dipilih
-  const filteredDokters = form.klinik_id ? dokters.filter(d => d.klinik_id === Number(form.klinik_id)) : [];
-
+  // Filter dokter berdasarkan klinik_id yang dipilih dan hanya yang aktif (is_active = 1 atau true)
+  const filteredDokters = form.klinik_id ? dokters.filter(d => {
+    const matchKlinik = d.klinik_id == form.klinik_id;  // Loose equality untuk handle string/number
+    const matchActive = d.is_active == 1 || d.is_active == true;  // Loose equality untuk handle number/boolean
+    return matchKlinik && matchActive;
+  }) : [];
+  
   return (
     <DashboardLayout title="Booking - Pawrent" showBackButton backTo="/pawrent/dashboard">
       <div className="space-y-6">

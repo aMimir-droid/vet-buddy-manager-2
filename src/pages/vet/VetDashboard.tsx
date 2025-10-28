@@ -1,11 +1,33 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, PawPrint, Database, Syringe, Stethoscope, Building2, UserCog } from "lucide-react";
+import { Calendar, PawPrint, Database, Syringe, Stethoscope, Building2, UserCog, Power } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { dokterApi } from "@/lib/api";
+import { toast } from "sonner";
+import { useState } from "react";
 
 const VetDashboard = () => {
   const navigate = useNavigate();
+  const { user, token } = useAuth();
+  const queryClient = useQueryClient();
+  const [isActive, setIsActive] = useState(user?.is_active ?? true); // Asumsikan user memiliki is_active
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async () => {
+      return dokterApi.toggleActive(user.dokter_id, token);
+    },
+    onSuccess: (data) => {
+      setIsActive(data.is_active);
+      toast.success(`Status dokter ${data.is_active ? 'diaktifkan' : 'dinonaktifkan'}`);
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Gagal mengubah status");
+    },
+  });
 
   const menuItems = [
     {
@@ -85,10 +107,27 @@ const VetDashboard = () => {
       <div className="space-y-6">
         <Card className="bg-gradient-primary text-primary-foreground">
           <CardHeader>
-            <CardTitle className="text-2xl">Selamat Datang, Dokter!</CardTitle>
-            <CardDescription className="text-primary-foreground/80">
-              Kelola kunjungan, resep obat, dan rekam medis pasien hewan
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl">Selamat Datang, Dokter!</CardTitle>
+                <CardDescription className="text-primary-foreground/80">
+                  Kelola kunjungan, resep obat, dan rekam medis pasien hewan
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-sm">Status: {isActive ? 'Aktif' : 'Non-Aktif'}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleActiveMutation.mutate()}
+                  disabled={toggleActiveMutation.isPending}
+                  className={`flex items-center gap-2 ${isActive ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  <Power className="h-4 w-4" />
+                  {isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
         </Card>
 

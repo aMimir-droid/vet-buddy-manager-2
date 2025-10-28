@@ -18,6 +18,7 @@ BEGIN
         d.tanggal_mulai_kerja,
         d.spesialisasi_id,
         d.klinik_id,
+        d.is_active,
         s.nama_spesialisasi,
         k.nama_klinik,
         TIMESTAMPDIFF(YEAR, d.tanggal_mulai_kerja, CURDATE()) as lama_bekerja_tahun,
@@ -27,7 +28,7 @@ BEGIN
     LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
     LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
     LEFT JOIN Pawrent p ON d.dokter_id = p.dokter_id AND p.deleted_at IS NULL
-    WHERE d.deleted_at IS NULL
+    WHERE d.deleted_at IS NULL AND d.is_active = 1  -- Pastikan hanya ambil aktif
     GROUP BY d.dokter_id
     ORDER BY d.nama_dokter;
 END$$
@@ -172,52 +173,35 @@ END$$
 
 -- ========================================================
 -- UPDATE DOKTER
--- ✅ FIXED: hanya bisa update dokter yang aktif
--- ✅ FIXED: nomor telepon dicek unik HANYA di antara dokter aktif (kecuali dirinya sendiri)
 -- ========================================================
 DROP PROCEDURE IF EXISTS UpdateDokter$$
-CREATE PROCEDURE UpdateDokter(
-    IN p_dokter_id INT,
-    IN p_title_dokter VARCHAR(20),
+CREATE PROCEDURE UpdateDokter (
+    IN p_kode_dokter INT,
+    IN p_title_dokter VARCHAR(10),
     IN p_nama_dokter VARCHAR(100),
-    IN p_telepon_dokter VARCHAR(15),
+    IN p_telepon_dokter VARCHAR(20),
     IN p_tanggal_mulai_kerja DATE,
     IN p_spesialisasi_id INT,
-    IN p_klinik_id INT
+    IN p_klinik_id INT,
+    IN p_is_active BOOLEAN
 )
 BEGIN
-    DECLARE duplicate_check INT;
-    DECLARE dokter_exists INT DEFAULT 0;
-    
-    -- Check dokter exists and not soft-deleted
-    SELECT COUNT(*) INTO dokter_exists
-    FROM Dokter
-    WHERE dokter_id = p_dokter_id
-      AND deleted_at IS NULL;
-    
-    IF dokter_exists = 0 THEN
+    -- Validate nama_dokter tidak kosong
+    IF p_nama_dokter IS NULL OR TRIM(p_nama_dokter) = '' THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Dokter tidak ditemukan atau sudah dihapus';
+        SET MESSAGE_TEXT = 'Nama dokter wajib diisi';
     END IF;
     
-    -- ✅ Check for duplicate telepon_dokter HANYA among dokter aktif (excluding current)
-    IF p_telepon_dokter IS NOT NULL THEN
-        SELECT COUNT(*) INTO duplicate_check
-        FROM Dokter
-        WHERE telepon_dokter = p_telepon_dokter
-          AND dokter_id != p_dokter_id
-          AND deleted_at IS NULL;  -- ✅ Mengabaikan yang sudah di-delete
-        
-        IF duplicate_check > 0 THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Nomor telepon dokter sudah terdaftar';
-        END IF;
+    -- Validate spesialisasi_id jika provided
+    IF p_spesialisasi_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM Spesialisasi WHERE spesialisasi_id = p_spesialisasi_id) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Spesialisasi tidak valid';
     END IF;
     
-    -- Validate tanggal_mulai_kerja tidak di masa depan (jika tidak null)
-    IF p_tanggal_mulai_kerja IS NOT NULL AND p_tanggal_mulai_kerja > CURDATE() THEN
+    -- Validate klinik_id jika provided
+    IF p_klinik_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM Klinik WHERE klinik_id = p_klinik_id) THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Tanggal mulai kerja tidak boleh di masa depan';
+        SET MESSAGE_TEXT = 'Klinik tidak valid';
     END IF;
     
     -- Update dokter
@@ -228,26 +212,12 @@ BEGIN
         telepon_dokter = p_telepon_dokter,
         tanggal_mulai_kerja = p_tanggal_mulai_kerja,
         spesialisasi_id = p_spesialisasi_id,
-        klinik_id = p_klinik_id
-    WHERE dokter_id = p_dokter_id
-      AND deleted_at IS NULL;
+        klinik_id = p_klinik_id,
+        is_active = p_is_active
+    WHERE kode_dokter = p_kode_dokter;
     
-    -- Return updated dokter with joined data
-    SELECT 
-        d.dokter_id,
-        d.title_dokter,
-        d.nama_dokter,
-        d.telepon_dokter,
-        d.tanggal_mulai_kerja,
-        d.spesialisasi_id,
-        d.klinik_id,
-        s.nama_spesialisasi,
-        k.nama_klinik
-    FROM Dokter d
-    LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
-    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
-    WHERE d.dokter_id = p_dokter_id
-      AND d.deleted_at IS NULL;
+    -- Return updated dokter
+    SELECT * FROM Dokter WHERE kode_dokter = p_kode_dokter;
 END$$
 
 -- ========================================================

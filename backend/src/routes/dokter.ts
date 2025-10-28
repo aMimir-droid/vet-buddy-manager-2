@@ -157,7 +157,7 @@ router.post('/', authenticate, authorize(1), async (req: AuthRequest, res) => {
 router.put('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   const { id } = req.params;
-  const { title_dokter, nama_dokter, telepon_dokter, tanggal_mulai_kerja, spesialisasi_id, klinik_id } = req.body;
+  const { title_dokter, nama_dokter, telepon_dokter, tanggal_mulai_kerja, spesialisasi_id, klinik_id, is_active } = req.body;
 
   try {
     // Jika vet, hanya boleh update data dirinya sendiri
@@ -166,15 +166,16 @@ router.put('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, res) 
     }
 
     const [result] = await pool.execute(
-      'CALL UpdateDokter(?, ?, ?, ?, ?, ?, ?)',
+      'CALL UpdateDokter(?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
-        title_dokter,
-        nama_dokter,
-        telepon_dokter,
-        tanggal_mulai_kerja,
+        title_dokter || null,
+        nama_dokter || null,
+        telepon_dokter || null,
+        tanggal_mulai_kerja || null,
         spesialisasi_id || null,
-        klinik_id || null
+        klinik_id || null,
+        is_active !== undefined ? is_active : null
       ]
     ) as [RowDataPacket[][], any];
 
@@ -226,6 +227,38 @@ router.get('/public/list', authenticate, authorize(3), async (req: AuthRequest, 
   } catch (error) {
     console.error('❌ [GET ALL DOKTERS FOR PAWRENT] Error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ========================================================
+// TOGGLE ACTIVE STATUS DOKTER (Dokter sendiri & Admin)
+// ========================================================
+router.patch('/:id/toggle-active', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { id } = req.params;
+
+  try {
+    // Jika vet, hanya boleh update data dirinya sendiri
+    if (req.user.role_id === 2 && req.user.dokter_id !== parseInt(id)) {
+      return res.status(403).json({ message: "Akses ditolak" });
+    }
+
+    // Get current is_active status
+    const [currentRows]: any = await pool.execute('SELECT is_active FROM Dokter WHERE dokter_id = ? AND deleted_at IS NULL', [id]);
+    if (currentRows.length === 0) {
+      return res.status(404).json({ message: "Dokter tidak ditemukan" });
+    }
+
+    const currentIsActive = currentRows[0].is_active;
+    const newIsActive = !currentIsActive;
+
+    // Update only is_active
+    await pool.execute('UPDATE Dokter SET is_active = ? WHERE dokter_id = ?', [newIsActive, id]);
+
+    res.json({ message: `Status dokter ${newIsActive ? 'diaktifkan' : 'dinonaktifkan'}`, is_active: newIsActive });
+  } catch (error: any) {
+    console.error('❌ [TOGGLE ACTIVE DOKTER] Error:', error);
+    res.status(500).json({ message: error.message || 'Terjadi kesalahan server' });
   }
 });
 

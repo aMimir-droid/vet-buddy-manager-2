@@ -8,10 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { kunjunganApi, hewanApi } from "@/lib/api";
-import { Calendar, Search, X, Eye, Clock, Stethoscope, FileText, AlertCircle, PawPrint, CreditCard } from "lucide-react";
+import { kunjunganApi, hewanApi, layananApi, kunjunganObatApi } from "@/lib/api";
+import { Calendar, Search, X, Eye, Clock, Stethoscope, FileText, AlertCircle, PawPrint, CreditCard, Activity, Pill } from "lucide-react";
 
 const PawrentRiwayatPage = () => {
   const { token, user } = useAuth();
@@ -20,6 +20,9 @@ const PawrentRiwayatPage = () => {
   const [filterHewan, setFilterHewan] = useState<string>("all");
   const [selectedKunjungan, setSelectedKunjungan] = useState<any>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [layananKunjungan, setLayananKunjungan] = useState<any[]>([]);
+  const [obatKunjungan, setObatKunjungan] = useState<any[]>([]);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // Get all kunjungans
   const { data: kunjungans, isLoading: isLoadingKunjungan } = useQuery({
@@ -40,9 +43,25 @@ const PawrentRiwayatPage = () => {
   // Filter kunjungans by pawrent's hewans
   const myKunjungans = kunjungans?.filter((k: any) => myHewanIds.includes(k.hewan_id)) || [];
 
-  const handleViewDetail = (kunjungan: any) => {
+  const handleViewDetail = async (kunjungan: any) => {
     setSelectedKunjungan(kunjungan);
     setIsDetailDialogOpen(true);
+    setIsLoadingDetail(true);
+    try {
+      // Fetch layanan dan obat untuk kunjungan ini
+      const [layananRes, obatRes] = await Promise.all([
+        layananApi.getByKunjungan(kunjungan.kunjungan_id, token!),
+        kunjunganObatApi.getByKunjungan(kunjungan.kunjungan_id, token!)
+      ]);
+      setLayananKunjungan(layananRes || []);
+      setObatKunjungan(obatRes || []);
+    } catch (error) {
+      console.error('Error fetching layanan/obat:', error);
+      setLayananKunjungan([]);
+      setObatKunjungan([]);
+    } finally {
+      setIsLoadingDetail(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -83,7 +102,7 @@ const PawrentRiwayatPage = () => {
   const getMonthFromDate = (dateString: string) => {
     if (!dateString) return "";
     const date = new Date(dateString);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   };
 
   // Filter logic
@@ -106,7 +125,7 @@ const PawrentRiwayatPage = () => {
     return dateB.getTime() - dateA.getTime();
   });
 
-  // Calculate statistics
+  // Calculate statistics - Perbaiki perhitungan total biaya berdasarkan layanan + obat
   const totalKunjungan = myKunjungans.length;
   const bulanIni = myKunjungans.filter((k: any) => {
     const today = new Date();
@@ -115,9 +134,15 @@ const PawrentRiwayatPage = () => {
            kunjunganDate.getFullYear() === today.getFullYear();
   }).length;
 
+  // Hitung total biaya dari layanan dan obat per kunjungan
   const totalBiaya = myKunjungans.reduce((sum: number, k: any) => {
-    const biaya = typeof k.total_biaya === 'string' ? parseFloat(k.total_biaya) : k.total_biaya;
-    return sum + (isNaN(biaya) ? 0 : biaya);
+    // Jika total_biaya sudah ada di data, gunakan itu
+    if (k.total_biaya) {
+      const biaya = typeof k.total_biaya === 'string' ? parseFloat(k.total_biaya) : k.total_biaya;
+      return sum + (isNaN(biaya) ? 0 : biaya);
+    }
+    // Jika tidak, hitung manual (meskipun seharusnya sudah ada)
+    return sum;
   }, 0);
 
   // Get unique months for filter
@@ -388,14 +413,14 @@ const PawrentRiwayatPage = () => {
 
         {/* Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 Detail Kunjungan #{selectedKunjungan?.kunjungan_id}
               </DialogTitle>
               <DialogDescription>
-                Informasi lengkap tentang kunjungan dan perawatan
+                Informasi lengkap tentang kunjungan, layanan, dan resep obat
               </DialogDescription>
             </DialogHeader>
             
@@ -456,6 +481,100 @@ const PawrentRiwayatPage = () => {
                   </div>
                 </div>
 
+                {/* Layanan */}
+                <div className="pb-4 border-b">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-lg font-semibold flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-primary" />
+                      Layanan ({layananKunjungan.length})
+                    </Label>
+                    {layananKunjungan.length > 0 && (
+                      <Badge variant="secondary">
+                        Total: {formatCurrency(layananKunjungan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0))}
+                      </Badge>
+                    )}
+                  </div>
+                  {isLoadingDetail ? (
+                    <div className="text-center py-4">
+                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                      <p className="mt-2 text-sm text-muted-foreground">Memuat layanan...</p>
+                    </div>
+                  ) : layananKunjungan.length > 0 ? (
+                    <div className="space-y-2">
+                      {layananKunjungan.map((layanan: any) => (
+                        <Card key={layanan.kunjungan_layanan_id} className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{layanan.nama_layanan}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Qty: {layanan.qty || 1} - Harga: {formatCurrency(layanan.harga_saat_itu || 0)}
+                              </p>
+                              {layanan.deskripsi_layanan && (
+                                <p className="text-xs text-muted-foreground mt-1">{layanan.deskripsi_layanan}</p>
+                              )}
+                            </div>
+                            <p className="font-semibold text-green-600">
+                              {formatCurrency((layanan.harga_saat_itu || 0) * (layanan.qty || 1))}
+                            </p>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Tidak ada layanan tercatat</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Obat */}
+                <div className="pb-4 border-b">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-lg font-semibold flex items-center gap-2">
+                      <Pill className="h-5 w-5 text-green-600" />
+                      Resep Obat ({obatKunjungan.length})
+                    </Label>
+                    {obatKunjungan.length > 0 && (
+                      <Badge variant="secondary">
+                        Total: {formatCurrency(obatKunjungan.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0))}
+                      </Badge>
+                    )}
+                  </div>
+                  {isLoadingDetail ? (
+                    <div className="text-center py-4">
+                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                      <p className="mt-2 text-sm text-muted-foreground">Memuat obat...</p>
+                    </div>
+                  ) : obatKunjungan.length > 0 ? (
+                    <div className="space-y-2">
+                      {obatKunjungan.map((obat: any) => (
+                        <Card key={obat.kunjungan_obat_id} className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{obat.nama_obat}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Qty: {obat.qty} - Dosis: {obat.dosis || "-"} - Frekuensi: {obat.frekuensi || "-"} - Harga: {formatCurrency(obat.harga_saat_itu || 0)}
+                              </p>
+                              {obat.kegunaan && (
+                                <p className="text-xs text-muted-foreground mt-1">{obat.kegunaan}</p>
+                              )}
+                            </div>
+                            <p className="font-semibold text-green-600">
+                              {formatCurrency((obat.harga_saat_itu || 0) * (obat.qty || 0))}
+                            </p>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Pill className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Tidak ada resep obat</p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Pembayaran */}
                 <div className="grid grid-cols-2 gap-4 pb-4 border-b">
                   <div>
@@ -486,14 +605,6 @@ const PawrentRiwayatPage = () => {
                     </div>
                   </div>
                 )}
-
-                {/* Info Box */}
-                <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-md border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    <strong>ℹ️ Informasi:</strong> Untuk detail resep obat dan layanan yang diberikan, 
-                    silakan lihat halaman Rekam Medis atau hubungi klinik.
-                  </p>
-                </div>
               </div>
             )}
           </DialogContent>

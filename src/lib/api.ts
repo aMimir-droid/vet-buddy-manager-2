@@ -177,6 +177,9 @@ export const dokterApi = {
     if (!res.ok) throw new Error("Gagal mengambil data klinik");
     return res.json();
   },
+
+  toggleActive: (id: number, token: string) =>
+    apiCall({ endpoint: `/dokter/${id}/toggle-active`, method: 'PATCH', token }),
 };
 
 // ========================================================

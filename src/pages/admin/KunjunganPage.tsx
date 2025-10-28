@@ -1203,8 +1203,7 @@ const KunjunganPage = () => {
                         id="dokter-booking"
                         value={(() => {
                           const dr = allDoktersData?.find(
-                            (d: any) =>
-                              d.dokter_id.toString() === formData.dokter_id
+                            (d: any) => d.dokter_id.toString() === formData.dokter_id
                           );
                           return dr
                             ? `${dr.title_dokter || ""} ${dr.nama_dokter}`
@@ -1389,6 +1388,7 @@ const KunjunganPage = () => {
                     }
                     className="col-span-3"
                     disabled={mode === "booking"}
+                    max={new Date().toISOString().split("T")[0]}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -1824,7 +1824,6 @@ const KunjunganPage = () => {
                 <DialogDescription>
                   Kunjungan pada{" "}
                   {new Date(
-                   
                     viewingPreviousVisit.tanggal_kunjungan
                   ).toLocaleDateString("id-ID")}{" "}
                   (

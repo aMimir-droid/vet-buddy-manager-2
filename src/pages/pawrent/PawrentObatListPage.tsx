@@ -47,6 +47,12 @@ const PawrentObatListPage = () => {
     return icons[Math.floor(Math.random() * icons.length)];
   };
 
+  // Hitung total obat dan statistik harga jika diperlukan
+  const totalObats = filteredObats?.length || 0;
+  const averagePrice = filteredObats?.length > 0 
+    ? filteredObats.reduce((sum: number, o: any) => sum + (o.harga_obat || 0), 0) / filteredObats.length 
+    : 0;
+
   return (
     <DashboardLayout title="Daftar Obat" showBackButton={true} backTo="/pawrent/dashboard">
       <div className="space-y-6">
@@ -55,10 +61,15 @@ const PawrentObatListPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Pill className="h-5 w-5 text-green-600" />
-              Data Obat Klinik
+              Data Obat Klinik ({totalObats} obat)
             </CardTitle>
             <CardDescription>
               Temukan informasi lengkap semua obat yang tersedia di klinik kami
+              {totalObats > 0 && (
+                <span className="block mt-1 text-sm">
+                  Rata-rata harga: {formatCurrency(averagePrice)}
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
         </Card>

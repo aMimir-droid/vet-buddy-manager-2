@@ -665,6 +665,13 @@ const AdminKlinikKunjunganPage = () => {
       return;
     }
 
+    
+    const totalLayanans = existingLayanans.length + formData.selectedLayanans.length;
+    if (totalLayanans === 0) {
+      toast.error("Minimal 1 layanan wajib dipilih");
+      return;
+    }
+
     // Validasi obat jika diisi
     for (const obat of formData.obatForms) {
       if (obat.obat_id && (!obat.qty || parseInt(obat.qty) <= 0)) {

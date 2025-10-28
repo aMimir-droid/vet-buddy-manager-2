@@ -487,7 +487,10 @@ export const shiftDokterApi = {
   getByDokter: (dokterId: number, token: string) =>
     apiCall({ endpoint: `/shift-dokter/by-dokter/${dokterId}`, token }),
   // Tambahkan di shiftDokterApi
-  
+
+  getAllAdmin: (token: string) =>
+    apiCall({ endpoint: '/shift-dokter/admin/all', token }),
+
   getByKlinik: (klinikId: number, token: string) =>
     apiCall({ endpoint: `/shift-dokter/by-klinik/${klinikId}`, token }),
   createByKlinik: (klinikId: number, data: any, token: string) =>

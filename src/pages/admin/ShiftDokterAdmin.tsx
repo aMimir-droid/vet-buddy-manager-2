@@ -52,8 +52,8 @@ const ShiftDokterAdmin = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('📡 Calling shiftDokterApi.getAll');
-      const data = await shiftDokterApi.getAll(token);
+      console.log('📡 Calling shiftDokterApi.getAllAdmin');
+      const data = await shiftDokterApi.getAllAdmin(token);  // Ganti dari getAll ke getAllAdmin
       console.log('✅ API response:', data);
       setShifts(Array.isArray(data) ? data : []);
     } catch (err: any) {

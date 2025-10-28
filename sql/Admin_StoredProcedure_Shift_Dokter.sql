@@ -275,4 +275,25 @@ BEGIN
     ORDER BY s.dokter_id, s.hari_minggu, s.jam_mulai;
 END$$
 
+-- GET ALL SHIFT FOR ADMIN (aktif dan tidak aktif, untuk Admin Global)
+DROP PROCEDURE IF EXISTS GetAllShiftDokterAdmin$$
+CREATE PROCEDURE GetAllShiftDokterAdmin()
+BEGIN
+    SELECT 
+        s.shift_id,
+        s.dokter_id,
+        s.hari_minggu,
+        s.jam_mulai,
+        s.jam_selesai,
+        s.is_active,
+        d.nama_dokter,
+        d.title_dokter,
+        k.klinik_id,
+        k.nama_klinik
+    FROM Shift_Dokter s
+    LEFT JOIN Dokter d ON s.dokter_id = d.dokter_id AND d.deleted_at IS NULL
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id AND k.deleted_at IS NULL
+    ORDER BY s.dokter_id, s.hari_minggu, s.jam_mulai;
+END$$
+
 DELIMITER ;

@@ -39,6 +39,25 @@ router.get('/public/list', authenticate, authorize(3), async (req: AuthRequest, 
   }
 });
 
+
+// ========================================================
+// GET ALL SHIFT FOR ADMIN (aktif dan non-aktif, untuk Admin Global)
+// ========================================================
+router.get('/admin/all', authenticate, authorize(1), async (req: AuthRequest, res) => {
+  console.log('📋 [GET ALL SHIFT - ADMIN] Request received');
+  const pool = req.dbPool;
+  try {
+    const [rows]: any = await pool.execute('CALL GetAllShiftDokterAdmin()');
+    console.log(`✅ [GET ALL SHIFT - ADMIN] Success - ${rows[0]?.length || 0} shifts found`);
+    res.json(rows[0]);
+  } catch (error: any) {
+    console.error('❌ [GET ALL SHIFT - ADMIN] Error:', error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 // ========================================================
 // GET SHIFT BY ID
 // ========================================================
@@ -367,5 +386,7 @@ router.delete('/by-klinik/:klinikId/:shiftId', authenticate, authorize(4), async
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
+
+
 
 export default router;

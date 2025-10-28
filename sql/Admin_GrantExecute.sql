@@ -365,6 +365,7 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetShiftDokterById TO 'admin_user'@'localho
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateShiftDokter TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateShiftDokter TO 'admin_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllShiftDokterAdmin TO 'admin_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetAllShiftDokterAdmin
 
 -- TAMBAHKAN: Grant untuk GetBookingsByPawrent
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByPawrent TO 'pawrent_user'@'localhost';

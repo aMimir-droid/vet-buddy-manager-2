@@ -497,95 +497,65 @@ const KunjunganPage = () => {
   };
 
   const handleBookingChange = async (bookingId: string) => {
-    if (!bookings) {
-      toast.error("Data booking belum dimuat");
+    if (!bookingId || bookingId === "none") {
+      // Reset form
+      setFormData(prev => ({
+        ...prev,
+        booking_id: "",
+        hewan_id: "",
+        tanggal_kunjungan: "",
+        waktu_kunjungan: "",
+        catatan: "",
+        klinik_id: "",
+        dokter_id: "", // Tambahkan reset dokter_id
+      }));
+      setSelectedHewan("");
+      setHewanHistory([]);
+      setSelectedPreviousVisit(null);
       return;
     }
 
-    if (bookingId && bookingId !== "none") {
-      const selectedBooking = bookings?.find((b) => b.booking_id == bookingId);
-      if (selectedBooking) {
-        console.log("Selected booking:", selectedBooking);
+    try {
+      const bookingData = await bookingApi.getById(bookingId, token!);
+      console.log("Fetched booking data:", bookingData);
 
-        const newFormData = {
-          klinik_id: selectedBooking.klinik_id?.toString() || "",
-          hewan_id: selectedBooking.hewan_id?.toString() || "",
-          dokter_id: selectedBooking.dokter_id?.toString() || "",
-          tanggal_kunjungan:
-            selectedBooking.tanggal_booking.split("T")[0] || "",
-          waktu_kunjungan: selectedBooking.waktu_booking || "",
-          catatan: selectedBooking.catatan || "",
-          metode_pembayaran: "Cash",
-          // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
-          kunjungan_sebelumnya: "",
-          booking_id: bookingId,
-          selectedLayanans: [],
-          obatForms: [],
-        };
+      // ✅ FORMAT TANGGAL: Parse sebagai Date object untuk menghindari masalah timezone
+      const dateObj = new Date(bookingData.tanggal_booking);
+      dateObj.setDate(dateObj.getDate() + 1); // Tambah 1 hari agar sesuai dengan tanggal kunjungan
+      const formattedTanggal = dateObj.toISOString().split('T')[0]; // Pastikan format YYYY-MM-DD
 
-        setFormData(newFormData);
-        setSelectedHewan(selectedBooking.hewan_id?.toString() || "");
-
-        // --- MODIFIKASI: Kembalikan fetch history untuk booking ---
-        if (selectedBooking.hewan_id) {
-          try {
-            const response = await fetch(
-              `${
-                import.meta.env.VITE_API_URL || "http://localhost:3000/api"
-              }/kunjungan/hewan/${selectedBooking.hewan_id}/history`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-
-            if (response.ok) {
-              const history = await response.json();
-              setHewanHistory(history);
-
-              if (history.length > 0) {
-                toast.info(
-                  `Ditemukan ${history.length} riwayat kunjungan sebelumnya`
-                );
-                setFormData((prev) => ({
-                  ...prev,
-                  kunjungan_sebelumnya: "none",
-                }));
-              }
-            } else {
-              setHewanHistory([]);
-            }
-          } catch (error) {
-            console.error("Error fetching history:", error);
-            setHewanHistory([]);
-            toast.error("Gagal mengambil riwayat kunjungan");
-          }
-        }
-      } else {
-        console.log("Booking not found for ID:", bookingId);
+      // ✅ FORMAT WAKTU: Pastikan format HH:MM
+      let formattedWaktu = "";
+      if (bookingData.waktu_booking) {
+        // Remove seconds and timezone if present
+        formattedWaktu = bookingData.waktu_booking.split(':').slice(0, 2).join(':');
       }
-    } else {
-      const today = new Date().toISOString().split("T")[0];
-      const now = new Date().toTimeString().slice(0, 5);
-      setFormData({
-        klinik_id: "",
-        hewan_id: "",
-        dokter_id: "",
-        tanggal_kunjungan: today,
-        waktu_kunjungan: now,
-        catatan: "",
-        metode_pembayaran: "Cash",
-        // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
-        kunjungan_sebelumnya: "",
-        booking_id: "none",
-        selectedLayanans: [],
-        obatForms: [],
-      });
-      // --- MODIFIKASI: Kembalikan reset state riwayat ---
-      setHewanHistory([]);
-      setSelectedPreviousVisit(null);
-      setSelectedHewan("");
+
+      console.log("Final formatted - Date:", formattedTanggal, "Time:", formattedWaktu);
+
+      // ✅ SET STATE DENGAN NILAI YANG SUDAH DIPASTIKAN
+      setFormData(prev => ({
+        ...prev,
+        booking_id: bookingId,
+        hewan_id: bookingData.hewan_id?.toString() || "",
+        tanggal_kunjungan: formattedTanggal,
+        waktu_kunjungan: formattedWaktu,
+        catatan: bookingData.catatan || "",
+        klinik_id: bookingData.klinik_id?.toString() || "",
+        dokter_id: bookingData.dokter_id?.toString() || "", // Tambahkan ini untuk mengisi dokter_id dari booking
+      }));
+
+      setSelectedHewan(bookingData.hewan_id?.toString() || "");
+
+      // ✅ TUNGGU handleHewanChange SELESAI
+      if (bookingData.hewan_id) {
+        await handleHewanChange(bookingData.hewan_id.toString());
+      }
+
+      toast.success("Data booking berhasil diisi");
+    } catch (error) {
+      console.error("Error fetching booking:", error);
+      toast.error("Gagal mengambil data booking");
     }
   };
 
@@ -598,17 +568,23 @@ const KunjunganPage = () => {
     return badges[metode] || <Badge>{metode}</Badge>;
   };
 
+  
+
+  // Perbaiki calculateDaysSince untuk menambahkan 1 hari pada perhitungan
   const calculateDaysSince = (date: string) => {
     const visitDate = new Date(date);
     const today = new Date();
-    const diffTime = Math.abs(today.getTime() - visitDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Reset time ke 00:00:00 untuk perhitungan hari saja
+    visitDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - visitDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // Tambah 1 hari sesuai permintaan
 
-    if (diffDays === 0) return "Hari ini";
-    if (diffDays === 1) return "Kemarin";
-    if (diffDays < 7) return `${diffDays} hari yang lalu`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} minggu yang lalu`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} bulan yang lalu`;
+    if (diffDays === 1) return "Hari ini";
+    if (diffDays === 2) return "Kemarin";
+    if (diffDays < 8) return `${diffDays} hari yang lalu`;
+    if (diffDays < 31) return `${Math.floor(diffDays / 7)} minggu yang lalu`;
+    if (diffDays < 366) return `${Math.floor(diffDays / 30)} bulan yang lalu`;
     return `${Math.floor(diffDays / 365)} tahun yang lalu`;
   };
 
@@ -836,6 +812,8 @@ const KunjunganPage = () => {
     }
   };
 
+
+  
   // Tambahkan fungsi calculateTotalBiaya untuk tabel
   const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
     const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
@@ -843,11 +821,16 @@ const KunjunganPage = () => {
     return totalLayanan + totalObat;
   };
 
+  // Fungsi untuk menghitung total biaya riwayat
   const calculatePreviousTotal = () => {
-  const layananTotal = previousLayanan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0);
-  const obatTotal = previousObat.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0);
-  return layananTotal + obatTotal;
-};
+    const layananTotal = previousLayanan.reduce((sum, l) => {
+      // Gunakan harga_saat_itu jika ada dan > 0, jika tidak gunakan biaya_layanan dari master
+      const harga = (l.harga_saat_itu && l.harga_saat_itu > 0) ? l.harga_saat_itu : (layananList?.find(list => list.kode_layanan === l.kode_layanan)?.biaya_layanan || 0);
+      return sum + (harga * (l.qty || 1));
+    }, 0);
+    const obatTotal = previousObat.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0);
+    return layananTotal + obatTotal;
+  };
 
   // Tambahkan state untuk data layanan dan obat kunjungan
   const [layananKunjungan, setLayananKunjungan] = useState<any[]>([]);
@@ -999,14 +982,30 @@ const KunjunganPage = () => {
                   <TableRow key={k.kunjungan_id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">
-                          {new Date(k.tanggal_kunjungan).toLocaleDateString(
-                            "id-ID"
-                          )}
-                        </span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {k.waktu_kunjungan}
-                        </span>
+<span className="font-medium">
+  {(() => {
+    const date = new Date(k.tanggal_kunjungan);
+    
+    // Parse waktu kunjungan (format HH:MM)
+    const [hours, minutes] = k.waktu_kunjungan.split(':').map(Number);
+    
+    // Set waktu ke date object
+    date.setHours(hours, minutes, 0, 0);
+    
+    // Kurangi 10 jam 50 menit (dalam milidetik)
+    const adjustedDate = new Date(date.getTime() - (10 * 60 + 50) * 60 * 1000);
+    
+    // Format tanggal dan waktu
+    const formattedDate = adjustedDate.toLocaleDateString("id-ID");
+    const formattedTime = adjustedDate.toLocaleTimeString("id-ID", {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    return `${formattedDate} - ${formattedTime}`;
+  })()}
+</span>
                         {k.kunjungan_sebelumnya && (
                           <TooltipProvider>
                             <Tooltip>
@@ -1687,9 +1686,27 @@ const KunjunganPage = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="font-semibold">Tanggal & Waktu</Label>
-                        <p>
-                          {new Date(viewingKunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingKunjungan.waktu_kunjungan}
-                        </p>
+                          <p>
+                            {(() => {
+                              const date = new Date(viewingKunjungan.tanggal_kunjungan);
+                              
+                              // Parse waktu kunjungan
+                              const [hours, minutes] = viewingKunjungan.waktu_kunjungan.split(':').map(Number);
+                              date.setHours(hours, minutes, 0, 0);
+                              
+                              // Kurangi 10 jam 50 menit
+                              const adjustedDate = new Date(date.getTime() - (10 * 60 + 50) * 60 * 1000);
+                              
+                              const formattedDate = adjustedDate.toLocaleDateString("id-ID");
+                              const formattedTime = adjustedDate.toLocaleTimeString("id-ID", {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                              });
+                              
+                              return `${formattedDate} - ${formattedTime}`;
+                            })()}
+                          </p>
                       </div>
                       <div>
                         <Label className="font-semibold">Hewan</Label>
@@ -1740,7 +1757,7 @@ const KunjunganPage = () => {
                               </div>
                             </div>
                             <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Rp {(l.harga_saat_itu * l.qty).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                              Rp {l.harga_saat_itu.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                             </Badge>
                           </div>
                         ))}
@@ -1849,7 +1866,27 @@ const KunjunganPage = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="font-semibold">Tanggal & Waktu</Label>
-                        <p>{new Date(viewingPreviousVisit.tanggal_kunjungan).toLocaleDateString("id-ID")} - {viewingPreviousVisit.waktu_kunjungan}</p>
+<p>
+  {(() => {
+    const date = new Date(viewingPreviousVisit.tanggal_kunjungan);
+    
+    // Parse waktu kunjungan
+    const [hours, minutes] = viewingPreviousVisit.waktu_kunjungan.split(':').map(Number);
+    date.setHours(hours, minutes, 0, 0);
+    
+    // Kurangi 10 jam 50 menit
+    const adjustedDate = new Date(date.getTime() - (10 * 60 + 50) * 60 * 1000);
+    
+    const formattedDate = adjustedDate.toLocaleDateString("id-ID");
+    const formattedTime = adjustedDate.toLocaleTimeString("id-ID", {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    return `${formattedDate} - ${formattedTime}`;
+  })()}
+</p>
                       </div>
                       <div>
                         <Label className="font-semibold">Hewan</Label>
@@ -1882,24 +1919,32 @@ const KunjunganPage = () => {
                   <CardContent>
                     {previousLayanan.length > 0 ? (
                       <div className="space-y-3">
-                        {previousLayanan.map((l: any) => (
-                          <div key={l.layanan_id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <div className="flex items-center gap-3">
-                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                              <div>
-                                <p className="font-medium text-blue-900 dark:text-blue-100">{l.nama_layanan}</p>
-                                <p className="text-sm text-muted-foreground">Qty: {l.qty}</p>
+                        {previousLayanan.map((l: any) => {
+                          // Fallback harga jika harga_saat_itu tidak ada atau 0
+                          const harga = (l.harga_saat_itu && l.harga_saat_itu > 0) ? l.harga_saat_itu : (layananList?.find(list => list.kode_layanan === l.kode_layanan)?.biaya_layanan || 0);
+                          const totalHarga = harga * (l.qty || 1);
+                          return (
+                            <div key={l.layanan_id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                                <div>
+                                  <p className="font-medium text-blue-900 dark:text-blue-100">{l.nama_layanan}</p>
+                                  <p className="text-sm text-muted-foreground">Qty: {l.qty}</p>
+                                </div>
                               </div>
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                Rp {totalHarga.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                              </Badge>
                             </div>
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Rp {(l.harga_saat_itu * l.qty).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                            </Badge>
-                          </div>
-                        ))}
+                          );
+                        })}
                         <div className="pt-2 border-t border-blue-200 dark:border-blue-800">
                           <div className="flex justify-between items-center font-semibold text-blue-900 dark:text-blue-100">
                             <span>Total Layanan:</span>
-                            <span>Rp {previousLayanan.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                            <span>Rp {previousLayanan.reduce((sum, l) => {
+                              const harga = (l.harga_saat_itu && l.harga_saat_itu > 0) ? l.harga_saat_itu : (layananList?.find(list => list.kode_layanan === l.kode_layanan)?.biaya_layanan || 0);
+                              return sum + (harga * (l.qty || 1));
+                            }, 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
                           </div>
                         </div>
                       </div>

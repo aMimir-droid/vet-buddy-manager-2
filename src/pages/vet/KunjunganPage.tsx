@@ -370,12 +370,10 @@ const KunjunganPage = () => {
       const bookingData = await bookingApi.getById(bookingId, token!);
       console.log("Fetched booking data:", bookingData);
 
-      // ✅ FORMAT TANGGAL: Gunakan langsung tanpa konversi timezone
-      let formattedTanggal = bookingData.tanggal_booking;
-      // Jika ada "T", ambil bagian sebelumnya, tapi seharusnya sudah string date
-      if (formattedTanggal.includes("T")) {
-        formattedTanggal = formattedTanggal.split("T")[0];
-      }
+      // ✅ FORMAT TANGGAL: Parse sebagai Date object untuk menghindari masalah timezone
+      const dateObj = new Date(bookingData.tanggal_booking);
+      dateObj.setDate(dateObj.getDate() + 1); // Tambah 1 hari agar sesuai dengan tanggal kunjungan
+      const formattedTanggal = dateObj.toISOString().split('T')[0]; // Pastikan format YYYY-MM-DD
 
       // ✅ FORMAT WAKTU: Pastikan format HH:MM
       let formattedWaktu = "";

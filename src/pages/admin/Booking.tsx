@@ -555,9 +555,9 @@ const BookingAdminPage = () => {
                                       {!hewans.some(h => h.hewan_id.toString() === editForm.hewan_id) && editForm.hewan_id && (
                                         (() => {
                                           const hewan = bookings.find(b => b.hewan_id?.toString() === editForm.hewan_id);
-                                          return hean ? (
-                                            <SelectItem key={hean.hewan_id} value={hean.hewan_id.toString()}>
-                                              {hean.nama_hewan} - {hean.jenis_hewan} (data lama)
+                                          return hewan ? (
+                                            <SelectItem key={hewan.hewan_id} value={hewan.hewan_id.toString()}>
+                                              {hewan.nama_hewan} - {hewan.jenis_hewan} (data lama)
                                             </SelectItem>
                                           ) : null;
                                         })()

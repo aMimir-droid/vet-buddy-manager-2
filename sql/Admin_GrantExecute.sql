@@ -147,10 +147,36 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.GetHewanById TO 'admin_klinik_user'@'localh
 GRANT EXECUTE ON PROCEDURE vet_buddy.CreateHewan TO 'admin_klinik_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateHewan TO 'admin_klinik_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteHewan TO 'admin_klinik_user'@'localhost';
-
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetHewansByKlinik TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetHewansByKlinik
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateHewanByAdminKlinik TO 'admin_klinik_user'@'localhost';
 -- Obat Procedures (dengan filter klinik)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'admin_klinik_user'@'localhost';
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetObatById TO 'admin_klinik_user'@'localhost';
+
+-- Stok Obat Procedures (dengan filter klinik)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateStokObat TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.AddMutasiObat TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllMutasiObat TO 'admin_klinik_user'@'localhost';
+
+-- Procedures Baru untuk Admin Klinik (khusus klinik mereka)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetObatWithStokByKlinik TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetMutasiByKlinik TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObatWithStokByKlinik TO 'admin_klinik_user'@'localhost';
+
+-- Dokter Procedures (read-only, filter klinik)ap
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllDokters TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetDokterById TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetDoktersByKlinik TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetDoktersByKlinik
+
+
+-- Dokter Procedures (read-only, filter klinik)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllDokters TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetDokterById TO 'admin_klinik_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetDoktersByKlinik TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk GetDoktersByKlinik
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateDokter TO 'admin_klinik_user'@'localhost';  -- TAMBAHKAN: Grant untuk UpdateDokter
+
 
 -- Kunjungan Obat Procedures (dengan filter klinik)
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetObatByKunjungan TO 'admin_klinik_user'@'localhost';

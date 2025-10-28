@@ -603,4 +603,123 @@ BEGIN
         v_message as message;
 END$$
 
+-- ========================================================
+-- GET HEWANS BY KLINIK (untuk Admin Klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetHewansByKlinik$$
+CREATE PROCEDURE GetHewansByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT DISTINCT
+        h.hewan_id,
+        h.nama_hewan,
+        h.tanggal_lahir,
+        h.jenis_kelamin,
+        h.status_hidup,
+        h.jenis_hewan_id,
+        h.pawrent_id,
+        jh.nama_jenis_hewan,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
+        p.nomor_hp as telepon_pawrent,
+        h.deleted_at,
+        (h.deleted_at IS NOT NULL) AS is_deleted,
+        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
+        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
+    FROM Hewan h
+    INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
+    INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
+    -- Tambahkan join dengan Kunjungan untuk filter hewan yang pernah kunjungan
+    INNER JOIN Kunjungan k ON h.hewan_id = k.hewan_id
+    INNER JOIN Dokter d ON k.dokter_id = d.dokter_id  -- Dokter dari kunjungan
+    WHERE d.klinik_id = p_klinik_id  -- Filter berdasarkan klinik dari dokter di kunjungan
+      AND h.deleted_at IS NULL
+      AND p.deleted_at IS NULL
+      AND k.deleted_at IS NULL
+      AND d.deleted_at IS NULL
+    ORDER BY h.nama_hewan;
+END$$
+
+-- ========================================================
+-- UPDATE HEWAN BY ADMIN KLINIK (tidak mengubah pawrent_id)
+-- ========================================================
+DROP PROCEDURE IF EXISTS UpdateHewanByAdminKlinik$$
+CREATE PROCEDURE UpdateHewanByAdminKlinik(
+    IN p_hewan_id INT,
+    IN p_nama_hewan VARCHAR(50),
+    IN p_tanggal_lahir DATE,
+    IN p_jenis_kelamin ENUM('Jantan','Betina'),
+    IN p_jenis_hewan_id INT,
+    IN p_status_hidup ENUM('Hidup', 'Mati')
+)
+BEGIN
+    DECLARE duplicate_check INT;
+    DECLARE hewan_exists INT;
+    
+    -- Check if hewan exists and not soft-deleted
+    SELECT COUNT(*) INTO hewan_exists
+    FROM Hewan
+    WHERE hewan_id = p_hewan_id
+      AND deleted_at IS NULL;
+    
+    IF hewan_exists = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Hewan tidak ditemukan atau sudah dihapus';
+    END IF;
+    
+    -- Validate jenis hewan exists (hanya jika p_jenis_hewan_id diberikan)
+    IF p_jenis_hewan_id IS NOT NULL THEN
+        SELECT COUNT(*) INTO duplicate_check
+        FROM Jenis_Hewan
+        WHERE jenis_hewan_id = p_jenis_hewan_id;
+        
+        IF duplicate_check = 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Jenis hewan tidak ditemukan';
+        END IF;
+    END IF;
+    
+    -- Validate nama_hewan tidak kosong
+    IF p_nama_hewan IS NULL OR TRIM(p_nama_hewan) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Nama hewan wajib diisi';
+    END IF;
+    
+    -- Validate tanggal lahir tidak di masa depan
+    IF p_tanggal_lahir IS NOT NULL AND p_tanggal_lahir > CURDATE() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Tanggal lahir tidak boleh di masa depan';
+    END IF;
+    
+    -- Update hewan (pawrent_id TIDAK diubah)
+    UPDATE Hewan
+    SET 
+        nama_hewan = p_nama_hewan,
+        tanggal_lahir = p_tanggal_lahir,
+        jenis_kelamin = p_jenis_kelamin,
+        jenis_hewan_id = p_jenis_hewan_id,
+        status_hidup = p_status_hidup
+    WHERE hewan_id = p_hewan_id
+      AND deleted_at IS NULL;
+    
+    -- Return updated hewan with joined data
+    SELECT 
+        h.hewan_id,
+        h.nama_hewan,
+        h.tanggal_lahir,
+        h.jenis_kelamin,
+        h.status_hidup,
+        h.jenis_hewan_id,
+        jh.nama_jenis_hewan,
+        h.pawrent_id,
+        CONCAT(p.nama_depan_pawrent, ' ', p.nama_belakang_pawrent) as nama_pawrent,
+        h.deleted_at,
+        (h.deleted_at IS NOT NULL) AS is_deleted,
+        TIMESTAMPDIFF(YEAR, h.tanggal_lahir, CURDATE()) as umur_tahun,
+        TIMESTAMPDIFF(MONTH, h.tanggal_lahir, CURDATE()) % 12 as umur_bulan
+    FROM Hewan h
+    INNER JOIN Jenis_Hewan jh ON h.jenis_hewan_id = jh.jenis_hewan_id
+    INNER JOIN Pawrent p ON h.pawrent_id = p.pawrent_id
+    WHERE h.hewan_id = p_hewan_id
+      AND h.deleted_at IS NULL;
+END$$
+
 DELIMITER ;

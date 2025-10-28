@@ -52,12 +52,9 @@ import AdminKlinikDashboard from "@/pages/admin-klinik/AdminKlinikDashboard";
 import AdminKlinikKlinikPage from "@/pages/admin-klinik/AdminKlinikKlinikPage";
 import AdminKlinikKunjunganPage from "@/pages/admin-klinik/AdminKlinikKunjunganPage";
 import AdminKlinikBookingPage from "@/pages/admin-klinik/AdminKlinikBookingPage";
-import AdminKlinikObatPage from "@/pages/admin-klinik/AdminKlinikKunjunganObatPage";
-import AdminKlinikHewanPage from "@/pages/admin-klinik/AdminKlinikHewanPage";
-import AdminKlinikDokterPage from "@/pages/admin-klinik/AdminKlinikDokterPage";
-import AdminKlinikStokObatPage from "@/pages/admin-klinik/AdminKlinikStokObatPage";
-import AdminKlinikLayananPage from "@/pages/admin-klinik/AdminKlinikLayananPage";
-import AdminKlinikAuditLogPage from "@/pages/admin-klinik/AdminKlinikAuditLogPage";
+import AdminKlinikObatPage from "@/pages/admin-klinik/AdminKlinikObatPage"; // Tambahkan import
+import AdminKlinikDokterPage from "./pages/admin-klinik/AdminKlinikDokterPage";
+import AdminKlinikLayananPage from "./pages/admin-klinik/AdminKlinikLayananPage"; // Tambahkan import ini
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -217,7 +214,9 @@ const App = () => (
                     <Route path="info" element={<AdminKlinikKlinikPage />} />
                     <Route path="kunjungan" element={<AdminKlinikKunjunganPage />} />
                     <Route path="booking" element={<AdminKlinikBookingPage />} />
-                    <Route path="kunjungan-obat" element={<AdminKlinikObatPage />} />
+                    <Route path="obat" element={<AdminKlinikObatPage />} />
+                    <Route path="dokter" element={<AdminKlinikDokterPage />} />
+                    <Route path="layanan" element={<AdminKlinikLayananPage />} /> {/* Tambahkan route ini */}
                     <Route path="*" element={<Navigate to="/admin-klinik/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

@@ -1,70 +1,57 @@
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { klinikApi } from "@/lib/api";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Building2, MapPin, Phone, Pencil, Save, X } from "lucide-react";
-import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { klinikApi } from "@/lib/api";
 import { toast } from "sonner";
+import { Building2, MapPin, Phone, Save } from "lucide-react";
 
 const AdminKlinikKlinikPage = () => {
   const { token } = useAuth();
   const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     nama_klinik: "",
     alamat_klinik: "",
     telepon_klinik: "",
   });
 
-  // Fetch the admin klinik's assigned clinic
-  const { data: klinik, isLoading } = useQuery({
+  // Fetch klinik data for the current admin-klinik
+  const { data: klinik, isLoading, error } = useQuery({
     queryKey: ["klinik-admin-klinik"],
-    queryFn: async () => {
-      const result = await klinikApi.getByAdminKlinik(token!);
-      return result[0] || null; // Assuming it returns an array with one item
-    },
-    enabled: !!token,
+    queryFn: () => klinikApi.getByAdminKlinik(token!),
   });
 
-  // Mutation for updating the clinic
+  // Update mutation
   const updateMutation = useMutation({
     mutationFn: (data: any) => klinikApi.update(klinik.klinik_id, data, token!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["klinik-admin-klinik"] });
-      toast.success("Klinik berhasil diupdate");
-      setIsEditing(false);
+      toast.success("Data klinik berhasil diupdate");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Gagal mengupdate klinik");
+      toast.error(error.message || "Gagal mengupdate data klinik");
     },
   });
 
-  const handleEdit = () => {
+  // Populate form when data is loaded
+  useEffect(() => {
     if (klinik) {
       setFormData({
-        nama_klinik: klinik.nama_klinik,
+        nama_klinik: klinik.nama_klinik || "",
         alamat_klinik: klinik.alamat_klinik || "",
         telepon_klinik: klinik.telepon_klinik || "",
       });
-      setIsEditing(true);
     }
-  };
+  }, [klinik]);
 
-  const handleSave = () => {
-    if (!formData.nama_klinik || !formData.alamat_klinik) {
-      toast.error("Nama klinik dan alamat wajib diisi");
-      return;
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!klinik) return;
     updateMutation.mutate(formData);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
   };
 
   if (isLoading) {
@@ -73,22 +60,24 @@ const AdminKlinikKlinikPage = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-            <p className="mt-2 text-muted-foreground">Loading...</p>
+            <p className="mt-2 text-muted-foreground">Loading data klinik...</p>
           </div>
         </div>
       </DashboardLayout>
     );
   }
 
-  if (!klinik) {
+  if (error || !klinik) {
     return (
       <DashboardLayout title="Info Klinik">
         <Card>
           <CardContent className="text-center py-12">
-            <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium">Klinik tidak ditemukan</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Anda belum ditugaskan ke klinik mana pun.
+            <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
+            <p className="text-lg font-medium mb-2 text-muted-foreground">
+              Tidak ada klinik terkait
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Admin klinik ini belum dihubungkan dengan klinik mana pun. Hubungi administrator untuk pengaturan.
             </p>
           </CardContent>
         </Card>
@@ -97,89 +86,71 @@ const AdminKlinikKlinikPage = () => {
   }
 
   return (
-    <DashboardLayout title="Info Klinik" showBackButton backTo="/admin-klinik/dashboard">
+    <DashboardLayout title="Info Klinik" showBackButton={true}>
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Detail Klinik
+              Informasi Klinik
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Kelola informasi dasar klinik Anda. Perubahan akan langsung tersimpan.
+            </p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {isEditing ? (
-              <>
-                <div>
-                  <Label htmlFor="nama_klinik">Nama Klinik *</Label>
-                  <Input
-                    id="nama_klinik"
-                    value={formData.nama_klinik}
-                    onChange={(e) => setFormData({ ...formData, nama_klinik: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="alamat_klinik">Alamat Klinik *</Label>
-                  <Input
-                    id="alamat_klinik"
-                    value={formData.alamat_klinik}
-                    onChange={(e) => setFormData({ ...formData, alamat_klinik: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="telepon_klinik">Telepon Klinik</Label>
-                  <Input
-                    id="telepon_klinik"
-                    value={formData.telepon_klinik}
-                    onChange={(e) => setFormData({ ...formData, telepon_klinik: e.target.value })}
-                    placeholder="Opsional"
-                  />
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={handleSave} disabled={updateMutation.isPending}>
-                    <Save className="h-4 w-4 mr-1" />
-                    {updateMutation.isPending ? "Menyimpan..." : "Simpan"}
-                  </Button>
-                  <Button variant="outline" onClick={handleCancel}>
-                    <X className="h-4 w-4 mr-1" />
-                    Batal
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-start gap-2">
-                  <Building2 className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{klinik.nama_klinik}</p>
-                    <p className="text-sm text-muted-foreground">Nama Klinik</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p>{klinik.alamat_klinik || "Alamat belum diisi"}</p>
-                    <p className="text-sm text-muted-foreground">Alamat</p>
-                  </div>
-                </div>
-                {klinik.telepon_klinik && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p>{klinik.telepon_klinik}</p>
-                      <p className="text-sm text-muted-foreground">Telepon</p>
-                    </div>
-                  </div>
-                )}
-                <div className="pt-4">
-                  <Button onClick={handleEdit}>
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Edit Klinik
-                  </Button>
-                </div>
-              </>
-            )}
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="nama_klinik">
+                  Nama Klinik <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="nama_klinik"
+                  placeholder="Contoh: Klinik Hewan Sahabat Satwa"
+                  value={formData.nama_klinik}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nama_klinik: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="alamat_klinik">
+                  Alamat Lengkap <span className="text-red-500">*</span>
+                </Label>
+                <textarea
+                  id="alamat_klinik"
+                  className="w-full min-h-[100px] px-3 py-2 border rounded-md resize-none"
+                  placeholder="Jl. Contoh No. 123, Kelurahan, Kecamatan, Kota"
+                  value={formData.alamat_klinik}
+                  onChange={(e) =>
+                    setFormData({ ...formData, alamat_klinik: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="telepon_klinik">Nomor Telepon</Label>
+                <Input
+                  id="telepon_klinik"
+                  type="tel"
+                  placeholder="Contoh: 0211234567 atau 081234567890"
+                  value={formData.telepon_klinik}
+                  onChange={(e) =>
+                    setFormData({ ...formData, telepon_klinik: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Format: 10-15 digit angka (opsional)
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       </div>

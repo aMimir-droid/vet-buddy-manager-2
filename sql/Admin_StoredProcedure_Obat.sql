@@ -199,4 +199,24 @@ BEGIN
     SELECT rows_affected AS affected_rows;
 END$$
 
+-- ========================================================
+-- GET ALL OBAT WITH STOK BY KLINIK (untuk Admin Klinik - tampilkan semua obat, bahkan yang stok kosong)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetAllObatWithStokByKlinik$$
+CREATE PROCEDURE GetAllObatWithStokByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        o.obat_id,
+        o.nama_obat,
+        o.kegunaan,
+        o.harga_obat,
+        COALESCE(so.jumlah_stok, 0) AS jumlah_stok,  -- Jika stok NULL, tampilkan 0
+        so.stok_id,
+        so.updated_at
+    FROM Obat o
+    LEFT JOIN Stok_Obat so ON o.obat_id = so.obat_id AND so.klinik_id = p_klinik_id
+    WHERE o.deleted_at IS NULL
+    ORDER BY o.nama_obat;
+END$$
+
 DELIMITER ;

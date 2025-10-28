@@ -173,6 +173,11 @@ GRANT SELECT ON vet_buddy.Shift_Dokter TO 'admin_klinik_user'@'localhost';
 -- Booking: SELECT, INSERT, UPDATE (lihat, buat, edit booking di klinik sendiri)
 GRANT SELECT, INSERT, UPDATE ON vet_buddy.Booking TO 'admin_klinik_user'@'localhost';
 
+-- grnt tabel untuk admin klinik
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Hewan TO 'admin_klinik_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Dokter TO 'admin_klinik_user'@'localhost';
+
 -- ========================================================
 -- GRANT TABLE PERMISSIONS untuk STOK OBAT dan MUTASI OBAT
 -- ========================================================

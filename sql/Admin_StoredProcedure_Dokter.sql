@@ -172,52 +172,95 @@ BEGIN
 END$$
 
 -- ========================================================
--- UPDATE DOKTER
+-- UPDATE DOKTER (disesuaikan untuk Admin Klinik)
 -- ========================================================
 DROP PROCEDURE IF EXISTS UpdateDokter$$
-CREATE PROCEDURE UpdateDokter (
-    IN p_kode_dokter INT,
+CREATE PROCEDURE UpdateDokter(
+    IN p_dokter_id INT,
     IN p_title_dokter VARCHAR(10),
     IN p_nama_dokter VARCHAR(100),
-    IN p_telepon_dokter VARCHAR(20),
+    IN p_telepon_dokter VARCHAR(15),
     IN p_tanggal_mulai_kerja DATE,
     IN p_spesialisasi_id INT,
     IN p_klinik_id INT,
     IN p_is_active BOOLEAN
 )
 BEGIN
-    -- Validate nama_dokter tidak kosong
-    IF p_nama_dokter IS NULL OR TRIM(p_nama_dokter) = '' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Nama dokter wajib diisi';
+    DECLARE v_current_klinik_id INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- Validasi dokter ada dan tidak soft-deleted
+    SELECT klinik_id INTO v_current_klinik_id
+    FROM Dokter
+    WHERE dokter_id = p_dokter_id
+      AND deleted_at IS NULL
+    FOR UPDATE;
+
+    IF v_current_klinik_id IS NULL THEN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Dokter tidak ditemukan';
     END IF;
-    
-    -- Validate spesialisasi_id jika provided
-    IF p_spesialisasi_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM Spesialisasi WHERE spesialisasi_id = p_spesialisasi_id) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Spesialisasi tidak valid';
+
+    -- Validasi spesialisasi jika diberikan
+    IF p_spesialisasi_id IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM Spesialisasi WHERE spesialisasi_id = p_spesialisasi_id) THEN
+            ROLLBACK;
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Spesialisasi tidak ditemukan';
+        END IF;
     END IF;
-    
-    -- Validate klinik_id jika provided
-    IF p_klinik_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM Klinik WHERE klinik_id = p_klinik_id) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Klinik tidak valid';
+
+    -- Validasi klinik jika diberikan
+    IF p_klinik_id IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM Klinik WHERE klinik_id = p_klinik_id) THEN
+            ROLLBACK;
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Klinik tidak ditemukan';
+        END IF;
     END IF;
-    
+
+    -- Validasi tanggal mulai kerja tidak di masa depan
+    IF p_tanggal_mulai_kerja IS NOT NULL AND p_tanggal_mulai_kerja > CURDATE() THEN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tanggal mulai kerja tidak boleh di masa depan';
+    END IF;
+
     -- Update dokter
     UPDATE Dokter
     SET 
-        title_dokter = p_title_dokter,
-        nama_dokter = p_nama_dokter,
-        telepon_dokter = p_telepon_dokter,
-        tanggal_mulai_kerja = p_tanggal_mulai_kerja,
-        spesialisasi_id = p_spesialisasi_id,
-        klinik_id = p_klinik_id,
-        is_active = p_is_active
-    WHERE kode_dokter = p_kode_dokter;
-    
+        title_dokter = COALESCE(p_title_dokter, title_dokter),
+        nama_dokter = COALESCE(p_nama_dokter, nama_dokter),
+        telepon_dokter = COALESCE(p_telepon_dokter, telepon_dokter),
+        tanggal_mulai_kerja = COALESCE(p_tanggal_mulai_kerja, tanggal_mulai_kerja),
+        spesialisasi_id = COALESCE(p_spesialisasi_id, spesialisasi_id),
+        klinik_id = COALESCE(p_klinik_id, klinik_id),
+        is_active = COALESCE(p_is_active, is_active)
+    WHERE dokter_id = p_dokter_id
+      AND deleted_at IS NULL;
+
     -- Return updated dokter
-    SELECT * FROM Dokter WHERE kode_dokter = p_kode_dokter;
+    SELECT 
+        d.dokter_id,
+        d.title_dokter,
+        d.nama_dokter,
+        d.telepon_dokter,
+        d.tanggal_mulai_kerja,
+        d.spesialisasi_id,
+        d.klinik_id,
+        d.is_active,
+        s.nama_spesialisasi,
+        k.nama_klinik
+    FROM Dokter d
+    LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
+    WHERE d.dokter_id = p_dokter_id
+      AND d.deleted_at IS NULL;
+
+    COMMIT;
 END$$
 
 -- ========================================================
@@ -327,6 +370,37 @@ BEGIN
     LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
     LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
     WHERE d.deleted_at IS NULL
+    ORDER BY d.nama_dokter;
+END$$
+
+-- ========================================================
+-- GET DOKTERS BY KLINIK (untuk Admin Klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetDoktersByKlinik$$
+CREATE PROCEDURE GetDoktersByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        d.dokter_id,
+        d.title_dokter,
+        d.nama_dokter,
+        d.telepon_dokter,
+        d.tanggal_mulai_kerja,
+        d.spesialisasi_id,
+        d.klinik_id,
+        d.is_active,
+        s.nama_spesialisasi,
+        k.nama_klinik,
+        TIMESTAMPDIFF(YEAR, d.tanggal_mulai_kerja, CURDATE()) as lama_bekerja_tahun,
+        TIMESTAMPDIFF(MONTH, d.tanggal_mulai_kerja, CURDATE()) % 12 as lama_bekerja_bulan,
+        COUNT(DISTINCT p.pawrent_id) as total_pawrent
+    FROM Dokter d
+    LEFT JOIN Spesialisasi s ON d.spesialisasi_id = s.spesialisasi_id
+    LEFT JOIN Klinik k ON d.klinik_id = k.klinik_id
+    LEFT JOIN Pawrent p ON d.dokter_id = p.dokter_id AND p.deleted_at IS NULL
+    WHERE d.deleted_at IS NULL 
+      AND d.is_active = 1
+      AND d.klinik_id = p_klinik_id  -- Filter berdasarkan klinik Admin Klinik
+    GROUP BY d.dokter_id
     ORDER BY d.nama_dokter;
 END$$
 

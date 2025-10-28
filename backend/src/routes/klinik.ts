@@ -6,6 +6,30 @@ import { RowDataPacket } from 'mysql2';
 const router = express.Router();
 
 // ========================================================
+// GET KLINIK BY ADMIN KLINIK (Pindahkan ke atas route /:id)
+// ========================================================
+router.get('/admin-klinik', authenticate, authorize(4), async (req: AuthRequest, res) => {
+  try {
+    console.log(`📋 [GET KLINIK BY ADMIN KLINIK] Request received for User ID: ${req.user.user_id}`);
+    const [rows]: any = await pool.execute('CALL GetKlinikByAdminKlinik(?)', [req.user.user_id]);
+    
+    if (rows[0].length === 0) {
+      console.log(`⚠️ [GET KLINIK BY ADMIN KLINIK] No klinik found for User ID: ${req.user.user_id}`);
+      return res.status(404).json({ message: 'Admin Klinik tidak terkait dengan klinik mana pun' });
+    }
+    
+    console.log(`✅ [GET KLINIK BY ADMIN KLINIK] Success for User ID: ${req.user.user_id}`);
+    res.json(rows[0][0]); // Return single object, not array
+  } catch (error: any) {
+    console.error(`❌ [GET KLINIK BY ADMIN KLINIK] Error for User ID: ${req.user.user_id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
 // GET ALL KLINIK - Menggunakan Stored Procedure
 // ========================================================
 router.get('/', authenticate, async (req, res) => {
@@ -102,7 +126,7 @@ router.post('/', authenticate, authorize(1), async (req, res) => {
 // ========================================================
 // UPDATE KLINIK - Menggunakan Stored Procedure (Admin only)
 // ========================================================
-router.put('/:id', authenticate, authorize(1), async (req, res) => {
+router.put('/:id', authenticate, authorize(1,4), async (req, res) => {
   const { id } = req.params;
   console.log(`📋 [UPDATE KLINIK] Request received for ID: ${id}`);
   console.log('📝 [UPDATE KLINIK] Request body:', JSON.stringify(req.body, null, 2));
@@ -252,20 +276,6 @@ router.get('/vet/list', authenticate, authorize(2), async (req: AuthRequest, res
     res.json(rows[0]);
   } catch (error) {
     console.error('❌ [GET ALL KLINIK VET] Error:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan server' });
-  }
-});
-
-// ========================================================
-// GET KLINIK BY ADMIN KLINIK
-// ========================================================
-router.get('/admin-klinik', authenticate, authorize(4), async (req: AuthRequest, res) => {
-  const pool = req.dbPool;
-  try {
-    const [rows] = await pool.execute('CALL GetKlinikByAdminKlinik(?)', [req.user.user_id]);
-    res.json(rows[0]);
-  } catch (error) {
-    console.error('Error fetching klinik for admin klinik:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });

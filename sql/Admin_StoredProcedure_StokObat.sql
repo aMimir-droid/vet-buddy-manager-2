@@ -297,4 +297,56 @@ BEGIN
     ORDER BY mo.tanggal_mutasi DESC;
 END$$
 
+-- ========================================================
+-- GET OBAT WITH STOK BY KLINIK (untuk Admin Klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetObatWithStokByKlinik$$
+CREATE PROCEDURE GetObatWithStokByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        so.stok_id,
+        so.obat_id,
+        o.nama_obat,
+        o.kegunaan,
+        o.harga_obat,
+        so.klinik_id,
+        k.nama_klinik,
+        so.jumlah_stok,
+        so.updated_at
+    FROM Stok_Obat so
+    INNER JOIN Obat o ON so.obat_id = o.obat_id
+    INNER JOIN Klinik k ON so.klinik_id = k.klinik_id
+    WHERE so.klinik_id = p_klinik_id
+      AND o.deleted_at IS NULL
+    ORDER BY o.nama_obat;
+END$$
+
+-- ========================================================
+-- GET MUTASI BY KLINIK (untuk Admin Klinik)
+-- ========================================================
+DROP PROCEDURE IF EXISTS GetMutasiByKlinik$$
+CREATE PROCEDURE GetMutasiByKlinik(IN p_klinik_id INT)
+BEGIN
+    SELECT 
+        mo.mutasi_id,
+        mo.obat_id,
+        o.nama_obat,
+        mo.klinik_id,
+        k.nama_klinik,
+        mo.qty,
+        mo.tipe_mutasi,
+        mo.sumber_mutasi,
+        mo.keterangan,
+        mo.user_id,
+        u.username,
+        mo.tanggal_mutasi
+    FROM Mutasi_Obat mo
+    INNER JOIN Obat o ON mo.obat_id = o.obat_id
+    INNER JOIN Klinik k ON mo.klinik_id = k.klinik_id
+    INNER JOIN User_Login u ON mo.user_id = u.user_id
+    WHERE mo.klinik_id = p_klinik_id
+      AND mo.deleted_at IS NULL
+    ORDER BY mo.tanggal_mutasi DESC;
+END$$
+
 DELIMITER ;

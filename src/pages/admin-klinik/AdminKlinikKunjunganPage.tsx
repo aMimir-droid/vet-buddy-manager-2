@@ -659,13 +659,7 @@ const AdminKlinikKunjunganPage = () => {
       return;
     }
 
-    // Validasi layanan wajib minimal 1
-    if (formData.selectedLayanans.length === 0) {
-      toast.error("Minimal 1 layanan wajib dipilih");
-      return;
-    }
-
-    
+    // Validasi layanan wajib minimal 1 (total existing + selected)
     const totalLayanans = existingLayanans.length + formData.selectedLayanans.length;
     if (totalLayanans === 0) {
       toast.error("Minimal 1 layanan wajib dipilih");

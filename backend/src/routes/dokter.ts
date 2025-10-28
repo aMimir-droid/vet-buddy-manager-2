@@ -13,7 +13,19 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
   
   try {
     console.log(`🔄 [GET ALL DOKTERS] Using DB pool for role_id: ${req.user.role_id}`);
-    const [rows]: any = await pool.execute('CALL GetAllDokters()');
+    
+    let rows: any;
+    if (req.user.role_id === 4) {
+      // Admin Klinik: Filter berdasarkan klinik_id mereka
+      if (!req.user.klinik_id) {
+        return res.status(400).json({ message: 'Klinik ID tidak ditemukan untuk Admin Klinik' });
+      }
+      [rows] = await pool.execute('CALL GetDoktersByKlinik(?)', [req.user.klinik_id]);
+    } else {
+      // Admin atau role lain: Ambil semua dokter
+      [rows] = await pool.execute('CALL GetAllDokters()');
+    }
+    
     console.log(`✅ [GET ALL DOKTERS] Success - ${rows[0]?.length || 0} dokters found`);
     res.json(rows[0]);
   } catch (error: any) {
@@ -154,7 +166,7 @@ router.post('/', authenticate, authorize(1), async (req: AuthRequest, res) => {
 // ========================================================
 // UPDATE DOKTER (Dokter sendiri & Admin)
 // ========================================================
-router.put('/:id', authenticate, authorize(1, 2), async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, authorize(1, 2,4), async (req: AuthRequest, res) => {
   const pool = req.dbPool;
   const { id } = req.params;
   const { title_dokter, nama_dokter, telepon_dokter, tanggal_mulai_kerja, spesialisasi_id, klinik_id, is_active } = req.body;

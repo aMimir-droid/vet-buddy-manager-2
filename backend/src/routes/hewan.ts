@@ -166,6 +166,126 @@ router.delete('/my/:id', authenticate, authorize(3), async (req: AuthRequest, re
 });
 
 // ========================================================
+// ADMIN KLINIK ROUTES (Role 4 - Filter by klinik)
+// ========================================================
+
+// GET HEWANS BY KLINIK (Admin Klinik only sees hewans related to their clinic)
+router.get('/admin-klinik', authenticate, authorize(4), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  
+  try {
+    console.log('🔍 [GET HEWANS BY KLINIK] Getting hewans for klinik_id:', req.user.klinik_id);
+    
+    if (!req.user.klinik_id) {
+      return res.status(400).json({ message: 'Klinik ID tidak ditemukan untuk user ini' });
+    }
+
+    const [rows] = await pool.execute(
+      'CALL GetHewansByKlinik(?)',
+      [req.user.klinik_id]
+    ) as [RowDataPacket[][], any];
+
+    console.log('✅ [GET HEWANS BY KLINIK] Success -', rows[0]?.length || 0, 'hewans found');
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('❌ [GET HEWANS BY KLINIK] Error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// UPDATE HEWAN BY ADMIN KLINIK (hanya untuk hewan yang pernah kunjungan ke kliniknya)
+router.put('/admin-klinik/:id', authenticate, authorize(4), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { id } = req.params;
+  
+  try {
+    console.log(`✏️ [UPDATE HEWAN BY ADMIN KLINIK] Updating hewan: ${id}`);
+    
+    if (!req.user.klinik_id) {
+      return res.status(400).json({ message: 'Klinik ID tidak ditemukan' });
+    }
+
+    const { nama_hewan, tanggal_lahir, jenis_kelamin, jenis_hewan_id, status_hidup } = req.body;
+
+    // Validasi: Pastikan hewan pernah berkunjung ke klinik ini
+    const [checkRows] = await pool.execute(
+      'SELECT COUNT(*) as count FROM Hewan h INNER JOIN Kunjungan k ON h.hewan_id = k.hewan_id INNER JOIN Dokter d ON k.dokter_id = d.dokter_id WHERE h.hewan_id = ? AND d.klinik_id = ? AND h.deleted_at IS NULL AND k.deleted_at IS NULL AND d.deleted_at IS NULL',
+      [parseInt(id), req.user.klinik_id]
+    ) as [RowDataPacket[], any];
+
+    if (checkRows[0].count === 0) {
+      return res.status(403).json({ message: 'Hewan tidak terkait dengan klinik ini' });
+    }
+
+    // Update menggunakan procedure baru UpdateHewanByAdminKlinik (tanpa pawrent_id)
+    const [result] = await pool.execute(
+      'CALL UpdateHewanByAdminKlinik(?, ?, ?, ?, ?, ?)',
+
+      [
+        parseInt(id),
+        nama_hewan,
+        tanggal_lahir || null,
+        jenis_kelamin,
+        jenis_hewan_id,
+        status_hidup || 'Hidup'
+      ]
+    ) as [RowDataPacket[][], any];
+
+    console.log(`✅ [UPDATE HEWAN BY ADMIN KLINIK] Success - Hewan ID: ${id}`);
+    res.json(result[0][0]);
+  } catch (error: any) {
+    console.error(`❌ [UPDATE HEWAN BY ADMIN KLINIK] Error for ID: ${id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET HEWAN DETAIL BY ID FOR ADMIN KLINIK (hanya untuk hewan yang pernah kunjungan ke kliniknya)
+router.get('/admin-klinik/:id', authenticate, authorize(4), async (req: AuthRequest, res) => {
+  const pool = req.dbPool;
+  const { id } = req.params;
+  
+  try {
+    console.log(`🔍 [GET HEWAN DETAIL BY ADMIN KLINIK] Getting hewan: ${id}`);
+    
+    if (!req.user.klinik_id) {
+      return res.status(400).json({ message: 'Klinik ID tidak ditemukan' });
+    }
+
+    // Validasi: Pastikan hewan pernah berkunjung ke klinik ini
+    const [checkRows] = await pool.execute(
+      'SELECT COUNT(*) as count FROM Hewan h INNER JOIN Kunjungan k ON h.hewan_id = k.hewan_id INNER JOIN Dokter d ON k.dokter_id = d.dokter_id WHERE h.hewan_id = ? AND d.klinik_id = ? AND h.deleted_at IS NULL AND k.deleted_at IS NULL AND d.deleted_at IS NULL',
+      [parseInt(id), req.user.klinik_id]
+    ) as [RowDataPacket[], any];
+
+    if (checkRows[0].count === 0) {
+      return res.status(404).json({ message: 'Hewan tidak ditemukan atau tidak terkait dengan klinik ini' });
+    }
+
+    // Fetch detail menggunakan procedure GetHewanById
+    const [rows] = await pool.execute(
+      'CALL GetHewanById(?)',
+      [parseInt(id)]
+    ) as [RowDataPacket[][], any];
+
+    if (rows[0].length === 0) {
+      return res.status(404).json({ message: 'Hewan tidak ditemukan' });
+    }
+
+    console.log(`✅ [GET HEWAN DETAIL BY ADMIN KLINIK] Success - Hewan ID: ${id}`);
+    res.json(rows[0][0]);
+  } catch (error: any) {
+    console.error(`❌ [GET HEWAN DETAIL BY ADMIN KLINIK] Error for ID: ${id}`, error);
+    res.status(500).json({ 
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================================
 // ADMIN & VET ROUTES (Generic - untuk semua hewan)
 // ========================================================
 

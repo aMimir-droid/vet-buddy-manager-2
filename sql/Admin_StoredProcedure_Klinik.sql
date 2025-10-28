@@ -266,28 +266,19 @@ END$$
 DROP PROCEDURE IF EXISTS GetKlinikByAdminKlinik$$
 CREATE PROCEDURE GetKlinikByAdminKlinik(IN p_user_id INT)
 BEGIN
-    -- Query klinik_id dari Admin_Klinik berdasarkan user_id
-    DECLARE v_klinik_id INT;
-    SELECT klinik_id INTO v_klinik_id 
-    FROM Admin_Klinik 
-    WHERE user_id = p_user_id AND deleted_at IS NULL;
-    
-    -- Jika tidak ada klinik_id, return kosong
-    IF v_klinik_id IS NULL THEN
-        SELECT 'Admin Klinik tidak terkait dengan klinik mana pun' AS error;
-    ELSE
-        -- Filter klinik berdasarkan klinik_id
-        SELECT 
-            klinik_id,
-            nama_klinik,
-            alamat_klinik,
-            telepon_klinik,
-            email_klinik,
-            deleted_at,
-            (deleted_at IS NOT NULL) AS is_deleted
-        FROM Klinik 
-        WHERE klinik_id = v_klinik_id;
-    END IF;
+    -- Query klinik berdasarkan user_id admin-klinik, hanya klinik aktif
+    SELECT 
+        k.klinik_id,
+        k.nama_klinik,
+        k.alamat_klinik,
+        k.telepon_klinik,
+        COUNT(DISTINCT d.dokter_id) AS jumlah_dokter
+    FROM Klinik k
+    JOIN Admin_Klinik ak ON k.klinik_id = ak.klinik_id
+    LEFT JOIN Dokter d ON k.klinik_id = d.klinik_id AND d.deleted_at IS NULL
+    WHERE ak.user_id = p_user_id
+      AND k.deleted_at IS NULL
+    GROUP BY k.klinik_id, k.nama_klinik, k.alamat_klinik, k.telepon_klinik;
 END$$
 
 DELIMITER ;

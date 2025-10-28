@@ -14,11 +14,11 @@ CREATE ROLE IF NOT EXISTS 'admin_klinik_role';  -- TAMBAHKAN: Role untuk Admin K
 -- ========================================================
 -- 2. CREATE USERS
 -- ========================================================
--- Gunakan password yang aman, ini hanya contoh
-CREATE USER IF NOT EXISTS 'admin_user'@'localhost' IDENTIFIED BY 'admin_password';
-CREATE USER IF NOT EXISTS 'vet_user'@'localhost' IDENTIFIED BY 'vet_password';
-CREATE USER IF NOT EXISTS 'pawrent_user'@'localhost' IDENTIFIED BY 'pawrent_password';
-CREATE USER IF NOT EXISTS 'admin_klinik_user'@'localhost' IDENTIFIED BY 'admin_klinik_password';  -- TAMBAHKAN: User untuk Admin Klinik
+-- Gunakan password yang sesuai dengan konfigurasi di database.ts
+CREATE USER IF NOT EXISTS 'admin_user'@'localhost' IDENTIFIED BY 'admin_user123';  -- Diperbaiki: Sesuai DB_ADMIN_PASSWORD default
+CREATE USER IF NOT EXISTS 'vet_user'@'localhost' IDENTIFIED BY 'vet_user123';  -- Diperbaiki: Sesuai DB_VET_PASSWORD default
+CREATE USER IF NOT EXISTS 'pawrent_user'@'localhost' IDENTIFIED BY 'pawrent_user123';  -- Diperbaiki: Sesuai DB_PAWRENT_PASSWORD default
+CREATE USER IF NOT EXISTS 'admin_klinik_user'@'localhost' IDENTIFIED BY 'admin_klinik_user123';  -- TAMBAHKAN & Diperbaiki: Sesuai DB_ADMIN_KLINIK_PASSWORD default
 
 -- ========================================================
 -- 3. GRANT PERMISSIONS TO ROLES

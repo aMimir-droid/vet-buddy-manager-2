@@ -180,6 +180,9 @@ export const dokterApi = {
 
   toggleActive: (id: number, token: string) =>
     apiCall({ endpoint: `/dokter/${id}/toggle-active`, method: 'PATCH', token }),
+  
+  getByKlinik: (klinikId: number, token: string) => 
+    apiCall({ endpoint: `/klinik/${klinikId}/dokters`, token }),
 };
 
 // ========================================================
@@ -496,4 +499,18 @@ export const stokObatApi = {
   addMutasi: (data: { obat_id: number; klinik_id: number; tipe_mutasi: string; qty: number; sumber_mutasi: string; keterangan: string }, token: string) => apiCall({ endpoint: '/stok-obat/mutasi', method: 'POST', body: data, token }),
   getMutasiByObatId: (obatId: number, token: string) => apiCall({ endpoint: `/stok-obat/mutasi/obat/${obatId}`, token }),
   getAllMutasi: (token: string) => apiCall({ endpoint: '/stok-obat/mutasi', token }),
+};
+
+// ========================================================
+// STOK OBAT API (untuk Admin Klinik)
+// ========================================================
+export const stokObatKlinikApi = {
+  getObatWithStokByKlinik: (klinikId: number, token: string) =>
+    apiCall({ endpoint: `/stok-obat/klinik/${klinikId}/obat`, token }),
+  getMutasiByKlinik: (klinikId: number, token: string) =>
+    apiCall({ endpoint: `/stok-obat/klinik/${klinikId}/mutasi`, token }),
+  addMutasiByKlinik: (klinikId: number, data: any, token: string) =>
+    apiCall({ endpoint: `/stok-obat/klinik/${klinikId}/mutasi`, method: 'POST', body: data, token }),
+  getAllObatWithStokByKlinik: (klinikId: number, token: string) =>
+    apiCall({ endpoint: `/stok-obat/klinik/${klinikId}/all-obat-stok`, token }),
 };

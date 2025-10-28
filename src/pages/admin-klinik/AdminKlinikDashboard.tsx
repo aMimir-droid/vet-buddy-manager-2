@@ -37,13 +37,6 @@ const AdminKlinikDashboard = () => {
       color: "bg-cyan-500"
     },
     {
-      title: "Kunjungan Obat Klinik",
-      description: "Kelola obat untuk kunjungan di klinik ini",
-      icon: Syringe,
-      path: "/admin-klinik/kunjungan-obat",
-      color: "bg-purple-500"
-    },
-    {
       title: "Hewan di Klinik",
       description: "Data hewan yang berkunjung ke klinik ini",
       icon: PawPrint,
@@ -61,7 +54,7 @@ const AdminKlinikDashboard = () => {
       title: "Stok Obat Klinik",
       description: "Kelola stok obat di klinik ini",
       icon: Pill,
-      path: "/admin-klinik/stok-obat",
+      path: "/admin-klinik/obat",
       color: "bg-pink-500"
     },
     {
@@ -77,13 +70,6 @@ const AdminKlinikDashboard = () => {
       icon: Building2,
       path: "/admin-klinik/info",
       color: "bg-yellow-500"
-    },
-    {
-      title: "Audit Log Klinik",
-      description: "Riwayat perubahan data klinik ini",
-      icon: Shield,
-      path: "/admin-klinik/auditlog",
-      color: "bg-gray-500"
     }
   ];
 

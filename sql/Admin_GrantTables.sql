@@ -122,6 +122,42 @@ GRANT SELECT ON vet_buddy.Shift_Dokter TO 'pawrent_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE ON vet_buddy.Booking TO 'pawrent_user'@'localhost';
 
 -- ========================================================
+-- GRANT TABLE PERMISSIONS untuk STOK OBAT dan MUTASI OBAT
+-- ========================================================
+
+-- ========================================================
+-- GRANT untuk ADMIN_USER (Full Access)
+-- ========================================================
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Stok_Obat TO 'admin_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON vet_buddy.Mutasi_Obat TO 'admin_user'@'localhost';
+
+-- ========================================================
+-- GRANT untuk VET_USER (Read/Write untuk Stok dan Mutasi)
+-- ========================================================
+GRANT SELECT, INSERT, UPDATE ON vet_buddy.Stok_Obat TO 'vet_user'@'localhost';  -- Vet bisa update stok dan lihat mutasi
+GRANT SELECT, INSERT ON vet_buddy.Mutasi_Obat TO 'vet_user'@'localhost';  -- Vet bisa tambah mutasi (IN/OUT), tapi tidak delete
+
+-- ========================================================
+-- GRANT untuk PAWRENT_USER (Read-Only untuk Stok)
+-- ========================================================
+
+-- Grant EXECUTE untuk procedures yang digunakan oleh pawrent (read-only untuk obat, stok, klinik)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'pawrent_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKlinik TO 'pawrent_user'@'localhost';
+
+
+GRANT SELECT ON vet_buddy.Stok_Obat TO 'pawrent_user'@'localhost';  -- Pawrent hanya bisa lihat stok (public view)
+-- Tidak ada grant untuk Mutasi_Obat agar pawrent tidak bisa melihat riwayat mutasi internal
+-- Grant EXECUTE untuk procedures yang digunakan oleh vet (read-only untuk obat, stok, klinik)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllObat TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllKlinik TO 'vet_user'@'localhost';
+
+-- Jika ada procedure lain yang digunakan oleh vet, tambahkan di sini
+-- GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'vet_user'@'localhost'; -- Jika diperlukan
+
+-- ========================================================
 -- FLUSH PRIVILEGES
 -- ========================================================
 FLUSH PRIVILEGES;
@@ -150,3 +186,15 @@ WHERE
     )
 ORDER BY 
     GRANTEE, TABLE_NAME, PRIVILEGE_TYPE;
+
+-- Tambahkan grant EXECUTE untuk stored procedures yang digunakan oleh VET_USER
+
+-- ========================================================
+-- GRANT EXECUTE untuk STORED PROCEDURES - VET_USER
+-- ========================================================
+
+
+-- ========================================================
+-- FLUSH PRIVILEGES
+-- ========================================================
+FLUSH PRIVILEGES;

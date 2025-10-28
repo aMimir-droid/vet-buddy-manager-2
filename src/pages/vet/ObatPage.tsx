@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,25 +6,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { obatApi } from "@/lib/api";
-import { Pill, Search, Eye, X } from "lucide-react";
+import { obatApi, stokObatApi, klinikApi } from "@/lib/api";
+import { Pill, Search, Eye, Package, X } from "lucide-react";
 
 const ObatPage = () => {
   const { token } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedObat, setSelectedObat] = useState<any>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isStokDetailDialogOpen, setIsStokDetailDialogOpen] = useState(false);
+  const [selectedObatForStok, setSelectedObatForStok] = useState<any>(null);
 
-  const { data: obats, isLoading } = useQuery({
+  const { data: obats, isLoading: isLoadingObats } = useQuery({
     queryKey: ["obats"],
     queryFn: () => obatApi.getAll(token!),
   });
 
+  const { data: stokObats, isLoading: isLoadingStok } = useQuery({
+    queryKey: ["stok-obats"],
+    queryFn: () => stokObatApi.getAll(token!),
+  });
+
+  const { data: kliniks, isLoading: isLoadingKliniks } = useQuery({
+    queryKey: ["kliniks"],
+    queryFn: () => klinikApi.getAll(token!),
+  });
+
+  const obatsWithStok = useMemo(() => {
+    if (!obats || !stokObats) return obats || [];
+    return obats.map((obat: any) => {
+      const stok = stokObats.find((s: any) => s.obat_id === obat.obat_id);
+      return {
+        ...obat,
+        jumlah_stok: stok ? stok.jumlah_stok : null,
+        nama_klinik: stok ? stok.nama_klinik : null,
+      };
+    });
+  }, [obats, stokObats]);
+
   const handleViewDetail = (obat: any) => {
     setSelectedObat(obat);
     setIsDetailDialogOpen(true);
+  };
+
+  const handleOpenStokDetail = (obat: any) => {
+    setSelectedObatForStok(obat);
+    setIsStokDetailDialogOpen(true);
+  };
+
+  const handleCloseStokDetail = () => {
+    setIsStokDetailDialogOpen(false);
+    setSelectedObatForStok(null);
   };
 
   const formatCurrency = (amount: number | string) => {
@@ -37,12 +71,12 @@ const ObatPage = () => {
     }).format(num);
   };
 
-  const filteredObats = obats?.filter((o: any) => 
+  const filteredObats = obatsWithStok?.filter((o: any) => 
     (o.nama_obat || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (o.kegunaan || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (isLoading) {
+  if (isLoadingObats || isLoadingStok) {
     return (
       <DashboardLayout title="Data Obat">
         <div className="flex items-center justify-center h-64">
@@ -80,7 +114,7 @@ const ObatPage = () => {
                   <Pill className="h-5 w-5" />
                   Katalog Obat ({filteredObats?.length || 0})
                 </CardTitle>
-                <CardDescription>Lihat informasi obat, kegunaan, dan harga</CardDescription>
+                <CardDescription>Lihat informasi obat, kegunaan, harga, dan stok</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -117,6 +151,7 @@ const ObatPage = () => {
                       <TableHead>Nama Obat</TableHead>
                       <TableHead>Kegunaan</TableHead>
                       <TableHead>Harga Satuan</TableHead>
+                      <TableHead>Stok Tersedia</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -138,6 +173,16 @@ const ObatPage = () => {
                         </TableCell>
                         <TableCell className="font-semibold text-green-600">
                           {formatCurrency(obat.harga_obat)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenStokDetail(obat)}
+                          >
+                            <Package className="h-4 w-4 mr-1" />
+                            Lihat Stok
+                          </Button>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -168,7 +213,7 @@ const ObatPage = () => {
           </CardContent>
         </Card>
 
-        {/* Detail Dialog */}
+        {/* Dialog untuk Detail Obat */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -219,6 +264,49 @@ const ObatPage = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog untuk Detail Stok */}
+        <Dialog open={isStokDetailDialogOpen} onOpenChange={setIsStokDetailDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Detail Stok: {selectedObatForStok?.nama_obat}
+              </DialogTitle>
+              <DialogDescription>
+                Stok obat di berbagai klinik
+              </DialogDescription>
+            </DialogHeader>
+            {selectedObatForStok && (
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Klinik</TableHead>
+                      <TableHead>Jumlah Stok</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kliniks?.map((klinik: any) => {
+                      const stok = stokObats?.find((s: any) => s.obat_id === selectedObatForStok.obat_id && s.klinik_id === klinik.klinik_id);
+                      return (
+                        <TableRow key={klinik.klinik_id}>
+                          <TableCell>{klinik.nama_klinik}</TableCell>
+                          <TableCell>{stok ? stok.jumlah_stok : 0}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseStokDetail}>
+                Tutup
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

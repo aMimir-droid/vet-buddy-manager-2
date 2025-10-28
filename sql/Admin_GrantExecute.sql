@@ -258,7 +258,11 @@ GRANT EXECUTE ON PROCEDURE vet_buddy.DeleteShiftDokter TO 'admin_user'@'localhos
 
 -- TAMBAHKAN: Grant untuk GetBookingsByPawrent
 GRANT EXECUTE ON PROCEDURE vet_buddy.GetBookingsByPawrent TO 'pawrent_user'@'localhost';
-
+-- Di Admin_GrantExecute.sql, tambahkan:
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'pawrent_user'@'localhost';
+-- Dan seterusnya untuk semua procedures di atas.
 
 -- ========================================================
 -- FLUSH PRIVILEGES
@@ -309,3 +313,38 @@ WHERE
     )
 ORDER BY 
     GRANTEE, TABLE_NAME, COLUMN_NAME;
+
+USE vet_buddy;
+
+-- ========================================================
+-- GRANT EXECUTE untuk STOK OBAT STORED PROCEDURES
+-- ========================================================
+
+-- ========================================================
+-- GRANT EXECUTE untuk ADMIN_USER (Full Access)
+-- ========================================================
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.CreateStokObat TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateStokObat TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.AddMutasiObat TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetMutasiByObatId TO 'admin_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllMutasiObat TO 'admin_user'@'localhost';
+
+-- ========================================================
+-- GRANT EXECUTE untuk VET_USER (Akses untuk Stok dan Mutasi)
+-- ========================================================
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'vet_user'@'localhost';
+GRANT EXECUTE ON PROCEDURE vet_buddy.UpdateStokObat TO 'vet_user'@'localhost';  -- Vet bisa update stok manual
+GRANT EXECUTE ON PROCEDURE vet_buddy.AddMutasiObat TO 'vet_user'@'localhost';  -- Vet bisa tambah mutasi
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetMutasiByObatId TO 'vet_user'@'localhost';  -- Vet bisa lihat riwayat mutasi per obat
+
+-- ========================================================
+-- GRANT EXECUTE untuk PAWRENT_USER (Read-Only untuk Stok)
+-- ========================================================
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetAllStokObat TO 'pawrent_user'@'localhost';  -- Pawrent bisa lihat semua stok (public)
+GRANT EXECUTE ON PROCEDURE vet_buddy.GetStokByObatId TO 'pawrent_user'@'localhost';  -- Pawrent bisa lihat stok per obat
+
+-- Flush privileges untuk menerapkan perubahan
+FLUSH PRIVILEGES;

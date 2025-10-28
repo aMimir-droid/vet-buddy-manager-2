@@ -479,3 +479,16 @@ export const shiftDokterApi = {
   getByDokter: (dokterId: number, token: string) =>
     apiCall({ endpoint: `/shift-dokter/by-dokter/${dokterId}`, token }),
 };
+
+// ========================================================
+// STOK OBAT API
+// ========================================================
+export const stokObatApi = {
+  getAll: (token: string) => apiCall({ endpoint: '/stok-obat', token }),
+  getByObatId: (obatId: number, token: string) => apiCall({ endpoint: `/stok-obat/obat/${obatId}`, token }),
+  create: (data: { obat_id: number; klinik_id: number; jumlah_stok: number }, token: string) => apiCall({ endpoint: '/stok-obat', method: 'POST', body: data, token }),
+  update: (obatId: number, klinikId: number, data: { jumlah_stok: number }, token: string) => apiCall({ endpoint: `/stok-obat/obat/${obatId}/klinik/${klinikId}`, method: 'PUT', body: data, token }),
+  addMutasi: (data: { obat_id: number; klinik_id: number; tipe_mutasi: string; qty: number; sumber_mutasi: string; keterangan: string }, token: string) => apiCall({ endpoint: '/stok-obat/mutasi', method: 'POST', body: data, token }),
+  getMutasiByObatId: (obatId: number, token: string) => apiCall({ endpoint: `/stok-obat/mutasi/obat/${obatId}`, token }),
+  getAllMutasi: (token: string) => apiCall({ endpoint: '/stok-obat/mutasi', token }),
+};

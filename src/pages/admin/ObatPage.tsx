@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -22,29 +22,207 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { obatApi } from "@/lib/api";
+import { obatApi, stokObatApi, klinikApi } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Pill, Wallet } from "lucide-react";
+import { Plus, Pencil, Trash2, Pill, Wallet, Package, History } from "lucide-react";
+
+// Komponen MutasiForm yang dioptimasi - terima props untuk isolasi state
+const MutasiForm = memo(({ 
+  mutasiForm, 
+  onMutasiFormChange,
+  kliniks, 
+  isLoadingKliniks,
+  currentStok,
+  selectedObat,
+  onSubmit,
+  isSubmitting
+}: any) => {
+  const sumberOptions = mutasiForm.tipe_mutasi === 'Masuk' 
+    ? ['Pembelian', 'Penyesuaian'] 
+    : ['Pemakaian'];
+
+  const handleTipeMutasiChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const tipe = e.target.value;
+    onMutasiFormChange({
+      ...mutasiForm,
+      tipe_mutasi: tipe,
+      sumber_mutasi: tipe === 'Masuk' ? 'Pembelian' : 'Pemakaian',
+    });
+  };
+
+  const handleSubmitClick = () => {
+    if (!mutasiForm.klinik_id) {
+      toast.error('Pilih klinik terlebih dahulu');
+      return;
+    }
+    const qty = parseInt(mutasiForm.qty);
+    if (qty <= 0 || isNaN(qty)) {
+      toast.error('Qty harus lebih dari 0');
+      return;
+    }
+    // Validasi stok untuk Keluar
+    if (mutasiForm.tipe_mutasi === 'Keluar') {
+      if (!currentStok) {
+        toast.error('Stok untuk obat di klinik ini belum ada');
+        return;
+      }
+      if (qty > currentStok.jumlah_stok) {
+        toast.error(`Stok tidak cukup. Stok saat ini: ${currentStok.jumlah_stok}, Qty diminta: ${qty}`);
+        return;
+      }
+    }
+    onSubmit({
+      obat_id: selectedObat.obat_id,
+      klinik_id: parseInt(mutasiForm.klinik_id),
+      tipe_mutasi: mutasiForm.tipe_mutasi,
+      qty,
+      sumber_mutasi: mutasiForm.sumber_mutasi,
+      keterangan: mutasiForm.keterangan,
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm">Klinik</label>
+      {isLoadingKliniks ? (
+        <p className="text-sm text-muted-foreground">Memuat klinik...</p>
+      ) : (
+        <select
+          value={mutasiForm.klinik_id}
+          onChange={(e) => onMutasiFormChange({ ...mutasiForm, klinik_id: e.target.value })}
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">-- Pilih Klinik --</option>
+          {kliniks?.map((k: any) => (
+            <option key={k.klinik_id} value={String(k.klinik_id)}>
+              {k.nama_klinik ?? `Klinik ${k.klinik_id}`}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <select
+        value={mutasiForm.tipe_mutasi}
+        onChange={handleTipeMutasiChange}
+        className="w-full border rounded px-3 py-2"
+      >
+        <option value="Masuk">Masuk</option>
+        <option value="Keluar">Keluar</option>
+      </select>
+
+      <Input
+        placeholder="Qty"
+        type="number"
+        value={mutasiForm.qty}
+        onChange={(e) => onMutasiFormChange({ ...mutasiForm, qty: e.target.value })}
+      />
+
+      {mutasiForm.tipe_mutasi === 'Keluar' && currentStok && (
+        <p className="text-sm text-muted-foreground">
+          Stok saat ini di klinik ini: {currentStok.jumlah_stok}
+        </p>
+      )}
+
+      <select
+        value={mutasiForm.sumber_mutasi}
+        onChange={(e) => onMutasiFormChange({ ...mutasiForm, sumber_mutasi: e.target.value })}
+        className="w-full border rounded px-3 py-2"
+      >
+        {sumberOptions.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+
+      <Input
+        placeholder="Keterangan"
+        value={mutasiForm.keterangan}
+        onChange={(e) => onMutasiFormChange({ ...mutasiForm, keterangan: e.target.value })}
+      />
+
+      <Button
+        onClick={handleSubmitClick}
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? 'Menambahkan...' : 'Tambah Mutasi'}
+      </Button>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison untuk mencegah re-render yang tidak perlu
+  return (
+    JSON.stringify(prevProps.mutasiForm) === JSON.stringify(nextProps.mutasiForm) &&
+    prevProps.kliniks === nextProps.kliniks &&
+    prevProps.currentStok === nextProps.currentStok &&
+    prevProps.isSubmitting === nextProps.isSubmitting
+  );
+});
 
 const ObatPage = () => {
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isStokDialogOpen, setIsStokDialogOpen] = useState(false);
+  const [isStokDetailDialogOpen, setIsStokDetailDialogOpen] = useState(false);
+  const [isFullHistoryDialogOpen, setIsFullHistoryDialogOpen] = useState(false);
+  const [selectedObatForStok, setSelectedObatForStok] = useState<any>(null);
+  const [selectedObatForDetail, setSelectedObatForDetail] = useState<any>(null);
   const [editingObat, setEditingObat] = useState<any>(null);
   const [formData, setFormData] = useState({
     nama_obat: "",
     kegunaan: "",
     harga_obat: "",
   });
+  const [mutasiForm, setMutasiForm] = useState({
+    klinik_id: '',
+    tipe_mutasi: 'Masuk',
+    qty: '',
+    sumber_mutasi: 'Pembelian',
+    keterangan: '',
+  });
 
-  const { data: obats, isLoading } = useQuery({
+  // Query untuk obat master
+  const { data: obats, isLoading: isLoadingObats } = useQuery({
     queryKey: ["obats"],
     queryFn: () => obatApi.getAll(token!),
   });
 
+  // Query untuk stok obat
+  const { data: stokObats, isLoading: isLoadingStok } = useQuery({
+    queryKey: ["stok-obats"],
+    queryFn: () => stokObatApi.getAll(token!),
+  });
+
+  // Gabungkan data obat dengan stok menggunakan useMemo
+  const obatsWithStok = useMemo(() => {
+    if (!obats || !stokObats) return obats || [];
+    return obats.map((obat: any) => {
+      const stok = stokObats.find((s: any) => s.obat_id === obat.obat_id);
+      return {
+        ...obat,
+        jumlah_stok: stok ? stok.jumlah_stok : null,
+        nama_klinik: stok ? stok.nama_klinik : null,
+      };
+    });
+  }, [obats, stokObats]);
+
+  // Query untuk mutasi obat - FIXED: Tambahkan refetch options
+  const { data: mutasiObats, isLoading: isLoadingMutasi } = useQuery({
+    queryKey: ["mutasi-obats", selectedObatForStok?.obat_id],
+    queryFn: () => selectedObatForStok ? stokObatApi.getMutasiByObatId(selectedObatForStok.obat_id, token!) : Promise.resolve([]),
+    enabled: !!selectedObatForStok,
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Gunakan useMemo untuk cari stok dari data stokObats yang sudah ada
+  const currentStok = useMemo(() => {
+    if (!selectedObatForStok || !mutasiForm.klinik_id || !stokObats) return null;
+    return stokObats.find((s: any) => s.obat_id === selectedObatForStok.obat_id && s.klinik_id === parseInt(mutasiForm.klinik_id)) || null;
+  }, [selectedObatForStok, mutasiForm.klinik_id, stokObats]);
+
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
-      // ensure harga_obat dikirim sebagai number
       const payload = {
         ...data,
         harga_obat: parseFloat(String(data.harga_obat)) || 0
@@ -68,10 +246,27 @@ const ObatPage = () => {
     mutationFn: (obatId: number) => obatApi.delete(obatId, token!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["obats"] });
+      queryClient.invalidateQueries({ queryKey: ["stok-obats"] });
       toast.success("Obat berhasil dihapus");
     },
     onError: (error: any) => {
       toast.error(error.message || "Gagal menghapus obat");
+    },
+  });
+
+  const addMutasiMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return stokObatApi.addMutasi(data, token!);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stok-obats"] });
+      queryClient.invalidateQueries({ queryKey: ["mutasi-obats"] });
+      toast.success("Mutasi obat berhasil ditambahkan");
+      setMutasiForm({ klinik_id: '', tipe_mutasi: 'Masuk', qty: '', sumber_mutasi: 'Pembelian', keterangan: '' });
+      handleCloseStokDialog();  // Tambahkan ini untuk menutup dialog otomatis
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Gagal menambah mutasi");
     },
   });
 
@@ -99,6 +294,35 @@ const ObatPage = () => {
     setEditingObat(null);
   };
 
+  const handleOpenStokDialog = (obat: any) => {
+    setSelectedObatForStok(obat);
+    setIsStokDialogOpen(true);
+  };
+
+  const handleCloseStokDialog = () => {
+    setIsStokDialogOpen(false);
+    setSelectedObatForStok(null);
+    setMutasiForm({ klinik_id: '', tipe_mutasi: 'Masuk', qty: '', sumber_mutasi: 'Pembelian', keterangan: '' });
+  };
+
+  const handleOpenStokDetail = (obat: any) => {
+    setSelectedObatForDetail(obat);
+    setIsStokDetailDialogOpen(true);
+  };
+
+  const handleCloseStokDetail = () => {
+    setIsStokDetailDialogOpen(false);
+    setSelectedObatForDetail(null);
+  };
+
+  const handleOpenFullHistory = () => {
+    setIsFullHistoryDialogOpen(true);
+  };
+
+  const handleCloseFullHistory = () => {
+    setIsFullHistoryDialogOpen(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     saveMutation.mutate(formData);
@@ -113,7 +337,25 @@ const ObatPage = () => {
     }).format(amount);
   };
 
-  if (isLoading) {
+  // Query untuk daftar klinik
+  const { data: kliniks, isLoading: isLoadingKliniks } = useQuery({
+    queryKey: ["kliniks"],
+    queryFn: () => klinikApi.getAll(token!),
+    enabled: !!token && (isStokDialogOpen || isStokDetailDialogOpen),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Handler untuk mutasi form change - gunakan useCallback untuk stabilitas
+  const handleMutasiFormChange = useCallback((newForm: any) => {
+    setMutasiForm(newForm);
+  }, []);
+
+  // Handler untuk submit mutasi
+  const handleMutasiSubmit = useCallback((data: any) => {
+    addMutasiMutation.mutate(data);
+  }, [addMutasiMutation]);
+
+  if (isLoadingObats || isLoadingStok) {
     return (
       <DashboardLayout title="Kelola Obat">
         <div className="flex items-center justify-center h-64">
@@ -148,18 +390,19 @@ const ObatPage = () => {
                   <TableHead>Nama Obat</TableHead>
                   <TableHead>Kegunaan</TableHead>
                   <TableHead>Harga Satuan</TableHead>
+                  <TableHead>Stok Tersedia</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {obats?.length === 0 ? (
+                {obatsWithStok?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       Belum ada data obat
                     </TableCell>
                   </TableRow>
                 ) : (
-                  obats?.map((obat: any, index: number) => (
+                  obatsWithStok?.map((obat: any, index: number) => (
                     <TableRow key={obat.obat_id}>
                       <TableCell className="font-medium">{index + 1}</TableCell>
                       <TableCell className="font-medium">
@@ -179,8 +422,26 @@ const ObatPage = () => {
                           {formatCurrency(parseFloat(String(obat.harga_obat || 0)))}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenStokDetail(obat)}
+                        >
+                          <Package className="h-4 w-4 mr-1" />
+                          Lihat Stok
+                        </Button>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenStokDialog(obat)}
+                          >
+                            <Package className="h-4 w-4 mr-1" />
+                            Manage Stok
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -209,6 +470,7 @@ const ObatPage = () => {
           </CardContent>
         </Card>
 
+        {/* Dialog untuk Tambah/Edit Obat */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -289,6 +551,185 @@ const ObatPage = () => {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog untuk Detail Stok */}
+        <Dialog open={isStokDetailDialogOpen} onOpenChange={setIsStokDetailDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Detail Stok: {selectedObatForDetail?.nama_obat}
+              </DialogTitle>
+              <DialogDescription>
+                Stok obat di berbagai klinik
+              </DialogDescription>
+            </DialogHeader>
+            {selectedObatForDetail && (
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Klinik</TableHead>
+                      <TableHead>Jumlah Stok</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kliniks?.map((klinik: any) => {
+                      const stok = stokObats?.find((s: any) => s.obat_id === selectedObatForDetail.obat_id && s.klinik_id === klinik.klinik_id);
+                      return (
+                        <TableRow key={klinik.klinik_id}>
+                          <TableCell>{klinik.nama_klinik}</TableCell>
+                          <TableCell>{stok ? stok.jumlah_stok : 0}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseStokDetail}>
+                Tutup
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog untuk Manage Stok */}
+        <Dialog open={isStokDialogOpen} onOpenChange={setIsStokDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Manage Stok: {selectedObatForStok?.nama_obat}
+              </DialogTitle>
+              <DialogDescription>
+                Lihat dan kelola stok obat ini
+              </DialogDescription>
+            </DialogHeader>
+            {selectedObatForStok && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Stok Tersedia Saat Ini</Label>
+                  <p className="text-lg font-semibold">
+                    {selectedObatForStok.jumlah_stok !== null ? selectedObatForStok.jumlah_stok : "Belum diinisialisasi"}
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label>Riwayat Mutasi (10 Terbaru)</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenFullHistory}
+                    >
+                      <History className="h-4 w-4 mr-1" />
+                      Lihat Semua
+                    </Button>
+                  </div>
+                  {isLoadingMutasi ? (
+                    <p>Loading...</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tanggal</TableHead>
+                          <TableHead>Klinik</TableHead>
+                          <TableHead>Tipe</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Sumber</TableHead>
+                          <TableHead>Keterangan</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {mutasiObats?.slice(0, 10).map((mutasi: any) => (
+                          <TableRow key={mutasi.mutasi_id}>
+                            <TableCell>{new Date(mutasi.tanggal_mutasi).toLocaleDateString()}</TableCell>
+                            <TableCell>{kliniks?.find(k => k.klinik_id === mutasi.klinik_id)?.nama_klinik || 'Unknown'}</TableCell>
+                            <TableCell>{mutasi.tipe_mutasi}</TableCell>
+                            <TableCell>{mutasi.qty}</TableCell>
+                            <TableCell>{mutasi.sumber_mutasi}</TableCell>
+                            <TableCell>{mutasi.keterangan}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+                <div>
+                  <Label>Tambah Mutasi Obat</Label>
+                  <MutasiForm 
+                    mutasiForm={mutasiForm}
+                    onMutasiFormChange={handleMutasiFormChange}
+                    kliniks={kliniks}
+                    isLoadingKliniks={isLoadingKliniks}
+                    currentStok={currentStok}
+                    selectedObat={selectedObatForStok}
+                    onSubmit={handleMutasiSubmit}
+                    isSubmitting={addMutasiMutation.isPending}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseStokDialog}>
+                    Tutup
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog untuk Full History Mutasi */}
+        <Dialog open={isFullHistoryDialogOpen} onOpenChange={setIsFullHistoryDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Riwayat Mutasi Lengkap: {selectedObatForStok?.nama_obat}
+              </DialogTitle>
+              <DialogDescription>
+                Semua riwayat mutasi obat ini
+              </DialogDescription>
+            </DialogHeader>
+            {selectedObatForStok && (
+              <div className="space-y-4">
+                {isLoadingMutasi ? (
+                  <p>Loading...</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Klinik</TableHead>
+                        <TableHead>Tipe</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Sumber</TableHead>
+                        <TableHead>Keterangan</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mutasiObats?.map((mutasi: any) => (
+                        <TableRow key={mutasi.mutasi_id}>
+                          <TableCell>{new Date(mutasi.tanggal_mutasi).toLocaleDateString()}</TableCell>
+                          <TableCell>{kliniks?.find(k => k.klinik_id === mutasi.klinik_id)?.nama_klinik || 'Unknown'}</TableCell>
+                          <TableCell>{mutasi.tipe_mutasi}</TableCell>
+                          <TableCell>{mutasi.qty}</TableCell>
+                          <TableCell>{mutasi.sumber_mutasi}</TableCell>
+                          <TableCell>{mutasi.keterangan}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseFullHistory}>
+                Tutup
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

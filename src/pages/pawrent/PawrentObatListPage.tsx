@@ -5,16 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
-import { Pill, Search, X, Heart, Stethoscope, Syringe } from "lucide-react";
-
-const fetchObats = async (token: string) => {
-  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/obat/public/list`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!res.ok) throw new Error("Gagal mengambil data obat");
-  return res.json();
-};
+import { obatApi, stokObatApi, klinikApi } from "@/lib/api";
+import { Pill, Search, X, Heart, Stethoscope, Syringe, Package } from "lucide-react";
 
 const formatCurrency = (amount: number | string) => {
   const num = Number(amount) || 0;
@@ -29,12 +24,34 @@ const formatCurrency = (amount: number | string) => {
 const PawrentObatListPage = () => {
   const { token } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isStokDetailDialogOpen, setIsStokDetailDialogOpen] = useState(false);
+  const [selectedObatForStok, setSelectedObatForStok] = useState<any>(null);
 
-  const { data: obats, isLoading } = useQuery({
+  const { data: obats, isLoading: isLoadingObats } = useQuery({
     queryKey: ["obat-list-pawrent"],
-    queryFn: () => fetchObats(token!),
+    queryFn: () => obatApi.getAll(token!),
     enabled: !!token
   });
+
+  const { data: stokObats, isLoading: isLoadingStok } = useQuery({
+    queryKey: ["stok-obats"],
+    queryFn: () => stokObatApi.getAll(token!),
+  });
+
+  const { data: kliniks, isLoading: isLoadingKliniks } = useQuery({
+    queryKey: ["kliniks"],
+    queryFn: () => klinikApi.getAll(token!),
+  });
+
+  const handleOpenStokDetail = (obat: any) => {
+    setSelectedObatForStok(obat);
+    setIsStokDetailDialogOpen(true);
+  };
+
+  const handleCloseStokDetail = () => {
+    setIsStokDetailDialogOpen(false);
+    setSelectedObatForStok(null);
+  };
 
   // Filter berdasarkan nama obat
   const filteredObats = obats?.filter((o: any) =>
@@ -52,6 +69,19 @@ const PawrentObatListPage = () => {
   const averagePrice = filteredObats?.length > 0 
     ? filteredObats.reduce((sum: number, o: any) => sum + (o.harga_obat || 0), 0) / filteredObats.length 
     : 0;
+
+  if (isLoadingObats || isLoadingStok) {
+    return (
+      <DashboardLayout title="Daftar Obat">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+            <p className="mt-2 text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Daftar Obat" showBackButton={true} backTo="/pawrent/dashboard">
@@ -143,6 +173,17 @@ const PawrentObatListPage = () => {
                             {formatCurrency(obat.harga_obat)}
                           </Badge>
                         </div>
+                        <div className="flex justify-end pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenStokDetail(obat)}
+                            className="bg-white hover:bg-green-50 border-green-300 text-green-700"
+                          >
+                            <Package className="h-4 w-4 mr-1" />
+                            Lihat Stok
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -163,6 +204,49 @@ const PawrentObatListPage = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog untuk Detail Stok */}
+        <Dialog open={isStokDetailDialogOpen} onOpenChange={setIsStokDetailDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Detail Stok: {selectedObatForStok?.nama_obat}
+              </DialogTitle>
+              <DialogDescription>
+                Stok obat di berbagai klinik
+              </DialogDescription>
+            </DialogHeader>
+            {selectedObatForStok && (
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Klinik</TableHead>
+                      <TableHead>Jumlah Stok</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kliniks?.map((klinik: any) => {
+                      const stok = stokObats?.find((s: any) => s.obat_id === selectedObatForStok.obat_id && s.klinik_id === klinik.klinik_id);
+                      return (
+                        <TableRow key={klinik.klinik_id}>
+                          <TableCell>{klinik.nama_klinik}</TableCell>
+                          <TableCell>{stok ? stok.jumlah_stok : 0}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseStokDetail}>
+                Tutup
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

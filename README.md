@@ -135,6 +135,9 @@ Package Managers: npm / pnpm / bun (sesuai preferensi)
 - **Admin Sistem**:  
   username: `admin`  
   password: `password123`
+- **Admin klinik 1 (contoh)**:  
+  username: `admin_klinik1`  
+  password: `password123`
 - **Dokter/Vet**:  
   username: `siti`  
   password: `password123`

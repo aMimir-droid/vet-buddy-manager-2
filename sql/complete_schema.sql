@@ -22,7 +22,6 @@ DROP TABLE IF EXISTS Jenis_Hewan;
 DROP TABLE IF EXISTS Spesialisasi;
 DROP TABLE IF EXISTS Klinik;
 DROP TABLE IF EXISTS Role;
-DROP TABLE IF EXISTS AuditLog;
 
 -- ========================================================
 -- 1. TABEL INDEPENDEN (Tidak punya foreign key)
@@ -74,17 +73,6 @@ CREATE TABLE Detail_Layanan (
     deskripsi_layanan VARCHAR(255) COMMENT 'Deskripsi layanan',
     biaya_layanan DECIMAL(12,2) NOT NULL COMMENT 'Biaya layanan (Harga Master)',
     deleted_at DATETIME NULL COMMENT 'MODIFIKASI: Soft delete untuk menonaktifkan layanan'
-);
-
--- Tabel AuditLog untuk tracking perubahan
-CREATE TABLE AuditLog (
-    log_id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Primary Key, identitas unik log',
-    table_name VARCHAR(50) COMMENT 'Nama tabel yang diubah',
-    action_type ENUM('INSERT', 'UPDATE', 'DELETE') COMMENT 'Jenis aksi',
-    executed_by VARCHAR(50) COMMENT 'User yang menjalankan',
-    old_data TEXT NULL COMMENT 'Data lama (untuk UPDATE dan DELETE)',
-    new_data TEXT NULL COMMENT 'Data baru (untuk INSERT dan UPDATE)',
-    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Waktu eksekusi'
 );
 
 -- ========================================================
@@ -342,30 +330,30 @@ CREATE TABLE Kunjungan_Obat (
 
 
 
--- Review dokter
-CREATE TABLE Dokter_Review (
-    review_id INT AUTO_INCREMENT PRIMARY KEY,
-    dokter_id INT NOT NULL,
-    pawrent_id INT NOT NULL,
-    rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5), -- 1 sampai 5
-    komentar TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (dokter_id) REFERENCES Dokter(dokter_id) ON DELETE CASCADE,
-    FOREIGN KEY (pawrent_id) REFERENCES Pawrent(pawrent_id) ON DELETE CASCADE
-);
+-- -- Review dokter
+-- CREATE TABLE Dokter_Review (
+--     review_id INT AUTO_INCREMENT PRIMARY KEY,
+--     dokter_id INT NOT NULL,
+--     pawrent_id INT NOT NULL,
+--     rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5), -- 1 sampai 5
+--     komentar TEXT,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (dokter_id) REFERENCES Dokter(dokter_id) ON DELETE CASCADE,
+--     FOREIGN KEY (pawrent_id) REFERENCES Pawrent(pawrent_id) ON DELETE CASCADE
+-- );
 
--- Review Klinik
+-- -- Review Klinik
 
-CREATE TABLE Klinik_Review (
-    review_id INT AUTO_INCREMENT PRIMARY KEY,
-    klinik_id INT NOT NULL,
-    pawrent_id INT NOT NULL,
-    rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    komentar TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (klinik_id) REFERENCES Klinik(klinik_id) ON DELETE CASCADE,
-    FOREIGN KEY (pawrent_id) REFERENCES Pawrent(pawrent_id) ON DELETE CASCADE
-);
+-- CREATE TABLE Klinik_Review (
+--     review_id INT AUTO_INCREMENT PRIMARY KEY,
+--     klinik_id INT NOT NULL,
+--     pawrent_id INT NOT NULL,
+--     rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+--     komentar TEXT,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (klinik_id) REFERENCES Klinik(klinik_id) ON DELETE CASCADE,
+--     FOREIGN KEY (pawrent_id) REFERENCES Pawrent(pawrent_id) ON DELETE CASCADE
+-- );
 
 
 

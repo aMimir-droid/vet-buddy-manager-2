@@ -57,6 +57,8 @@ import AdminKlinikDokterPage from "./pages/admin-klinik/AdminKlinikDokterPage";
 import AdminKlinikLayananPage from "./pages/admin-klinik/AdminKlinikLayananPage"; // Tambahkan import ini
 import AdminKlinikHewanPage from "./pages/admin-klinik/AdminKlinikHewanPage"; // Tambahkan import untuk AdminKlinikHewanPage
 import AdminKlinikShiftDokterPage from "./pages/admin-klinik/AdminKlinikShiftDokterPage"; // Tambahkan import untuk AdminKlinikShiftDokterPage
+import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
+import AdminKlinikAuditLogPage from "./pages/admin-klinik/AdminKlinikAuditLogPage";
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -142,7 +144,7 @@ const App = () => (
                     <Route path="obat" element={<ObatPage />} />
                     <Route path="klinik" element={<KlinikPage />} />
                     <Route path="layanan" element={<LayananPage />} />
-                    <Route path="auditlog" element={<AuditLogPage />} />
+                    <Route path="auditlog" element={<AdminAuditLogPage />} />
                     <Route path="jenis-hewan" element={<JenisHewanPage />} />
                     <Route path="shift-dokter" element={<ShiftDokterAdmin />} />
                     <Route path="pencarian" element={<AdminPencarianPage />} />
@@ -221,6 +223,7 @@ const App = () => (
                     <Route path="layanan" element={<AdminKlinikLayananPage />} /> {/* Tambahkan route ini */}
                     <Route path="hewan" element={<AdminKlinikHewanPage />} /> {/* Tambahkan route untuk hewan */}
                     <Route path="shift-dokter" element={<AdminKlinikShiftDokterPage />} /> {/* Tambahkan route untuk shift dokter */}
+                    <Route path="auditlog" element={<AdminKlinikAuditLogPage />} />
                     <Route path="*" element={<Navigate to="/admin-klinik/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

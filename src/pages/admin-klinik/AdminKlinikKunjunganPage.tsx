@@ -329,11 +329,11 @@ const AdminKlinikKunjunganPage = () => {
     // Tambahkan pengecekan loading untuk data dokter
     if (allDoktersLoading) {
       toast.error("Data dokter sedang dimuat, silakan coba lagi.");
-      return; // Jangan lanjutkan jika data belum siap
+      return;
     }
 
     if (kunjungan) {
-      // --- MODE EDIT ---
+      // --- MODE EDIT --- 
       setEditingKunjungan(kunjungan);
       setMode("manual");
 
@@ -341,18 +341,17 @@ const AdminKlinikKunjunganPage = () => {
         (d: any) => d.dokter_id === kunjungan.dokter_id
       );
 
-      // Tambahkan fallback: Jika dokter tidak ditemukan, coba ambil klinik_id dari kunjungan (jika ada) atau tampilkan error
-      let klinikId = dokter ? dokter.klinik_id.toString() : "";
-      if (!klinikId && kunjungan.klinik_id) { // Jika kunjungan punya klinik_id langsung (opsional)
-        klinikId = kunjungan.klinik_id.toString();
-      }
-      if (!klinikId) {
-        toast.error("Data klinik tidak ditemukan untuk kunjungan ini. Pastikan data dokter lengkap.");
-        return; // Atau lanjutkan dengan kosong, tapi beri peringatan
+      // Untuk Admin Klinik, klinik_id selalu dari user
+      let klinikId = user?.klinik_id?.toString() || "";
+      
+      // Validasi bahwa kunjungan ini benar-benar milik klinik ini
+      if (kunjungan.klinik_id && kunjungan.klinik_id !== user?.klinik_id) {
+        toast.error("Kunjungan ini tidak terkait dengan klinik Anda.");
+        return;
       }
 
       setFormData({
-        klinik_id: user?.klinik_id || "", // Override dengan user.klinik_id
+        klinik_id: klinikId, // Set dari user.klinik_id
         hewan_id: kunjungan.hewan_id?.toString() || "",
         dokter_id: kunjungan.dokter_id?.toString() || "",
         tanggal_kunjungan: kunjungan.tanggal_kunjungan?.split("T")[0] || "",
@@ -361,9 +360,10 @@ const AdminKlinikKunjunganPage = () => {
         metode_pembayaran: kunjungan.metode_pembayaran || "Cash",
         kunjungan_sebelumnya: kunjungan.kunjungan_sebelumnya?.toString() || "",
         booking_id: kunjungan.booking_id?.toString() || "none",
-        selectedLayanans: [], // Reset, atau populate dari data jika ada
+        selectedLayanans: [],
         obatForms: [],
       });
+
       if (kunjungan.hewan_id) {
         // Panggil versi async
         handleHewanChange(kunjungan.hewan_id.toString());
@@ -373,13 +373,13 @@ const AdminKlinikKunjunganPage = () => {
       try {
         const [layananRes, obatRes] = await Promise.all([
           fetch(
-            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${kunjungan.kunjungan_id}`, // Perbaiki endpoint
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${kunjungan.kunjungan_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
           ),
           fetch(
-            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${kunjungan.kunjungan_id}`, // Perbaiki endpoint
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${kunjungan.kunjungan_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -404,26 +404,25 @@ const AdminKlinikKunjunganPage = () => {
       const today = new Date().toISOString().split("T")[0];
       const now = new Date().toTimeString().slice(0, 5);
       setFormData({
-        klinik_id: user?.klinik_id || "", // Set otomatis
+        klinik_id: user?.klinik_id || "",
         hewan_id: "",
         dokter_id: "",
         tanggal_kunjungan: today,
         waktu_kunjungan: now,
         catatan: "",
         metode_pembayaran: "Cash",
-        // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "none",
         selectedLayanans: [],
         obatForms: [],
       });
-      // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
       setSelectedPreviousVisit(null);
       setSelectedHewan("");
       setExistingLayanans([]);
       setExistingObats([]);
     }
+    
     setIsDialogOpen(true);
   };
 

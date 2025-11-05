@@ -400,20 +400,48 @@ export const dashboardApi = {
 // AUDIT LOG API
 // ========================================================
 export const auditLogApi = {
-  getAll: (params: any, token: string) => {
-    const queryString = new URLSearchParams(params).toString();
-    return apiCall({ endpoint: `/auditlog?${queryString}`, token });
-  },
+  // Get all audit logs with filters (Admin only)
+  getAll: (filters: {
+    start_date?: string;
+    end_date?: string;
+    table_name?: string;
+    action_type?: string;
+    klinik_id?: number;
+    limit?: number;
+    offset?: number;
+  }, token: string) =>
+    apiCall({
+      endpoint: '/auditlog',
+      token,
+      query: filters,
+    }),
 
+  // Get audit logs by klinik (Admin Klinik only)
+  getByKlinik: (filters: {
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+    offset?: number;
+  }, token: string) =>
+    apiCall({
+      endpoint: '/auditlog/by-klinik',
+      token,
+      query: filters,
+    }),
+
+  // Get audit log statistics
   getStats: (token: string) =>
     apiCall({ endpoint: '/auditlog/stats', token }),
 
-  getByTable: (tableName: string, token: string) =>
-    apiCall({ endpoint: `/auditlog/by-table?table=${tableName}`, token }),
+  // Get logs by table
+  getByTable: (token: string) =>
+    apiCall({ endpoint: '/auditlog/by-table', token }),
 
-  getByUser: (userId: number, token: string) =>
-    apiCall({ endpoint: `/auditlog/by-user?user=${userId}`, token }),
+  // Get logs by user
+  getByUser: (token: string) =>
+    apiCall({ endpoint: '/auditlog/by-user', token }),
 
+  // Get log detail by ID
   getById: (id: number, token: string) =>
     apiCall({ endpoint: `/auditlog/${id}`, token }),
 };

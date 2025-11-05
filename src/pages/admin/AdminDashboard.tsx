@@ -37,13 +37,13 @@ const AdminDashboard = () => {
       path: "/admin/booking",
       color: "bg-cyan-500"
     },
-    {
-      title: "Kunjungan Obat",
-      description: "Kelola obat untuk setiap kunjungan",
-      icon: Syringe,
-      path: "/admin/kunjungan-obat",
-      color: "bg-purple-500"
-    },
+      // {
+      //   title: "Kunjungan Obat",
+      //   description: "Kelola obat untuk setiap kunjungan",
+      //   icon: Syringe,
+      //   path: "/admin/kunjungan-obat",
+      //   color: "bg-purple-500"
+      // },
     {
       title: "Kelola Hewan",
       description: "Data hewan pasien",
@@ -121,8 +121,6 @@ const AdminDashboard = () => {
       path: "/admin/auditlog",
       color: "bg-gray-500"
     }
-
-
   ];
 
   return (

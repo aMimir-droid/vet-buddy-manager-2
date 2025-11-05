@@ -44,13 +44,13 @@ const VetDashboard = () => {
       path: "/vet/booking",
       color: "bg-cyan-500"
     },
-    {
-      title: "Kelola Obat Kunjungan",
-      description: "Atur resep obat untuk setiap kunjungan",
-      icon: Syringe,
-      path: "/vet/kunjungan-obat",
-      color: "bg-purple-500"
-    },
+    // {
+    //   title: "Kelola Obat Kunjungan",
+    //   description: "Atur resep obat untuk setiap kunjungan",
+    //   icon: Syringe,
+    //   path: "/vet/kunjungan-obat",
+    //   color: "bg-purple-500"
+    // },
     {
       title: "Data Hewan",
       description: "Lihat data hewan pasien",

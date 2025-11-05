@@ -78,6 +78,13 @@ const AdminKlinikDashboard = () => {
       icon: Clock,
       path: "/admin-klinik/shift-dokter",
       color: "bg-purple-500"
+    },
+    {
+      title: "Audit Log Klinik",
+      description: "Riwayat aktivitas di klinik ini",
+      icon: Shield,
+      path: "/admin-klinik/auditlog",
+      color: "bg-purple-500"
     }
   ];
 

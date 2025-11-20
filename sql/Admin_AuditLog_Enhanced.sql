@@ -40,6 +40,7 @@ CREATE TABLE AuditLog (
 DELIMITER $$
 
 DROP FUNCTION IF EXISTS GetCurrentUserInfo$$
+
 CREATE FUNCTION GetCurrentUserInfo(info_type VARCHAR(20))
 RETURNS VARCHAR(100)
 DETERMINISTIC
@@ -47,42 +48,47 @@ READS SQL DATA
 BEGIN
     DECLARE result VARCHAR(100);
     DECLARE db_user VARCHAR(100);
-    
+
+    -- Ambil nama user MySQL (misal: 'root' dari 'root@localhost')
     SET db_user = SUBSTRING_INDEX(USER(), '@', 1);
-    
+
     CASE info_type
         WHEN 'username' THEN
-            -- Try to get actual username from User_Login based on current DB user
             SELECT username INTO result
             FROM User_Login
             WHERE username = db_user
             LIMIT 1;
-            
+
             IF result IS NULL THEN
                 SET result = db_user;
             END IF;
-            
+
         WHEN 'user_id' THEN
-            SELECT user_id INTO result
+            SELECT CAST(user_id AS CHAR) INTO result
             FROM User_Login
             WHERE username = db_user
             LIMIT 1;
-            
+
         WHEN 'role_name' THEN
             SELECT r.role_name INTO result
             FROM User_Login u
             JOIN Role r ON u.role_id = r.role_id
             WHERE u.username = db_user
             LIMIT 1;
-            
+
         ELSE
             SET result = NULL;
     END CASE;
-    
+
+    IF info_type = 'user_id' THEN
+        RETURN result;
+    END IF;
+
     RETURN COALESCE(result, db_user);
 END$$
 
 DELIMITER ;
+
 
 -- ========================================================
 -- 3. TRIGGERS FOR KUNJUNGAN (CRITICAL TABLE)

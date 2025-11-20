@@ -43,7 +43,6 @@ import KunjunganObatPage from "./pages/admin/KunjunganObatPage";
 import ObatPage from "./pages/admin/ObatPage";
 import KlinikPage from "./pages/admin/KlinikPage";
 import LayananPage from "./pages/admin/LayananPage";
-import AuditLogPage from "./pages/admin/AuditLogPage";
 import JenisHewanPage from "./pages/admin/JenisHewanPage";
 import AdminPencarianPage from "./pages/admin/AdminPencarianPage";
 import AdminBooking from "@/pages/admin/Booking";

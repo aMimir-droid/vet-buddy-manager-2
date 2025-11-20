@@ -515,21 +515,24 @@ useEffect(() => {
     }
   };
 
-  const handleViewPreviousVisit = (kunjunganId: number) => {
-    const kunjungan = myKunjungans.find((k: any) => k.kunjungan_id === kunjunganId);
-    if (kunjungan) {
-      setViewingPreviousVisit(kunjungan);
+  const loadKunjunganById = async (kunjunganId: number) => {
+    try {
+      const data = await kunjunganApi.getById(kunjunganId, token!);
+      setViewingPreviousVisit(data);
       setIsPreviousVisitDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to load kunjungan:", error);
+      toast.error("Data kunjungan sebelumnya tidak ditemukan");
     }
+  };
+
+  const handleViewPreviousVisit = (kunjunganId: number) => {
+    loadKunjunganById(kunjunganId);
   };
 
   const handleViewPreviousVisitFromTable = (kunjunganId: number | null) => {
     if (!kunjunganId) return;
-    const kunjungan = myKunjungans.find((k: any) => k.kunjungan_id === kunjunganId);
-    if (kunjungan) {
-      setViewingPreviousVisit(kunjungan);
-      setIsPreviousVisitDialogOpen(true);
-    }
+    loadKunjunganById(kunjunganId);
   };
 
   const handleViewDetail = (kunjungan: any) => {

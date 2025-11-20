@@ -7,8 +7,6 @@ TRUNCATE TABLE Stok_Obat;
 TRUNCATE TABLE Mutasi_Obat;
 TRUNCATE TABLE Shift_Dokter;
 TRUNCATE TABLE Booking;
-TRUNCATE TABLE Dokter_Review;
-TRUNCATE TABLE Klinik_Review;
 TRUNCATE TABLE Kunjungan;
 TRUNCATE TABLE Hewan;
 TRUNCATE TABLE Admin_Klinik;
@@ -240,15 +238,6 @@ INSERT INTO Booking (klinik_id, dokter_id, pawrent_id, hewan_id, tanggal_booking
 (1, 2, 2, 3, '2025-09-02', '11:00:00', 'booked', 'Vaksinasi rutin untuk Fluffy'),  -- Klinik 1, Dokter 2, Pawrent 2, Hewan 3 (Fluffy)
 (2, 3, NULL, NULL, '2025-09-03', '10:00:00', 'booked', 'Konsultasi untuk tamu non-member');  -- Klinik 2, Dokter 3, Pawrent NULL, Hewan NULL (non-member)
 
--- Dokter_Review
-INSERT INTO Dokter_Review (dokter_id, pawrent_id, rating, komentar) VALUES
-(1, 1, 5, 'Pelayanan sangat baik'),
-(2, 2, 4, 'Sabar dan informatif');
-
--- Klinik_Review
-INSERT INTO Klinik_Review (klinik_id, pawrent_id, rating, komentar) VALUES
-(1, 1, 5, 'Fasilitas lengkap'),
-(2, 3, 4, 'Pelayanan memuaskan');
 
 -- AuditLog (optional seed - kosong atau contoh)
 INSERT INTO AuditLog (table_name, action_type, executed_by, old_data, new_data) VALUES

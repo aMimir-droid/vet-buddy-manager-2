@@ -329,34 +329,6 @@ CREATE TABLE Kunjungan_Obat (
 
 
 
-
--- -- Review dokter
--- CREATE TABLE Dokter_Review (
---     review_id INT AUTO_INCREMENT PRIMARY KEY,
---     dokter_id INT NOT NULL,
---     pawrent_id INT NOT NULL,
---     rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5), -- 1 sampai 5
---     komentar TEXT,
---     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---     FOREIGN KEY (dokter_id) REFERENCES Dokter(dokter_id) ON DELETE CASCADE,
---     FOREIGN KEY (pawrent_id) REFERENCES Pawrent(pawrent_id) ON DELETE CASCADE
--- );
-
--- -- Review Klinik
-
--- CREATE TABLE Klinik_Review (
---     review_id INT AUTO_INCREMENT PRIMARY KEY,
---     klinik_id INT NOT NULL,
---     pawrent_id INT NOT NULL,
---     rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
---     komentar TEXT,
---     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---     FOREIGN KEY (klinik_id) REFERENCES Klinik(klinik_id) ON DELETE CASCADE,
---     FOREIGN KEY (pawrent_id) REFERENCES Pawrent(pawrent_id) ON DELETE CASCADE
--- );
-
-
-
 -- ========================================================
 -- 9. CREATE INDEXES untuk performa
 -- ========================================================

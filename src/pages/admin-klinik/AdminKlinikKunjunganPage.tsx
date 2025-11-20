@@ -52,16 +52,18 @@ import {
   PawPrint,
   Pill,
   Activity,
+  Search,
+  Wallet,
 } from "lucide-react";
 import {
   kunjunganApi,
   hewanApi,
   dokterApi,
   layananApi,
-  kunjunganObatApi, // Ganti dari obatApi ke kunjunganObatApi
+  kunjunganObatApi,
   bookingApi,
   klinikApi,
-  obatApi, // Tambahkan untuk query daftar obat
+  obatApi,
 } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -70,34 +72,42 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const AdminKlinikKunjunganPage = () => {
-  const { token, user } = useAuth(); // Tambahkan user untuk filter klinik_id
+  const { token, user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isPreviousVisitDialogOpen, setIsPreviousVisitDialogOpen] =
-    useState(false);
+  const [isPreviousVisitDialogOpen, setIsPreviousVisitDialogOpen] = useState(false);
   const [editingKunjungan, setEditingKunjungan] = useState<any>(null);
   const [viewingKunjungan, setViewingKunjungan] = useState<any>(null);
   const [viewingPreviousVisit, setViewingPreviousVisit] = useState<any>(null);
   const [selectedHewan, setSelectedHewan] = useState<string>("");
-  // --- MODIFIKASI: Kembalikan state untuk riwayat ---
+  
+  // ✅ State untuk tab "Kunjungan Klinik Saya"
+  const [searchQueryMy, setSearchQueryMy] = useState("");
+  const [filterMonthMy, setFilterMonthMy] = useState<string>("all");
+  
+  // ✅ State untuk tab "Semua Kunjungan"
+  const [activeTab, setActiveTab] = useState<"klinik" | "all">("klinik");
+  const [filterNamaHewan, setFilterNamaHewan] = useState("");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  
   const [hewanHistory, setHewanHistory] = useState<any[]>([]);
   const [selectedPreviousVisit, setSelectedPreviousVisit] = useState<any>(null);
 
   const [formData, setFormData] = useState({
-    klinik_id: user?.klinik_id || "", // Set otomatis berdasarkan user.klinik_id
+    klinik_id: user?.klinik_id || "",
     hewan_id: "",
     dokter_id: "",
     tanggal_kunjungan: "",
     waktu_kunjungan: "",
     catatan: "",
     metode_pembayaran: "Cash",
-    // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
     kunjungan_sebelumnya: "",
     booking_id: "none",
-    // Ubah ke array untuk multiple layanan dan obat
     selectedLayanans: [] as { kode_layanan: string }[],
     obatForms: [] as { obat_id: string; qty: string; dosis: string; frekuensi: string }[],
   });
@@ -106,22 +116,22 @@ const AdminKlinikKunjunganPage = () => {
   const [existingObats, setExistingObats] = useState<any[]>([]);
   const [mode, setMode] = useState<"manual" | "booking">("manual");
 
-  const [showLayananDialog, setShowLayananDialog] = useState(false);
-  const [showObatDialog, setShowObatDialog] = useState(false);
-  // Hapus state showCombinedDialog, newKunjunganId, selectedLayanan, layananList, obatForm
+  const [layananKunjungan, setLayananKunjungan] = useState<any[]>([]);
+  const [obatKunjungan, setObatKunjungan] = useState<any[]>([]);
+  const [previousLayanan, setPreviousLayanan] = useState<any[]>([]);
+  const [previousObat, setPreviousObat] = useState<any[]>([]);
 
   // Queries
   const { data: bookings, isLoading: bookingsLoading } = useQuery({
     queryKey: ["bookings", "available-for-kunjungan"],
     queryFn: async () => {
       const result = await bookingApi.getAvailableForKunjungan(token!);
-      console.log('Fetched bookings:', result);  // DEBUG: Lihat data yang diambil
       return result as any[];
     },
   });
 
-  // --- PERBEDAAN: Query kunjungan difilter berdasarkan klinik_id user ---
-  const { data: kunjungans, isLoading } = useQuery({
+  // ✅ UBAH: Query untuk kunjungan klinik saja (untuk tab pertama)
+  const { data: kunjungansKlinik, isLoading: isLoadingKlinik } = useQuery({
     queryKey: ["kunjungans-admin-klinik", user?.klinik_id],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan/admin-klinik`, {
@@ -131,6 +141,18 @@ const AdminKlinikKunjunganPage = () => {
       return res.json();
     },
     enabled: !!user?.klinik_id,
+  });
+
+  // ✅ TAMBAH: Query untuk SEMUA kunjungan global (untuk tab kedua)
+  const { data: kunjungansGlobal, isLoading: isLoadingGlobal } = useQuery({
+    queryKey: ["kunjungans-global"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Gagal mengambil data kunjungan global");
+      return res.json();
+    },
   });
 
   const { data: hewans, isLoading: hewansLoading } = useQuery({
@@ -153,7 +175,6 @@ const AdminKlinikKunjunganPage = () => {
     enabled: !!token && !!user?.klinik_id,
   });
 
-  // Tambahkan query untuk layananList
   const { data: layananList, isLoading: layananListLoading } = useQuery({
     queryKey: ["layanan"],
     queryFn: async () => {
@@ -162,7 +183,6 @@ const AdminKlinikKunjunganPage = () => {
     },
   });
 
-  // Tambahkan query untuk obatList
   const { data: obatList, isLoading: obatListLoading } = useQuery({
     queryKey: ["obats"],
     queryFn: async () => {
@@ -171,10 +191,68 @@ const AdminKlinikKunjunganPage = () => {
     },
   });
 
+  // ✅ Filter data untuk tab "Kunjungan Klinik Saya" - gunakan kunjungansKlinik
+  const myKunjungans = user?.klinik_id ? (kunjungansKlinik?.filter((k: any) => k.klinik_id === user.klinik_id) || []) : [];
+
+  const filteredKunjungans = myKunjungans.filter((k: any) => {
+    const matchSearch = k.nama_hewan?.toLowerCase().includes(searchQueryMy.toLowerCase()) || k.nama_pawrent?.toLowerCase().includes(searchQueryMy.toLowerCase());
+    const matchMonth = filterMonthMy === "all" || new Date(k.tanggal_kunjungan).getMonth() === parseInt(filterMonthMy);
+    return matchSearch && matchMonth;
+  });
+
+  // ✅ Filter untuk tab "Semua Kunjungan" - gunakan kunjungansGlobal
+  const allFilteredKunjungans = useMemo(() => {
+    if (!kunjungansGlobal) return [];
+    
+    return kunjungansGlobal.filter((k: any) => {
+      const matchNama = !filterNamaHewan || k.nama_hewan?.toLowerCase().includes(filterNamaHewan.toLowerCase());
+      
+      let matchDate = true;
+      if (filterStartDate && filterEndDate) {
+        const kunjunganDate = new Date(k.tanggal_kunjungan).toISOString().split('T')[0];
+        matchDate = kunjunganDate >= filterStartDate && kunjunganDate <= filterEndDate;
+      } else if (filterStartDate) {
+        const kunjunganDate = new Date(k.tanggal_kunjungan).toISOString().split('T')[0];
+        matchDate = kunjunganDate >= filterStartDate;
+      } else if (filterEndDate) {
+        const kunjunganDate = new Date(k.tanggal_kunjungan).toISOString().split('T')[0];
+        matchDate = kunjunganDate <= filterEndDate;
+      }
+      
+      return matchNama && matchDate;
+    });
+  }, [kunjungansGlobal, filterNamaHewan, filterStartDate, filterEndDate]);
+
+  // ✅ Stats calculation
+  const stats = useMemo(() => {
+    if (!myKunjungans) return { total: 0, today: 0, totalRevenue: 0 };
+    
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-CA');
+    
+    const todayCount = myKunjungans.filter((k: any) => {
+      if (!k.tanggal_kunjungan) return false;
+      const kunjunganDate = new Date(k.tanggal_kunjungan);
+      const kunjunganStr = kunjunganDate.toLocaleDateString('en-CA');
+      return kunjunganStr === todayStr;
+    }).length;
+    
+    const totalRevenue = myKunjungans.reduce((sum: number, k: any) => {
+      const biaya = parseFloat(k.total_biaya) || 0;
+      return sum + biaya;
+    }, 0);
+    
+    return {
+      total: myKunjungans.length,
+      today: todayCount,
+      totalRevenue: Math.round(totalRevenue)
+    };
+  }, [myKunjungans]);
+
   // Mutations
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
-      data.klinik_id = user?.klinik_id; // Override untuk memastikan sesuai user
+      data.klinik_id = user?.klinik_id;
       if (editingKunjungan) {
         return kunjunganApi.update(editingKunjungan.kunjungan_id, data, token!);
       }
@@ -190,7 +268,6 @@ const AdminKlinikKunjunganPage = () => {
       const kunjunganId = editingKunjungan ? editingKunjungan.kunjungan_id : res?.data?.kunjungan_id;
       if (kunjunganId) {
         try {
-          // Simpan multiple layanan
           for (const layanan of formData.selectedLayanans) {
             await layananApi.createKunjunganLayanan(
               {
@@ -200,7 +277,6 @@ const AdminKlinikKunjunganPage = () => {
               token!
             );
           }
-          // Simpan multiple obat
           for (const obat of formData.obatForms) {
             if (obat.obat_id && obat.qty) {
               await kunjunganObatApi.create(
@@ -238,8 +314,6 @@ const AdminKlinikKunjunganPage = () => {
   });
 
   // Handlers
-
-  // --- MODIFIKASI: Kembalikan handler riwayat ---
   const handlePreviousVisitChange = (visitId: string) => {
     const actualValue = visitId === "none" ? "none" : visitId;
     setFormData((prev) => ({ ...prev, kunjungan_sebelumnya: actualValue }));
@@ -254,7 +328,6 @@ const AdminKlinikKunjunganPage = () => {
     }
   };
 
-  // --- MODIFIKASI: Kembalikan handleHewanChange versi async ---
   const handleHewanChange = async (hewanId: string) => {
     setSelectedHewan(hewanId);
     setFormData((prev) => ({
@@ -271,7 +344,7 @@ const AdminKlinikKunjunganPage = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan/hewan/${hewanId}/history`, // Perbaiki endpoint agar konsisten
+        `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan/hewan/${hewanId}/history`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -307,11 +380,14 @@ const AdminKlinikKunjunganPage = () => {
     }
   };
 
-   const filteredDokters = allDoktersData || [];
+  const filteredDokters = allDoktersData || [];
 
   const handleViewPreviousVisitFromTable = (kunjunganId: number | null) => {
     if (!kunjunganId) return;
-    const kunjungan = kunjungans?.find(
+    // ✅ UBAH: Cari di kunjungansGlobal untuk mendukung cross-klinik
+    const kunjungan = kunjungansGlobal?.find(
+      (k: any) => k.kunjungan_id === kunjunganId
+    ) || kunjungansKlinik?.find(
       (k: any) => k.kunjungan_id === kunjunganId
     );
     if (kunjungan) {
@@ -326,32 +402,24 @@ const AdminKlinikKunjunganPage = () => {
   };
 
   const handleOpenDialog = async (kunjungan?: any) => {
-    // Tambahkan pengecekan loading untuk data dokter
     if (allDoktersLoading) {
       toast.error("Data dokter sedang dimuat, silakan coba lagi.");
       return;
     }
 
     if (kunjungan) {
-      // --- MODE EDIT --- 
       setEditingKunjungan(kunjungan);
       setMode("manual");
 
-      const dokter = allDoktersData?.find(
-        (d: any) => d.dokter_id === kunjungan.dokter_id
-      );
-
-      // Untuk Admin Klinik, klinik_id selalu dari user
       let klinikId = user?.klinik_id?.toString() || "";
       
-      // Validasi bahwa kunjungan ini benar-benar milik klinik ini
       if (kunjungan.klinik_id && kunjungan.klinik_id !== user?.klinik_id) {
         toast.error("Kunjungan ini tidak terkait dengan klinik Anda.");
         return;
       }
 
       setFormData({
-        klinik_id: klinikId, // Set dari user.klinik_id
+        klinik_id: klinikId,
         hewan_id: kunjungan.hewan_id?.toString() || "",
         dokter_id: kunjungan.dokter_id?.toString() || "",
         tanggal_kunjungan: kunjungan.tanggal_kunjungan?.split("T")[0] || "",
@@ -365,11 +433,10 @@ const AdminKlinikKunjunganPage = () => {
       });
 
       if (kunjungan.hewan_id) {
-        // Panggil versi async
         handleHewanChange(kunjungan.hewan_id.toString());
       }
 
-      // Tambahkan fetch layanan dan obat untuk kunjungan ini
+      // ✅ PERBAIKAN: Promise.all dengan syntax yang benar
       try {
         const [layananRes, obatRes] = await Promise.all([
           fetch(
@@ -385,6 +452,7 @@ const AdminKlinikKunjunganPage = () => {
             }
           ),
         ]);
+
         if (layananRes.ok) {
           const layananData = await layananRes.json();
           setExistingLayanans(layananData);
@@ -398,7 +466,6 @@ const AdminKlinikKunjunganPage = () => {
         toast.error("Gagal mengambil data layanan/obat");
       }
     } else {
-      // --- MODE TAMBAH BARU ---
       setEditingKunjungan(null);
       setMode("manual");
       const today = new Date().toISOString().split("T")[0];
@@ -430,7 +497,6 @@ const AdminKlinikKunjunganPage = () => {
     setIsDialogOpen(false);
     setEditingKunjungan(null);
     setMode("manual");
-    // --- MODIFIKASI: Kembalikan reset state riwayat ---
     setHewanHistory([]);
     setSelectedPreviousVisit(null);
     setSelectedHewan("");
@@ -444,39 +510,35 @@ const AdminKlinikKunjunganPage = () => {
       const today = new Date().toISOString().split("T")[0];
       const now = new Date().toTimeString().slice(0, 5);
       setFormData({
-        klinik_id: user?.klinik_id || "", // Tetap set
+        klinik_id: user?.klinik_id || "",
         hewan_id: "",
         dokter_id: "",
         tanggal_kunjungan: today,
         waktu_kunjungan: now,
         catatan: "",
         metode_pembayaran: "Cash",
-        // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "none",
         selectedLayanans: [],
         obatForms: [],
       });
-      // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
       setSelectedPreviousVisit(null);
       setSelectedHewan("");
     } else {
       setFormData({
-        klinik_id: user?.klinik_id || "", // Tetap set
+        klinik_id: user?.klinik_id || "",
         hewan_id: "",
         dokter_id: "",
         tanggal_kunjungan: "",
         waktu_kunjungan: "",
         catatan: "",
         metode_pembayaran: "Cash",
-        // --- MODIFIKASI: Kembalikan state kunjungan_sebelumnya ---
         kunjungan_sebelumnya: "",
         booking_id: "",
         selectedLayanans: [],
         obatForms: [],
       });
-      // --- MODIFIKASI: Kembalikan reset state riwayat ---
       setHewanHistory([]);
       setSelectedPreviousVisit(null);
       setSelectedHewan("");
@@ -485,7 +547,6 @@ const AdminKlinikKunjunganPage = () => {
 
   const handleBookingChange = async (bookingId: string) => {
     if (!bookingId || bookingId === "none") {
-      // Reset form
       setFormData(prev => ({
         ...prev,
         booking_id: "",
@@ -493,8 +554,8 @@ const AdminKlinikKunjunganPage = () => {
         tanggal_kunjungan: "",
         waktu_kunjungan: "",
         catatan: "",
-        klinik_id: user?.klinik_id || "", // Tetap set
-        dokter_id: "", // Tambahkan reset dokter_id
+        klinik_id: user?.klinik_id || "",
+        dokter_id: "",
       }));
       setSelectedHewan("");
       setHewanHistory([]);
@@ -504,23 +565,16 @@ const AdminKlinikKunjunganPage = () => {
 
     try {
       const bookingData = await bookingApi.getById(bookingId, token!);
-      console.log("Fetched booking data:", bookingData);
 
-      // ✅ FORMAT TANGGAL: Parse sebagai Date object untuk menghindari masalah timezone
       const dateObj = new Date(bookingData.tanggal_booking);
-      dateObj.setDate(dateObj.getDate() + 1); // Tambah 1 hari agar sesuai dengan tanggal kunjungan
-      const formattedTanggal = dateObj.toISOString().split('T')[0]; // Pastikan format YYYY-MM-DD
+      dateObj.setDate(dateObj.getDate() + 1);
+      const formattedTanggal = dateObj.toISOString().split('T')[0];
 
-      // ✅ FORMAT WAKTU: Pastikan format HH:MM
       let formattedWaktu = "";
       if (bookingData.waktu_booking) {
-        // Remove seconds and timezone if present
         formattedWaktu = bookingData.waktu_booking.split(':').slice(0, 2).join(':');
       }
 
-      console.log("Final formatted - Date:", formattedTanggal, "Time:", formattedWaktu);
-
-      // ✅ SET STATE DENGAN NILAI YANG SUDAH DIPASTIKAN
       setFormData(prev => ({
         ...prev,
         booking_id: bookingId,
@@ -528,13 +582,12 @@ const AdminKlinikKunjunganPage = () => {
         tanggal_kunjungan: formattedTanggal,
         waktu_kunjungan: formattedWaktu,
         catatan: bookingData.catatan || "",
-        klinik_id: user?.klinik_id || "", // Override dengan user.klinik_id
-        dokter_id: bookingData.dokter_id?.toString() || "", // Tambahkan ini untuk mengisi dokter_id dari booking
+        klinik_id: user?.klinik_id || "",
+        dokter_id: bookingData.dokter_id?.toString() || "",
       }));
 
       setSelectedHewan(bookingData.hewan_id?.toString() || "");
 
-      // ✅ TUNGGU handleHewanChange SELESAI
       if (bookingData.hewan_id) {
         await handleHewanChange(bookingData.hewan_id.toString());
       }
@@ -555,15 +608,13 @@ const AdminKlinikKunjunganPage = () => {
     return badges[metode] || <Badge>{metode}</Badge>;
   };
 
-  // Perbaiki calculateDaysSince untuk menambahkan 1 hari pada perhitungan
   const calculateDaysSince = (date: string) => {
     const visitDate = new Date(date);
     const today = new Date();
-    // Reset time ke 00:00:00 untuk perhitungan hari saja
     visitDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
     const diffTime = today.getTime() - visitDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // Tambah 1 hari sesuai permintaan
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
     if (diffDays === 1) return "Hari ini";
     if (diffDays === 2) return "Kemarin";
@@ -573,40 +624,33 @@ const AdminKlinikKunjunganPage = () => {
     return `${Math.floor(diffDays / 365)} tahun yang lalu`;
   };
 
-  const getBookingSummary = (bookingId: string | number | null | undefined) => {
-    if (!bookingId) return "-";
-    const found = bookings?.find(
-      (b: any) => b.booking_id?.toString() === bookingId?.toString()
-    );
-    if (!found) return bookingId?.toString() || "-";
-    return `${found.nama_pawrent} - ${found.title_dokter} ${found.nama_dokter} - ${new Date(found.tanggal_booking).toLocaleDateString("id-ID")} ${found.waktu_booking} - ${found.nama_hewan}`;
+  const formatCurrency = (amount: number | string) => {
+    let numAmount = 0;
+    
+    if (typeof amount === 'string') {
+      const cleanAmount = amount.replace(/[^\d.-]/g, '');
+      numAmount = parseFloat(cleanAmount) || 0;
+    } else if (typeof amount === 'number') {
+      numAmount = amount;
+    }
+    
+    if (isNaN(numAmount) || !isFinite(numAmount)) {
+      return "Rp 0";
+    }
+    
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.round(numAmount));
   };
-
-  // useEffect(() => {
-  //   if (showCombinedDialog) {
-  //     layananApi.getAll(token!).then(setLayananList);
-  //   }
-  // }, [showCombinedDialog, token]);
-
-  // useEffect(() => {
-  //   if (!showCombinedDialog) {
-  //     setObatForm({
-  //       kunjungan_id: null,
-  //       obat_id: "",
-  //       qty: "",
-  //       dosis: "",
-  //       frekuensi: "",
-  //     });
-  //     setSelectedLayanan("");
-  //     setNewKunjunganId(null);
-  //   }
-  // }, [showCombinedDialog]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const submitData = editingKunjungan ? {
-      ...editingKunjungan, // Gunakan data asli untuk memastikan konsistensi
+      ...editingKunjungan,
       hewan_id: formData.hewan_id || editingKunjungan.hewan_id,
       dokter_id: formData.dokter_id || editingKunjungan.dokter_id,
       tanggal_kunjungan: formData.tanggal_kunjungan || editingKunjungan.tanggal_kunjungan,
@@ -615,16 +659,15 @@ const AdminKlinikKunjunganPage = () => {
       metode_pembayaran: formData.metode_pembayaran || editingKunjungan.metode_pembayaran,
       kunjungan_sebelumnya: formData.kunjungan_sebelumnya === "none" ? null : (formData.kunjungan_sebelumnya || editingKunjungan.kunjungan_sebelumnya),
       booking_id: formData.booking_id === "none" ? null : (formData.booking_id || editingKunjungan.booking_id),
-      klinik_id: user?.klinik_id || editingKunjungan.klinik_id, // Override dengan user.klinik_id
+      klinik_id: user?.klinik_id || editingKunjungan.klinik_id,
     } : {
-      klinik_id: user?.klinik_id, // Set otomatis
+      klinik_id: user?.klinik_id,
       hewan_id: formData.hewan_id,
       dokter_id: formData.dokter_id,
       tanggal_kunjungan: formData.tanggal_kunjungan,
       waktu_kunjungan: formData.waktu_kunjungan,
       catatan: formData.catatan,
       metode_pembayaran: formData.metode_pembayaran,
-      // --- MODIFIKASI: Kembalikan data kunjungan_sebelumnya ---
       kunjungan_sebelumnya:
         formData.kunjungan_sebelumnya === "none"
           ? null
@@ -656,14 +699,12 @@ const AdminKlinikKunjunganPage = () => {
       return;
     }
 
-    // Validasi layanan wajib minimal 1 (total existing + selected)
     const totalLayanans = existingLayanans.length + formData.selectedLayanans.length;
     if (totalLayanans === 0) {
       toast.error("Minimal 1 layanan wajib dipilih");
       return;
     }
 
-    // Validasi obat jika diisi
     for (const obat of formData.obatForms) {
       if (obat.obat_id && (!obat.qty || parseInt(obat.qty) <= 0)) {
         toast.error("Qty obat harus > 0 jika obat dipilih");
@@ -671,7 +712,6 @@ const AdminKlinikKunjunganPage = () => {
       }
     }
 
-    // --- MODIFIKASI: Kembalikan validasi riwayat ---
     if (
       hewanHistory.length > 0 &&
       !editingKunjungan &&
@@ -683,21 +723,17 @@ const AdminKlinikKunjunganPage = () => {
       return;
     }
 
-    console.log("Submitting kunjungan data:", submitData);
     saveMutation.mutate(submitData);
   };
 
-  // Fungsi untuk menghitung total biaya real-time
   const calculateTotalBiayaRealtime = () => {
     let total = 0;
-    // Hitung layanan
     for (const layanan of formData.selectedLayanans) {
       const layananData = layananList?.find((l: any) => l.kode_layanan === layanan.kode_layanan);
       if (layananData) {
         total += parseFloat(layananData.biaya_layanan || 0);
       }
     }
-    // Hitung obat
     for (const obat of formData.obatForms) {
       if (obat.obat_id && obat.qty) {
         const obatData = obatList?.find((o: any) => o.obat_id.toString() === obat.obat_id);
@@ -709,7 +745,6 @@ const AdminKlinikKunjunganPage = () => {
     return total;
   };
 
-  // Fungsi untuk menambah layanan
   const addLayanan = () => {
     setFormData((prev) => ({
       ...prev,
@@ -717,7 +752,6 @@ const AdminKlinikKunjunganPage = () => {
     }));
   };
 
-  // Fungsi untuk menghapus layanan
   const removeLayanan = (index: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -725,7 +759,6 @@ const AdminKlinikKunjunganPage = () => {
     }));
   };
 
-  // Fungsi untuk update layanan
   const updateLayanan = (index: number, kode_layanan: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -735,7 +768,6 @@ const AdminKlinikKunjunganPage = () => {
     }));
   };
 
-  // Fungsi untuk menambah obat
   const addObat = () => {
     setFormData((prev) => ({
       ...prev,
@@ -743,7 +775,6 @@ const AdminKlinikKunjunganPage = () => {
     }));
   };
 
-  // Fungsi untuk menghapus obat
   const removeObat = (index: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -751,7 +782,6 @@ const AdminKlinikKunjunganPage = () => {
     }));
   };
 
-  // Fungsi untuk update obat
   const updateObat = (index: number, field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -761,12 +791,8 @@ const AdminKlinikKunjunganPage = () => {
     }));
   };
 
-  // Tambahkan fungsi deleteExistingLayanan dan deleteExistingObat
   const deleteExistingLayanan = async (kunjunganId: number, kodeLayanan: string) => {
     try {
-      await layananApi.getByKunjungan(kunjunganId, token!); // Gunakan endpoint delete yang sudah ada di kunjungan-layanan.ts
-      // Asumsi API delete adalah: DELETE /kunjungan-layanan/:kunjunganId/:kodeLayanan
-      // Jika belum ada, tambahkan di backend. Untuk sekarang, gunakan fetch langsung.
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/${kunjunganId}/${kodeLayanan}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -779,29 +805,24 @@ const AdminKlinikKunjunganPage = () => {
     }
   };
 
-const deleteExistingObat = async (kunjungan_obat_id: number) => {
-  try {
-    // PERBAIKI: Gunakan kunjunganObatApi.delete dengan kunjungan_obat_id
-    await kunjunganObatApi.delete(kunjungan_obat_id, token!);
-    // PERBAIKI: Filter berdasarkan kunjungan_obat_id
-    setExistingObats((prev) => prev.filter((o) => o.kunjungan_obat_id !== kunjungan_obat_id));
-    toast.success('Obat berhasil dihapus');
-  } catch (error) {
-    toast.error('Gagal menghapus obat');
-  }
-};
+  const deleteExistingObat = async (kunjungan_obat_id: number) => {
+    try {
+      await kunjunganObatApi.delete(kunjungan_obat_id, token!);
+      setExistingObats((prev) => prev.filter((o) => o.kunjungan_obat_id !== kunjungan_obat_id));
+      toast.success('Obat berhasil dihapus');
+    } catch (error) {
+      toast.error('Gagal menghapus obat');
+    }
+  };
 
-  // Tambahkan fungsi calculateTotalBiaya untuk tabel
   const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
-    const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
+    const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0;
     const totalObat = obat_kunjungan?.reduce((sum, o) => sum + ((o.qty || 0) * (o.harga_saat_itu || 0)), 0) || 0;
     return totalLayanan + totalObat;
   };
 
-  // Fungsi untuk menghitung total biaya riwayat
   const calculatePreviousTotal = () => {
     const layananTotal = previousLayanan.reduce((sum, l) => {
-      // Gunakan harga_saat_itu jika ada dan > 0, jika tidak gunakan biaya_layanan dari master
       const harga = (l.harga_saat_itu && l.harga_saat_itu > 0) ? l.harga_saat_itu : (layananList?.find(list => list.kode_layanan === l.kode_layanan)?.biaya_layanan || 0);
       return sum + (harga * (l.qty || 1));
     }, 0);
@@ -809,20 +830,12 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
     return layananTotal + obatTotal;
   };
 
-  // Tambahkan state untuk data layanan dan obat kunjungan
-  const [layananKunjungan, setLayananKunjungan] = useState<any[]>([]);
-  const [obatKunjungan, setObatKunjungan] = useState<any[]>([]);
-  const [previousLayanan, setPreviousLayanan] = useState<any[]>([]);
-  const [previousObat, setPreviousObat] = useState<any[]>([]);
-
-  // useEffect untuk fetch layanan dan obat saat viewingKunjungan berubah
   useEffect(() => {
     if (viewingKunjungan) {
       const fetchLayananObat = async () => {
         try {
-          // Fetch layanan untuk kunjungan ini
           const layananResponse = await fetch(
-            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${viewingKunjungan.kunjungan_id}`, // Perbaiki endpoint
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${viewingKunjungan.kunjungan_id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -833,13 +846,11 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
             const layananData = await layananResponse.json();
             setLayananKunjungan(layananData);
           } else {
-            console.error("Failed to fetch layanan:", layananResponse.statusText);
             setLayananKunjungan([]);
           }
 
-          // Fetch obat untuk kunjungan ini
           const obatResponse = await fetch(
-            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${viewingKunjungan.kunjungan_id}`, // Perbaiki endpoint
+            `${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${viewingKunjungan.kunjungan_id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -850,7 +861,6 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
             const obatData = await obatResponse.json();
             setObatKunjungan(obatData);
           } else {
-            console.error("Failed to fetch obat:", obatResponse.statusText);
             setObatKunjungan([]);
           }
         } catch (error) {
@@ -871,10 +881,10 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
       const fetchPreviousData = async () => {
         try {
           const [layananRes, obatRes] = await Promise.all([
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${viewingPreviousVisit.kunjungan_id}`, { // Perbaiki endpoint
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-layanan/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
               headers: { Authorization: `Bearer ${token}` },
             }),
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${viewingPreviousVisit.kunjungan_id}`, { // Perbaiki endpoint
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/kunjungan-obat/kunjungan/${viewingPreviousVisit.kunjungan_id}`, {
               headers: { Authorization: `Bearer ${token}` },
             }),
           ]);
@@ -893,8 +903,10 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
     }
   }, [viewingPreviousVisit, token]);
 
+  // ✅ UBAH: Update loading condition
   if (
-    isLoading ||
+    isLoadingKlinik ||
+    isLoadingGlobal ||
     bookingsLoading ||
     hewansLoading ||
     allDoktersLoading ||
@@ -916,155 +928,408 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
   return (
     <DashboardLayout title="Kelola Kunjungan" showBackButton={true}>
       <div className="space-y-6">
-        {/* Header Card */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
-              <Stethoscope className="h-6 w-6" />
-              Kelola Kunjungan Medis
-            </CardTitle>
-            <CardDescription className="text-blue-700 dark:text-blue-300">
-              Pantau dan kelola semua kunjungan pasien hewan di klinik
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        {/* Statistics Cards */}
+        {user?.klinik_id && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Kunjungan</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.total}</div>
+                <p className="text-xs text-muted-foreground">Kunjungan klinik</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Hari Ini</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{stats.today}</div>
+                <p className="text-xs text-muted-foreground">Kunjungan hari ini</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">{formatCurrency(stats.totalRevenue)}</div>
+                <p className="text-xs text-muted-foreground">Dari kunjungan klinik</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
+        {/* Main Content */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" /> Daftar Kunjungan Medis
-            </CardTitle>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="h-4 w-4 mr-2" /> Tambah Kunjungan
-            </Button>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Daftar Kunjungan
+                </CardTitle>
+                <CardDescription>Kelola data kunjungan pasien di klinik</CardDescription>
+              </div>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Kunjungan
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Hewan</TableHead>
-                  <TableHead>Pemilik</TableHead>
-                  <TableHead>Dokter</TableHead>
-                  <TableHead>Catatan</TableHead>
-                  <TableHead>Pembayaran</TableHead>
-                  <TableHead className="text-right">Total Biaya</TableHead>
-                  <TableHead className="text-center">Detail</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {kunjungans?.map((k) => (
-                  <TableRow key={k.kunjungan_id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-<span className="font-medium">
-  {(() => {
-    const date = new Date(k.tanggal_kunjungan);
-    
-    // Parse waktu kunjungan (format HH:MM)
-    const [hours, minutes] = k.waktu_kunjungan.split(':').map(Number);
-    
-    // Set waktu ke date object
-    date.setHours(hours, minutes, 0, 0);
-    
-    // Kurangi 10 jam 50 menit (dalam milidetik)
-    const adjustedDate = new Date(date.getTime() - (10 * 60 + 50) * 60 * 1000);
-    
-    // Format tanggal dan waktu
-    const formattedDate = adjustedDate.toLocaleDateString("id-ID");
-    const formattedTime = adjustedDate.toLocaleTimeString("id-ID", {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    
-    return `${formattedDate} - ${formattedTime}`;
-  })()}
-</span>
-                        {k.kunjungan_sebelumnya && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-2 mt-1 text-xs text-primary hover:text-primary"
-                                  onClick={() =>
-                                    handleViewPreviousVisitFromTable(
-                                      k.kunjungan_sebelumnya
-                                    )
-                                  }
+          <CardContent className="space-y-4">
+            {/* Tab Navigation */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "klinik" | "all")}>
+              <TabsList className="w-full">
+                <TabsTrigger value="klinik" className="flex-1">Kunjungan Klinik Saya</TabsTrigger>
+                <TabsTrigger value="all" className="flex-1">Semua Kunjungan</TabsTrigger>
+              </TabsList>
+
+              {/* TAB: Kunjungan Klinik Saya */}
+              <TabsContent value="klinik" className="space-y-4">
+                {/* Filters */}
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari hewan atau pemilik..."
+                      value={searchQueryMy}
+                      onChange={(e) => setSearchQueryMy(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <Select value={filterMonthMy} onValueChange={setFilterMonthMy}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Bulan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Bulan</SelectItem>
+                      <SelectItem value="0">Januari</SelectItem>
+                      <SelectItem value="1">Februari</SelectItem>
+                      <SelectItem value="2">Maret</SelectItem>
+                      <SelectItem value="3">April</SelectItem>
+                      <SelectItem value="4">Mei</SelectItem>
+                      <SelectItem value="5">Juni</SelectItem>
+                      <SelectItem value="6">Juli</SelectItem>
+                      <SelectItem value="7">Agustus</SelectItem>
+                      <SelectItem value="8">September</SelectItem>
+                      <SelectItem value="9">Oktober</SelectItem>
+                      <SelectItem value="10">November</SelectItem>
+                      <SelectItem value="11">Desember</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {(searchQueryMy || filterMonthMy !== "all") && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSearchQueryMy("");
+                        setFilterMonthMy("all");
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Reset
+                    </Button>
+                  )}
+                </div>
+
+                {/* Table Kunjungan Klinik Saya */}
+                {filteredKunjungans.length > 0 ? (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[80px]">No</TableHead>
+                          <TableHead>Tanggal & Waktu</TableHead>
+                          <TableHead>Hewan</TableHead>
+                          <TableHead>Pemilik</TableHead>
+                          <TableHead>Dokter</TableHead>
+                          <TableHead>Total Biaya</TableHead>
+                          <TableHead>Pembayaran</TableHead>
+                          <TableHead className="text-right">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredKunjungans.map((kunjungan: any, index: number) => (
+                          <TableRow key={kunjungan.kunjungan_id}>
+                            <TableCell className="font-medium">
+                              {index + 1}
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 font-medium">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(kunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")}
+                                </div>
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  {kunjungan.waktu_kunjungan}
+                                </div>
+                                {kunjungan.kunjungan_sebelumnya && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2 mt-1 text-xs text-primary hover:text-primary"
+                                          onClick={() => handleViewPreviousVisitFromTable(kunjungan.kunjungan_sebelumnya)}
+                                        >
+                                          <Info className="h-3 w-3 mr-1" />
+                                          Kunjungan Sebelumnya
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Klik untuk melihat detail kunjungan sebelumnya</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <PawPrint className="h-4 w-4 text-primary" />
+                                <span className="font-medium">{kunjungan.nama_hewan}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{kunjungan.nama_pawrent}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Stethoscope className="h-3 w-3" />
+                                <span className="text-sm">
+                                  {kunjungan.title_dokter} {kunjungan.nama_dokter}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-semibold text-right text-green-600">
+                              {formatCurrency(kunjungan.total_biaya || 0)}
+                            </TableCell>
+                            <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleViewDetail(kunjungan)}
                                 >
-                                  <Info className="h-3 w-3 mr-1" /> Kunjungan
-                                  Sebelumnya
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  Detail
                                 </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  Klik untuk melihat detail kunjungan sebelumnya
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{k.nama_hewan}</TableCell>
-                    <TableCell>{k.nama_pawrent}</TableCell>
-                    <TableCell>
-                      {k.title_dokter || ""} {k.nama_dokter}
-                    </TableCell>
-                    <TableCell>
-                      <div
-                        className="max-w-[200px] truncate"
-                        title={k.catatan}
-                      >
-                        {k.catatan || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getMetodeBadge(k.metode_pembayaran)}</TableCell>
-                    <TableCell className="font-semibold text-right text-green-600">
-                      Rp {k.total_biaya?.toLocaleString('id-ID', { maximumFractionDigits: 0 }) || '0'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewDetail(k)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(k)}
-                          disabled={allDoktersLoading}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (
-                              confirm("Yakin ingin menghapus kunjungan ini?")
-                            ) {
-                              deleteMutation.mutate(k.kunjungan_id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleOpenDialog(kunjungan)}
+                                >
+                                  <Edit className="h-3 w-3 mr-1" />
+                                  Edit
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => {
+                                    if (confirm("Yakin ingin menghapus kunjungan ini?")) {
+                                      deleteMutation.mutate(kunjungan.kunjungan_id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">Tidak ada data kunjungan</p>
+                    <p className="text-sm mb-4">
+                      {searchQueryMy || filterMonthMy !== "all"
+                        ? "Coba ubah filter pencarian"
+                        : "Mulai dengan menambahkan kunjungan pertama"}
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* TAB: Semua Kunjungan */}
+              <TabsContent value="all" className="space-y-4">
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Nama Hewan</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Cari nama hewan..."
+                        value={filterNamaHewan}
+                        onChange={(e) => setFilterNamaHewan(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Tanggal Mulai</Label>
+                    <Input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Tanggal Selesai</Label>
+                    <Input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {(filterNamaHewan || filterStartDate || filterEndDate) && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setFilterNamaHewan("");
+                      setFilterStartDate("");
+                      setFilterEndDate("");
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Reset Filter
+                  </Button>
+                )}
+
+                {/* Table Semua Kunjungan */}
+                {allFilteredKunjungans.length > 0 ? (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[80px]">No</TableHead>
+                          <TableHead>Tanggal & Waktu</TableHead>
+                          <TableHead>Hewan</TableHead>
+                          <TableHead>Pemilik</TableHead>
+                          <TableHead>Dokter</TableHead>
+                          <TableHead>Total Biaya</TableHead>
+                          <TableHead>Pembayaran</TableHead>
+                          <TableHead className="text-right">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {allFilteredKunjungans.map((kunjungan: any, index: number) => {
+                          const isMyKlinik = kunjungan.klinik_id === user?.klinik_id;
+                          return (
+                            <TableRow key={kunjungan.kunjungan_id}>
+                              <TableCell className="font-medium">
+                                {index + 1}
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1 font-medium">
+                                    <Calendar className="h-3 w-3" />
+                                    {new Date(kunjungan.tanggal_kunjungan).toLocaleDateString("id-ID")}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    {kunjungan.waktu_kunjungan}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <PawPrint className="h-4 w-4 text-primary" />
+                                  <span className="font-medium">{kunjungan.nama_hewan}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{kunjungan.nama_pawrent}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Stethoscope className="h-3 w-3" />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">
+                                      {kunjungan.title_dokter} {kunjungan.nama_dokter}
+                                    </span>
+                                    {/* ✅ TAMBAH: Tampilkan nama klinik untuk membedakan */}
+                                    <span className="text-xs text-muted-foreground">
+                                      {kunjungan.nama_klinik || "Klinik tidak diketahui"}
+                                    </span>
+                                  </div>
+                                  {isMyKlinik && (
+                                    <Badge variant="default" className="text-xs">Klinik Saya</Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-semibold text-right text-green-600">
+                                {formatCurrency(kunjungan.total_biaya || 0)}
+                              </TableCell>
+                              <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleViewDetail(kunjungan)}
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Detail
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleOpenDialog(kunjungan)}
+                                    disabled={!isMyKlinik}
+                                    title={!isMyKlinik ? "Hanya bisa mengedit kunjungan klinik sendiri" : ""}
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    onClick={() => {
+                                      if (confirm("Yakin ingin menghapus kunjungan ini?")) {
+                                        deleteMutation.mutate(kunjungan.kunjungan_id);
+                                      }
+                                    }}
+                                    disabled={!isMyKlinik}
+                                    title={!isMyKlinik ? "Hanya bisa menghapus kunjungan klinik sendiri" : ""}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">Tidak ada data kunjungan</p>
+                    <p className="text-sm">
+                      {filterNamaHewan || filterStartDate || filterEndDate
+                        ? "Coba ubah filter pencarian"
+                        : "Belum ada kunjungan tercatat"}
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -1600,7 +1865,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                     ? "Menyimpan..."
                     : editingKunjungan
                     ? "Simpan Perubahan"
-                    : "Simpan Kunjungan"}
+                                       : "Simpan Kunjungan"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1754,7 +2019,7 @@ const deleteExistingObat = async (kunjungan_obat_id: number) => {
                         <div className="pt-2 border-t border-green-200 dark:border-green-800">
                           <div className="flex justify-between items-center font-semibold text-green-900 dark:text-green-100">
                             <span>Total Obat:</span>
-                            <span>Rp {obatKunjungan.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
+                            <span>Rp {previousObat.reduce((sum, o) => sum + ((o.harga_saat_itu || 0) * (o.qty || 0)), 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}</span>
                           </div>
                         </div>
                       </div>

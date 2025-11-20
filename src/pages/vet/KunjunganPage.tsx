@@ -36,6 +36,8 @@ import { format } from "date-fns";
 import { id as indonesianLocale } from "date-fns/locale";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const KunjunganPage = () => {
   const { token, user } = useAuth();
@@ -47,17 +49,27 @@ const KunjunganPage = () => {
   const [editingKunjungan, setEditingKunjungan] = useState<any>(null);
   const [viewingKunjungan, setViewingKunjungan] = useState<any>(null);
   const [viewingPreviousVisit, setViewingPreviousVisit] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterMonth, setFilterMonth] = useState<string>("all");
+  
+  
+  // ✅ TAMBAHKAN INI: State untuk filter tab "Kunjungan Saya"
+  const [searchQueryMy, setSearchQueryMy] = useState("");
+  const [filterMonthMy, setFilterMonthMy] = useState<string>("all");
+  
+  // ✅ State untuk tab "Semua Kunjungan"
+  const [filterJenis, setFilterJenis] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"dokter" | "all">("dokter");
+  const [filterNamaHewan, setFilterNamaHewan] = useState("");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  
+  // State lainnya yang sudah ada
   const [currentDokterId, setCurrentDokterId] = useState<number | null>(null);
   const [currentDokterName, setCurrentDokterName] = useState<string>("");
-  const [currentKlinikId, setCurrentKlinikId] = useState<number | null>(null); // Tambahkan state untuk klinik_id
+  const [currentKlinikId, setCurrentKlinikId] = useState<number | null>(null);
   const [isIdentifyingDokter, setIsIdentifyingDokter] = useState(true);
   const [selectedHewan, setSelectedHewan] = useState<string>("");
   const [hewanHistory, setHewanHistory] = useState<any[]>([]);
   const [selectedPreviousVisit, setSelectedPreviousVisit] = useState<any>(null);
-
-  // Tambahkan state untuk mode booking
   const [mode, setMode] = useState<"manual" | "booking">("manual");
 
   const [formData, setFormData] = useState({
@@ -588,10 +600,8 @@ useEffect(() => {
     }
   };
 
-  // PERBAIKI: Ubah parameter menjadi kunjungan_obat_id (satu parameter)
   const deleteExistingObat = async (kunjungan_obat_id: number) => {
     try {
-      // PERBAIKI: Panggil API dengan kunjungan_obat_id saja
       await kunjunganObatApi.delete(kunjungan_obat_id, token!);
       toast.success("Obat berhasil dihapus");
       fetchExistingLayananObat(viewingKunjungan?.kunjungan_id || editingKunjungan.kunjungan_id);
@@ -599,6 +609,14 @@ useEffect(() => {
       toast.error("Gagal menghapus obat");
     }
   };
+
+
+
+  const jenisOptions = useMemo(() => {
+  if (!hewans) return [];
+  const jenisSet = new Set(hewans.map((h: any) => h.jenis_hewan).filter(Boolean));
+  return Array.from(jenisSet).sort();
+}, [hewans]);
   
 const calculateTotalBiaya = (layanan_kunjungan: any[], obat_kunjungan: any[]) => {
   const totalLayanan = layanan_kunjungan?.reduce((sum, l) => sum + ((l.harga_saat_itu || 0) * (l.qty || 1)), 0) || 0; // Perbaiki: kalikan dengan qty
@@ -731,13 +749,28 @@ useEffect(() => {
   };
 
   const formatCurrency = (amount: number | string) => {
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (isNaN(numAmount) || numAmount === null || numAmount === undefined) return "Rp 0";
+    // ✅ PERBAIKAN: Handle berbagai tipe input dengan lebih robust
+    let numAmount = 0;
+    
+    if (typeof amount === 'string') {
+      // Remove any non-numeric characters except decimal point
+      const cleanAmount = amount.replace(/[^\d.-]/g, '');
+      numAmount = parseFloat(cleanAmount) || 0;
+    } else if (typeof amount === 'number') {
+      numAmount = amount;
+    }
+    
+    // Handle invalid numbers
+    if (isNaN(numAmount) || !isFinite(numAmount)) {
+      return "Rp 0";
+    }
+    
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(numAmount);
+      maximumFractionDigits: 0,
+    }).format(Math.round(numAmount));
   };
 
   const getMetodeBadge = (metode: string) => {
@@ -767,18 +800,72 @@ useEffect(() => {
   const myKunjungans = currentDokterId ? (kunjungans?.filter((k: any) => k.dokter_id === currentDokterId) || []) : [];
 
   const filteredKunjungans = myKunjungans.filter((k: any) => {
-    const matchSearch = k.nama_hewan?.toLowerCase().includes(searchQuery.toLowerCase()) || k.nama_pawrent?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchMonth = filterMonth === "all" || new Date(k.tanggal_kunjungan).getMonth() === parseInt(filterMonth);
+    const matchSearch = k.nama_hewan?.toLowerCase().includes(searchQueryMy.toLowerCase()) || k.nama_pawrent?.toLowerCase().includes(searchQueryMy.toLowerCase());
+    const matchMonth = filterMonthMy === "all" || new Date(k.tanggal_kunjungan).getMonth() === parseInt(filterMonthMy);
     return matchSearch && matchMonth;
   });
 
-  // Statistics - Hanya untuk myKunjungans
-  const todayDate = new Date().toISOString().split('T')[0];
-  const stats = {
-    total: myKunjungans.length,
-    today: myKunjungans.filter((k: any) => k.tanggal_kunjungan?.split('T')[0] === todayDate).length,
-    totalRevenue: myKunjungans.reduce((sum: number, k: any) => sum + (parseFloat(k.total_biaya) || 0), 0),
-  };
+  // ✅ TAMBAHKAN INI: Filter untuk tab "Semua Kunjungan"
+  const allFilteredKunjungans = useMemo(() => {
+    if (!kunjungans) return [];
+    
+    return kunjungans.filter((k: any) => {
+      // Filter nama hewan
+      const matchNama = !filterNamaHewan || k.nama_hewan?.toLowerCase().includes(filterNamaHewan.toLowerCase());
+      
+      // Filter tanggal
+      let matchDate = true;
+      if (filterStartDate && filterEndDate) {
+        const kunjunganDate = new Date(k.tanggal_kunjungan).toISOString().split('T')[0];
+        matchDate = kunjunganDate >= filterStartDate && kunjunganDate <= filterEndDate;
+      } else if (filterStartDate) {
+        const kunjunganDate = new Date(k.tanggal_kunjungan).toISOString().split('T')[0];
+        matchDate = kunjunganDate >= filterStartDate;
+      } else if (filterEndDate) {
+        const kunjunganDate = new Date(k.tanggal_kunjungan).toISOString().split('T')[0];
+        matchDate = kunjunganDate <= filterEndDate;
+      }
+      
+      return matchNama && matchDate;
+    });
+  }, [kunjungans, filterNamaHewan, filterStartDate, filterEndDate]);
+
+  // ✅ Tambahkan stats calculation
+  const stats = useMemo(() => {
+    if (!myKunjungans) return { total: 0, today: 0, totalRevenue: 0 };
+    
+    // ✅ PERBAIKAN: Ambil tanggal hari ini dalam format lokal Indonesia (WIB/WITA/WIT)
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-CA'); // Format YYYY-MM-DD
+    
+    console.log("📅 [STATS] Today date:", todayStr);
+    
+    const todayCount = myKunjungans.filter((k: any) => {
+      if (!k.tanggal_kunjungan) return false;
+      
+      // ✅ Parse tanggal kunjungan dengan benar
+      const kunjunganDate = new Date(k.tanggal_kunjungan);
+      const kunjunganStr = kunjunganDate.toLocaleDateString('en-CA'); // Format YYYY-MM-DD
+      
+      console.log(`📋 [STATS] Comparing: ${kunjunganStr} === ${todayStr}`);
+      
+      return kunjunganStr === todayStr;
+    }).length;
+    
+    console.log("✅ [STATS] Today count:", todayCount);
+    
+    // ✅ PERBAIKAN: Pastikan total_biaya adalah number dan handle null/undefined
+    const totalRevenue = myKunjungans.reduce((sum: number, k: any) => {
+      const biaya = parseFloat(k.total_biaya) || 0;
+      return sum + biaya;
+    }, 0);
+    
+    return {
+      total: myKunjungans.length,
+      today: todayCount,
+      totalRevenue: Math.round(totalRevenue)
+    };
+  }, [myKunjungans]);
 
   const isLoading = isLoadingKunjungan || isLoadingDokter || isIdentifyingDokter || layananListLoading || obatListLoading;
 
@@ -870,9 +957,9 @@ useEffect(() => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
-                    Daftar Kunjungan Saya
+                    Daftar Kunjungan
                   </CardTitle>
-                  <CardDescription>Kelola data kunjungan pasien Anda</CardDescription>
+                  <CardDescription>Kelola data kunjungan pasien</CardDescription>
                 </div>
                 <Button onClick={() => handleOpenDialog()}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -881,162 +968,331 @@ useEffect(() => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Filters */}
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari hewan atau pemilik..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+              {/* Tab Navigation */}
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "dokter" | "all")}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="dokter" className="flex-1">Kunjungan Saya</TabsTrigger>
+                  <TabsTrigger value="all" className="flex-1">Semua Kunjungan</TabsTrigger>
+                </TabsList>
 
-                <Select value={filterMonth} onValueChange={setFilterMonth}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Bulan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Bulan</SelectItem>
-                    <SelectItem value="0">Januari</SelectItem>
-                    <SelectItem value="1">Februari</SelectItem>
-                    <SelectItem value="2">Maret</SelectItem>
-                    <SelectItem value="3">April</SelectItem>
-                    <SelectItem value="4">Mei</SelectItem>
-                    <SelectItem value="5">Juni</SelectItem>
-                    <SelectItem value="6">Juli</SelectItem>
-                    <SelectItem value="7">Agustus</SelectItem>
-                    <SelectItem value="8">September</SelectItem>
-                    <SelectItem value="9">Oktober</SelectItem>
-                    <SelectItem value="10">November</SelectItem>
-                    <SelectItem value="11">Desember</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* TAB: Kunjungan Saya */}
+                <TabsContent value="dokter" className="space-y-4">
+                  {/* Filters untuk Kunjungan Saya */}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Cari hewan atau pemilik..."
+                        value={searchQueryMy}
+                        onChange={(e) => setSearchQueryMy(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
 
-                {(searchQuery || filterMonth !== "all") && (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSearchQuery("");
-                      setFilterMonth("all");
-                    }}
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Reset
-                  </Button>
-                )}
-              </div>
+                    <Select value={filterMonthMy} onValueChange={setFilterMonthMy}>
+                      <SelectTrigger className="w-full md:w-[180px]">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Bulan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Bulan</SelectItem>
+                        <SelectItem value="0">Januari</SelectItem>
+                        <SelectItem value="1">Februari</SelectItem>
+                        <SelectItem value="2">Maret</SelectItem>
+                        <SelectItem value="3">April</SelectItem>
+                        <SelectItem value="4">Mei</SelectItem>
+                        <SelectItem value="5">Juni</SelectItem>
+                        <SelectItem value="6">Juli</SelectItem>
+                        <SelectItem value="7">Agustus</SelectItem>
+                        <SelectItem value="8">September</SelectItem>
+                        <SelectItem value="9">Oktober</SelectItem>
+                        <SelectItem value="10">November</SelectItem>
+                        <SelectItem value="11">Desember</SelectItem>
+                      </SelectContent>
+                    </Select>
 
-              {/* Table */}
-              {filteredKunjungans.length > 0 ? (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[100px]">ID</TableHead>
-                        <TableHead>Tanggal & Waktu</TableHead>
-                        <TableHead>Hewan</TableHead>
-                        <TableHead>Pemilik</TableHead>
-                        <TableHead>Total Biaya</TableHead>
-                        <TableHead>Pembayaran</TableHead>
-                        <TableHead className="text-right">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredKunjungans.map((kunjungan: any) => (
-                        <TableRow key={kunjungan.kunjungan_id}>
-                          <TableCell className="font-mono font-medium">
-                            #{kunjungan.kunjungan_id}
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 font-medium">
-                                <Calendar className="h-3 w-3" />
-                                {formatDate(kunjungan.tanggal_kunjungan)}
-                              </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                {kunjungan.waktu_kunjungan}
-                              </div>
-                              {/* NEW: Tombol lihat kunjungan sebelumnya */}
-                              {kunjungan.kunjungan_sebelumnya && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 px-2 mt-1 text-xs text-primary hover:text-primary"
-                                        onClick={() => handleViewPreviousVisitFromTable(kunjungan.kunjungan_sebelumnya)}
-                                      >
-                                        <Info className="h-3 w-3 mr-1" />
-                                        Kunjungan Sebelumnya
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Klik untuk melihat detail kunjungan sebelumnya</p>
-                                    </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <PawPrint className="h-4 w-4 text-primary" />
-                              <span className="font-medium">{kunjungan.nama_hewan}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{kunjungan.nama_pawrent}</TableCell>
-                          <TableCell className="font-semibold text-right text-green-600">
-                            Rp {kunjungan.total_biaya?.toLocaleString('id-ID', { maximumFractionDigits: 0 }) || '0'}
-                          </TableCell>
-                          <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleViewDetail(kunjungan)}
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                Detail
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleOpenDialog(kunjungan)}
-                              >
-                                <Edit className="h-3 w-3 mr-1" />
-                                Edit
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="destructive"
-                                onClick={() => handleDelete(kunjungan.kunjungan_id, kunjungan.nama_hewan)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">Tidak ada data kunjungan</p>
-                  <p className="text-sm mb-4">
-                    {searchQuery || filterMonth !== "all"
-                      ? "Coba ubah filter pencarian"
-                      : "Mulai dengan menambahkan kunjungan pertama"}
-                  </p>
-                </div>
-              )}
+                    {(searchQueryMy || filterMonthMy !== "all") && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setSearchQueryMy("");
+                          setFilterMonthMy("all");
+                        }}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Table Kunjungan Saya */}
+                  {filteredKunjungans.length > 0 ? (
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">No</TableHead>
+                            <TableHead>Tanggal & Waktu</TableHead>
+                            <TableHead>Hewan</TableHead>
+                            <TableHead>Pemilik</TableHead>
+                            <TableHead>Total Biaya</TableHead>
+                            <TableHead>Pembayaran</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredKunjungans.map((kunjungan: any, index: number) => (
+                            <TableRow key={kunjungan.kunjungan_id}>
+                              <TableCell className="font-medium">
+                                {index + 1}
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1 font-medium">
+                                    <Calendar className="h-3 w-3" />
+                                    {formatDate(kunjungan.tanggal_kunjungan)}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    {kunjungan.waktu_kunjungan}
+                                  </div>
+                                  {kunjungan.kunjungan_sebelumnya && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 mt-1 text-xs text-primary hover:text-primary"
+                                            onClick={() => handleViewPreviousVisitFromTable(kunjungan.kunjungan_sebelumnya)}
+                                          >
+                                            <Info className="h-3 w-3 mr-1" />
+                                            Kunjungan Sebelumnya
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Klik untuk melihat detail kunjungan sebelumnya</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <PawPrint className="h-4 w-4 text-primary" />
+                                  <span className="font-medium">{kunjungan.nama_hewan}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{kunjungan.nama_pawrent}</TableCell>
+                              <TableCell className="font-semibold text-right text-green-600">
+                                {formatCurrency(kunjungan.total_biaya || 0)}
+                              </TableCell>
+                              <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleViewDetail(kunjungan)}
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Detail
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleOpenDialog(kunjungan)}
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    onClick={() => handleDelete(kunjungan.kunjungan_id, kunjungan.nama_hewan)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg font-medium mb-2">Tidak ada data kunjungan</p>
+                      <p className="text-sm mb-4">
+                        {searchQueryMy || filterMonthMy !== "all"
+                          ? "Coba ubah filter pencarian"
+                          : "Mulai dengan menambahkan kunjungan pertama"}
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* TAB: Semua Kunjungan */}
+                <TabsContent value="all" className="space-y-4">
+                  {/* Filters untuk Semua Kunjungan */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Nama Hewan</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Cari nama hewan..."
+                          value={filterNamaHewan}
+                          onChange={(e) => setFilterNamaHewan(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Tanggal Mulai</Label>
+                      <Input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Tanggal Selesai</Label>
+                      <Input
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {(filterNamaHewan || filterStartDate || filterEndDate) && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterNamaHewan("");
+                        setFilterStartDate("");
+                        setFilterEndDate("");
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Reset Filter
+                    </Button>
+                  )}
+
+                  {/* Table Semua Kunjungan */}
+                  {allFilteredKunjungans.length > 0 ? (
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">No</TableHead>
+                            <TableHead>Tanggal & Waktu</TableHead>
+                            <TableHead>Hewan</TableHead>
+                            <TableHead>Pemilik</TableHead>
+                            <TableHead>Dokter</TableHead>
+                            <TableHead>Total Biaya</TableHead>
+                            <TableHead>Pembayaran</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {allFilteredKunjungans.map((kunjungan: any, index: number) => {
+                            const isMyVisit = kunjungan.dokter_id === currentDokterId;
+                            return (
+                              <TableRow key={kunjungan.kunjungan_id}>
+                                <TableCell className="font-medium">
+                                  {index + 1}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1 font-medium">
+                                      <Calendar className="h-3 w-3" />
+                                      {formatDate(kunjungan.tanggal_kunjungan)}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      {kunjungan.waktu_kunjungan}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <PawPrint className="h-4 w-4 text-primary" />
+                                    <span className="font-medium">{kunjungan.nama_hewan}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{kunjungan.nama_pawrent}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Stethoscope className="h-3 w-3" />
+                                    <span className="text-sm">
+                                      {kunjungan.title_dokter} {kunjungan.nama_dokter}
+                                    </span>
+                                    {isMyVisit && (
+                                      <Badge variant="default" className="text-xs">Saya</Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-semibold text-right text-green-600">
+                                  {formatCurrency(kunjungan.total_biaya || 0)}
+                                </TableCell>
+                                <TableCell>{getMetodeBadge(kunjungan.metode_pembayaran)}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => handleViewDetail(kunjungan)}
+                                    >
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      Detail
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => handleOpenDialog(kunjungan)}
+                                      disabled={!isMyVisit}
+                                      title={!isMyVisit ? "Hanya bisa mengedit kunjungan sendiri" : ""}
+                                    >
+                                      <Edit className="h-3 w-3 mr-1" />
+                                      Edit
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="destructive"
+                                      onClick={() => handleDelete(kunjungan.kunjungan_id, kunjungan.nama_hewan)}
+                                      disabled={!isMyVisit}
+                                      title={!isMyVisit ? "Hanya bisa menghapus kunjungan sendiri" : ""}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg font-medium mb-2">Tidak ada data kunjungan</p>
+                      <p className="text-sm">
+                        {filterNamaHewan || filterStartDate || filterEndDate
+                          ? "Coba ubah filter pencarian"
+                          : "Belum ada kunjungan tercatat"}
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         )}

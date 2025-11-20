@@ -45,6 +45,7 @@ import KlinikPage from "./pages/admin/KlinikPage";
 import LayananPage from "./pages/admin/LayananPage";
 import JenisHewanPage from "./pages/admin/JenisHewanPage";
 import AdminPencarianPage from "./pages/admin/AdminPencarianPage";
+import BookingAdminPage from "./pages/admin/Booking"; 
 import AdminBooking from "@/pages/admin/Booking";
 import ShiftDokterAdmin from "./pages/admin/ShiftDokterAdmin";
 import AdminKlinikDashboard from "@/pages/admin-klinik/AdminKlinikDashboard";
@@ -58,6 +59,7 @@ import AdminKlinikHewanPage from "./pages/admin-klinik/AdminKlinikHewanPage"; //
 import AdminKlinikShiftDokterPage from "./pages/admin-klinik/AdminKlinikShiftDokterPage"; // Tambahkan import untuk AdminKlinikShiftDokterPage
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import AdminKlinikAuditLogPage from "./pages/admin-klinik/AdminKlinikAuditLogPage";
+import AdminBackupPage from "./pages/admin/AdminBackupPage";
 
 // ========================================================
 // VET/DOKTER PAGES
@@ -135,19 +137,20 @@ const App = () => (
                   <Routes>
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="users" element={<UsersPage />} />
+                    <Route path="klinik" element={<KlinikPage />} />
                     <Route path="dokter" element={<DokterPage />} />
                     <Route path="pawrent" element={<PawrentPage />} />
+                    <Route path="jenis-hewan" element={<JenisHewanPage />} />
                     <Route path="hewan" element={<HewanPage />} />
+                    <Route path="obat" element={<ObatPage />} />
+                    <Route path="layanan" element={<LayananPage />} />
                     <Route path="kunjungan" element={<KunjunganPage />} />
                     <Route path="kunjungan-obat" element={<KunjunganObatPage />} />
-                    <Route path="obat" element={<ObatPage />} />
-                    <Route path="klinik" element={<KlinikPage />} />
-                    <Route path="layanan" element={<LayananPage />} />
-                    <Route path="auditlog" element={<AdminAuditLogPage />} />
-                    <Route path="jenis-hewan" element={<JenisHewanPage />} />
+                    <Route path="booking" element={<BookingAdminPage />} />
                     <Route path="shift-dokter" element={<ShiftDokterAdmin />} />
                     <Route path="pencarian" element={<AdminPencarianPage />} />
-                    <Route path="booking" element={<AdminBooking />} />
+                    <Route path="auditlog" element={<AdminAuditLogPage />} />
+                    <Route path="backup" element={<AdminBackupPage />} /> {/* ✅ Add this */}
                     <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
                   </Routes>
                 </ProtectedRoute>

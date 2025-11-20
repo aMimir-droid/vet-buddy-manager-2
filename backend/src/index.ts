@@ -20,6 +20,7 @@ import bookingRoutes from './routes/booking';
 import shiftDokterRoutes from './routes/shiftDokter';
 import kunjunganLayananRoutes from './routes/kunjungan-layanan';
 import stokObatRoutes from './routes/stok-obat';
+import backupRoutes from './routes/backup';
 
 
 dotenv.config();
@@ -79,22 +80,24 @@ async function testConnections() {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/pawrent', pawrentRoutes);
-app.use('/api/hewan', hewanRoutes);
-app.use('/api/kunjungan', kunjunganRoutes);
-app.use('/api/dokter', dokterRoutes);
-app.use('/api/obat', obatRoutes);
-app.use('/api/auditlog', auditlogRoutes);
 app.use('/api/klinik', klinikRoutes);
-app.use('/api/layanan', layananRoutes);
-app.use('/api/kunjungan-obat', kunjunganObatRoutes);
+// app.use('/api/spesialisasi', spesialisasiRoutes);
+app.use('/api/dokter', dokterRoutes);
+app.use('/api/pawrent', pawrentRoutes);
 app.use('/api/jenis-hewan', jenisHewanRoutes);
-app.use('/api/pencarian', pencarianRouter);
+app.use('/api/hewan', hewanRoutes);
+app.use('/api/obat', obatRoutes);
+app.use('/api/stok-obat', stokObatRoutes);
+app.use('/api/layanan', layananRoutes);
+app.use('/api/kunjungan', kunjunganRoutes);
+app.use('/api/kunjungan-obat', kunjunganObatRoutes);
+app.use('/api/kunjungan-layanan', kunjunganLayananRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/shift-dokter', shiftDokterRoutes);
-app.use('/api/kunjungan-layanan', kunjunganLayananRoutes);
-app.use('/api/stok-obat', stokObatRoutes);
+app.use('/api/pencarian', pencarianRouter);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/auditlog', auditlogRoutes);
+app.use('/api/backup', backupRoutes); // ✅ Add this line
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

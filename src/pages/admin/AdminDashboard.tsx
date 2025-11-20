@@ -10,7 +10,8 @@ import {
   Pill, 
   Activity, 
   Shield,
-  Syringe
+  Syringe,
+  Database
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -120,6 +121,13 @@ const AdminDashboard = () => {
       icon: Shield,
       path: "/admin/auditlog",
       color: "bg-gray-500"
+    },
+    {
+      title: "Backup & Restore",
+      description: "Backup dan restore database",
+      icon: Database,
+      path: "/admin/backup",
+      color: "bg-blue-500"
     }
   ];
 

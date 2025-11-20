@@ -555,3 +555,53 @@ export const stokObatKlinikApi = {
   getAllObatWithStokByKlinik: (klinikId: number, token: string) =>
     apiCall({ endpoint: `/stok-obat/klinik/${klinikId}/all-obat-stok`, token }),
 };
+
+// ========================================================
+// BACKUP API
+// ========================================================
+export const backupApi = {
+  getAll: (token: string) => 
+    apiCall<any[]>({ 
+      endpoint: '/backup', 
+      token 
+    }),
+  
+  getById: (id: number, token: string) => 
+    apiCall<any>({ 
+      endpoint: `/backup/${id}`, 
+      token 
+    }),
+  
+  create: (data: { backup_name: string; description?: string }, token: string) => 
+    apiCall<any>({ 
+      endpoint: '/backup', 
+      method: 'POST', 
+      body: data, 
+      token 
+    }),
+  
+  download: (id: number, token: string) => {
+    const url = `${import.meta.env.VITE_API_BASE_URL}/api/backup/${id}/download`;
+    // Create a hidden link and click it
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('Authorization', `Bearer ${token}`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  },
+  
+  restore: (id: number, token: string) => 
+    apiCall<{ message: string }>({ 
+      endpoint: `/backup/${id}/restore`, 
+      method: 'POST', 
+      token 
+    }),
+  
+  delete: (id: number, token: string) => 
+    apiCall<{ message: string }>({ 
+      endpoint: `/backup/${id}`, 
+      method: 'DELETE', 
+      token 
+    }),
+};
